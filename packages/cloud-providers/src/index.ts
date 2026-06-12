@@ -1,3 +1,3 @@
-export const VercelProvider = {};
-export const AWSProvider = {};
-export const DockerProvider = {};
+export * from './vercel';
+export * from './vps';
+export * from './aws';

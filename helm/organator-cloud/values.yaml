@@ -1,0 +1,72 @@
+# Global Variables
+global:
+  domain: organator.local
+
+# Subcharts
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "postgrespassword"
+    database: "organator_db"
+
+redis:
+  enabled: true
+  auth:
+    enabled: false
+
+# Organator Cloud Components
+controlPlaneApi:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/your-org/control-plane-api
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 3001
+  env:
+    JWT_SECRET: "change_me"
+
+provisionerWorker:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/your-org/provisioner-worker
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  env:
+    VERCEL_TOKEN: ""
+    AWS_ACCESS_KEY: ""
+
+backofficeWeb:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/your-org/backoffice-web
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 3000
+  env:
+    NEXTAUTH_SECRET: "change_me"
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations: {}
+  hosts:
+    - host: admin.organator.local
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: organator-cloud-backoffice-web
+              port: 3000
+    - host: api.organator.local
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: organator-cloud-control-plane-api
+              port: 3001

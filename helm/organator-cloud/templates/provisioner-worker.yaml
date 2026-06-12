@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "organator-cloud.fullname" . }}-provisioner-worker
+  labels:
+    app: provisioner-worker
+spec:
+  replicas: {{ .Values.provisionerWorker.replicaCount }}
+  selector:
+    matchLabels:
+      app: provisioner-worker
+  template:
+    metadata:
+      labels:
+        app: provisioner-worker
+    spec:
+      containers:
+        - name: provisioner-worker
+          image: "{{ .Values.provisionerWorker.image.repository }}:{{ .Values.provisionerWorker.image.tag }}"
+          imagePullPolicy: {{ .Values.provisionerWorker.image.pullPolicy }}
+          env:
+            - name: REDIS_HOST
+              value: "{{ include "organator-cloud.fullname" . }}-redis-master"
+            - name: VERCEL_TOKEN
+              value: {{ .Values.provisionerWorker.env.VERCEL_TOKEN | quote }}
+            - name: AWS_ACCESS_KEY
+              value: {{ .Values.provisionerWorker.env.AWS_ACCESS_KEY | quote }}

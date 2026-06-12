@@ -6,15 +6,41 @@ import { Button, Card, Input } from "@navant/ui";
 export function RegisterClient() {
   const [step, setStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    tenantName: '',
+  });
 
-  const handleStripeRedirect = (e: React.FormEvent) => {
+  const handleStripeRedirect = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsProcessing(true);
-    // Simula redirecionamento para o Stripe Checkout
-    setTimeout(() => {
-      alert("Redirecionando para o Stripe Checkout Segura...");
+    
+    const form = e.currentTarget;
+    const plan = (form.elements.namedItem('plan') as RadioNodeList).value;
+
+    try {
+      const res = await fetch("http://localhost:3001/v1/onboarding/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: formData.email,
+          tenantName: formData.tenantName,
+          plan: plan || 'Pro'
+        })
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert("Erro ao criar checkout");
+        setIsProcessing(false);
+      }
+    } catch (err) {
+      alert("Erro de rede");
       setIsProcessing(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -41,20 +67,20 @@ export function RegisterClient() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-neutral-300">Primeiro Nome</label>
-                  <Input required placeholder="Ex: John" />
+                  <Input required placeholder="Ex: John" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-neutral-300">Sobrenome</label>
-                  <Input required placeholder="Ex: Doe" />
+                  <Input required placeholder="Ex: Doe" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
                 </div>
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-neutral-300">Email Corporativo</label>
-                <Input required type="email" placeholder="john@empresa.com" />
+                <Input required type="email" placeholder="john@empresa.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-neutral-300">Nome da Organização (Tenant)</label>
-                <Input required placeholder="Ex: Acme Corp" />
+                <Input required placeholder="Ex: Acme Corp" value={formData.tenantName} onChange={e => setFormData({...formData, tenantName: e.target.value})} />
               </div>
               <Button type="submit" className="w-full mt-4" disabled={step > 1}>
                 Continuar para Planos
@@ -73,7 +99,7 @@ export function RegisterClient() {
           <form onSubmit={handleStripeRedirect}>
             <div className="space-y-4">
               <label className="block cursor-pointer">
-                <input type="radio" name="plan" className="peer sr-only" defaultChecked />
+                <input type="radio" name="plan" value="Pro" className="peer sr-only" defaultChecked />
                 <Card className="p-6 bg-neutral-900 border-neutral-800 peer-checked:border-blue-500 peer-checked:ring-1 peer-checked:ring-blue-500 transition-all hover:bg-neutral-800">
                   <div className="flex justify-between items-center">
                     <div>
@@ -89,7 +115,7 @@ export function RegisterClient() {
               </label>
 
               <label className="block cursor-pointer">
-                <input type="radio" name="plan" className="peer sr-only" />
+                <input type="radio" name="plan" value="Enterprise" className="peer sr-only" />
                 <Card className="p-6 bg-neutral-900 border-neutral-800 peer-checked:border-blue-500 peer-checked:ring-1 peer-checked:ring-blue-500 transition-all hover:bg-neutral-800">
                   <div className="flex justify-between items-center">
                     <div>

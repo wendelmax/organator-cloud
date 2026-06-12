@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "organator-cloud.fullname" . }}-control-plane-api
+  labels:
+    app: control-plane-api
+spec:
+  replicas: {{ .Values.controlPlaneApi.replicaCount }}
+  selector:
+    matchLabels:
+      app: control-plane-api
+  template:
+    metadata:
+      labels:
+        app: control-plane-api
+    spec:
+      containers:
+        - name: control-plane-api
+          image: "{{ .Values.controlPlaneApi.image.repository }}:{{ .Values.controlPlaneApi.image.tag }}"
+          imagePullPolicy: {{ .Values.controlPlaneApi.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 3001
+              protocol: TCP
+          env:
+            - name: DATABASE_URL
+              value: "postgresql://postgres:{{ .Values.postgresql.auth.postgresPassword }}@{{ include "organator-cloud.fullname" . }}-postgresql:5432/{{ .Values.postgresql.auth.database }}?schema=public"
+            - name: REDIS_HOST
+              value: "{{ include "organator-cloud.fullname" . }}-redis-master"
+            - name: JWT_SECRET
+              value: {{ .Values.controlPlaneApi.env.JWT_SECRET | quote }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "organator-cloud.fullname" . }}-control-plane-api
+spec:
+  type: {{ .Values.controlPlaneApi.service.type }}
+  ports:
+    - port: {{ .Values.controlPlaneApi.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app: control-plane-api
