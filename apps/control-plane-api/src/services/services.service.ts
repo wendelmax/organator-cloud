@@ -5,20 +5,24 @@ import { PrismaService } from '../prisma/prisma.service';
 export class ServicesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createService(tenantId: string, name: string, provider: 'VERCEL' | 'AWS' | 'DOCKER_VPS', repositoryUrl: string) {
-    return this.prisma.service.create({
+  async createService(
+    tenantId: string,
+    name: string,
+    cloudProvider: string,
+    repository: string,
+  ) {
+    return this.prisma.microservice.create({
       data: {
         tenantId,
         name,
-        provider,
-        repositoryUrl,
-        status: 'PENDING_DEPLOY',
+        cloudProvider,
+        repository,
       },
     });
   }
 
   async getServicesByTenant(tenantId: string) {
-    return this.prisma.service.findMany({
+    return this.prisma.microservice.findMany({
       where: { tenantId },
     });
   }

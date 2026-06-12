@@ -1,14 +1,12 @@
 import { Worker, Job } from 'bullmq';
-import IORedis from 'ioredis';
 
 const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
 const REDIS_PORT = Number(process.env.REDIS_PORT) || 6379;
 
-const connection = new IORedis({
+const connection = {
   host: REDIS_HOST,
   port: REDIS_PORT,
-  maxRetriesPerRequest: null,
-});
+};
 
 console.log(`[Provisioner Worker] Inicializando e conectando ao Redis em ${REDIS_HOST}:${REDIS_PORT}...`);
 

@@ -14,9 +14,9 @@ import { OnboardingModule } from './onboarding/onboarding.module';
         port: Number(process.env.REDIS_PORT) || 6379,
       },
     }),
-    TenantsModule, 
-    ServicesModule, 
-    OnboardingModule
+    TenantsModule,
+    ServicesModule,
+    OnboardingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

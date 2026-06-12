@@ -8,9 +8,9 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter()
+    new FastifyAdapter(),
   );
-  
+
   // Opcional: configurar CORS globalmente se desejar
   app.enableCors();
 

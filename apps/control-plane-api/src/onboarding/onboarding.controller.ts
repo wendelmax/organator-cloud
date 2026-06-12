@@ -7,30 +7,32 @@ import { TenantsService } from '../tenants/tenants.service';
 export class OnboardingController {
   constructor(
     private readonly tenantsService: TenantsService,
-    @InjectQueue('provisioner') private readonly provisionerQueue: Queue
+    @InjectQueue('provisioner') private readonly provisionerQueue: Queue,
   ) {}
 
   @Post()
   async handleStripeWebhook(@Body() event: any) {
     if (event.type === 'checkout.session.completed') {
       const { metadata, customer_email } = event.data.object;
-      
+
       console.log(`[Webhook] Pagamento recebido para ${metadata.tenantName}`);
-      
+
       const tenant = await this.tenantsService.createTenant(
         metadata.tenantName,
         metadata.plan,
-        customer_email
+        customer_email,
       );
 
-      console.log(`[Provisioner] Disparando fila para criar banco isolado para o tenant ${tenant.id}...`);
-      
+      console.log(
+        `[Provisioner] Disparando fila para criar banco isolado para o tenant ${tenant.id}...`,
+      );
+
       await this.provisionerQueue.add('deploy-tenant-infra', {
         tenantId: tenant.id,
         plan: tenant.plan,
-        action: 'INITIAL_PROVISIONING'
+        action: 'INITIAL_PROVISIONING',
       });
-      
+
       return { received: true, tenantId: tenant.id };
     }
 

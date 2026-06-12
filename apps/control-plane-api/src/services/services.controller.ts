@@ -11,7 +11,20 @@ export class ServicesController {
   }
 
   @Post()
-  async create(@Body() body: { tenantId: string; name: string; provider: 'VERCEL' | 'AWS' | 'DOCKER_VPS'; repositoryUrl: string }) {
-    return this.servicesService.createService(body.tenantId, body.name, body.provider, body.repositoryUrl);
+  async create(
+    @Body()
+    body: {
+      tenantId: string;
+      name: string;
+      provider: 'VERCEL' | 'AWS' | 'DOCKER_VPS';
+      repositoryUrl: string;
+    },
+  ) {
+    return this.servicesService.createService(
+      body.tenantId,
+      body.name,
+      body.provider,
+      body.repositoryUrl,
+    );
   }
 }

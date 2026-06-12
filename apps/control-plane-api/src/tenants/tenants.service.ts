@@ -9,16 +9,19 @@ export class TenantsService {
     return this.prisma.tenant.create({
       data: {
         name,
+        slug: name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
         plan,
-        stripeCustomerId: `cus_simulated_${Date.now()}`,
-        status: 'ACTIVE',
+        stripeId: `cus_simulated_${Date.now()}`,
         users: {
-          create: {
-            email: adminEmail,
-            name: 'Admin',
-            role: 'OWNER',
-          }
-        }
+          create: [
+            {
+              email: adminEmail,
+              name: 'Admin',
+              password: 'hashedpassword123',
+              role: 'OWNER',
+            },
+          ],
+        },
       },
     });
   }
@@ -27,8 +30,8 @@ export class TenantsService {
     return this.prisma.tenant.findMany({
       include: {
         users: true,
-        services: true,
-      }
+        microservices: true,
+      },
     });
   }
 }

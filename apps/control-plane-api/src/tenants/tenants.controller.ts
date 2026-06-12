@@ -11,7 +11,13 @@ export class TenantsController {
   }
 
   @Post()
-  async create(@Body() body: { name: string; plan: string; adminEmail: string }) {
-    return this.tenantsService.createTenant(body.name, body.plan, body.adminEmail);
+  async create(
+    @Body() body: { name: string; plan: string; adminEmail: string },
+  ) {
+    return this.tenantsService.createTenant(
+      body.name,
+      body.plan,
+      body.adminEmail,
+    );
   }
 }

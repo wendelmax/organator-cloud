@@ -1,4 +1,6 @@
+import React from 'react';
 import Script from "next/script";
+import { Metadata } from 'next';
 
 declare global {
   namespace JSX {
@@ -23,6 +25,7 @@ export default function RedocViewerPage({ params }: { params: { microserviceId: 
       </div>
       
       {/* Container onde o Redoc será injetado */}
+      {/* @ts-ignore */}
       <redoc spec-url={specUrl}></redoc>
 
       {/* Script Standalone do Redoc */}

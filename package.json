@@ -17,5 +17,11 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "@babel/types": "^7.29.7",
+    "es-abstract": "^1.24.2",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "zod": "^4.4.3"
+  }
 }
