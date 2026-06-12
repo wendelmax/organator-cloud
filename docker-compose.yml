@@ -1,0 +1,69 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: organator
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: organator_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U organator"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  control-plane-api:
+    build:
+      context: .
+      dockerfile: apps/control-plane-api/Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://organator:password@postgres:5432/organator_db?schema=public
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  provisioner-worker:
+    build:
+      context: .
+      dockerfile: apps/provisioner-worker/Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://organator:password@postgres:5432/organator_db?schema=public
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  backoffice-web:
+    build:
+      context: .
+      dockerfile: apps/backoffice-web/Dockerfile
+    environment:
+      - NEXTAUTH_URL=http://localhost:3001
+      - NEXTAUTH_SECRET=supersecret_organator_key
+      - API_URL=http://control-plane-api:3000
+    ports:
+      - "3001:3000"
+    depends_on:
+      - control-plane-api
+
+volumes:
+  postgres_data:

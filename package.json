@@ -1,0 +1,21 @@
+{
+  "name": "organator",
+  "version": "1.0.0",
+  "description": "O Control Plane Open-Source para fundadores de SaaS. Automatize o onboarding e o provisionamento de infraestrutura (AWS/Vercel/Docker) para clientes Enterprise.",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.2.5",
+    "turbo": "^2.0.0"
+  },
+  "packageManager": "npm@10.5.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
