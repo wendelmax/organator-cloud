@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  stripeId  String?  @unique // Stripe Customer ID
+  plan      String   @default("free")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users        User[]
+  microservices Microservice[]
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String   // Hashed password
+  name      String?
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  role      String   @default("MEMBER") // ADMIN, OWNER, MEMBER
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Microservice {
+  id          String   @id @default(uuid())
+  name        String
+  repository  String?
+  environment String   @default("production")
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  deployments Deployment[]
+  apiDocs     ApiDoc[]
+  cloudProvider String // 'AWS', 'VERCEL', 'VPS'
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ApiDoc {
+  id             String   @id @default(uuid())
+  microserviceId String
+  microservice   Microservice @relation(fields: [microserviceId], references: [id])
+  title          String
+  version        String
+  openApiSpec    String   @db.Text // JSON stringificado da spec OpenAPI
+  isPublic       Boolean  @default(false) // Configurável Público ou Privado
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Deployment {
+  id             String   @id @default(uuid())
+  microserviceId String
+  microservice   Microservice @relation(fields: [microserviceId], references: [id])
+  status         String   @default("PENDING") // PENDING, RUNNING, SUCCESS, FAILED
+  logs           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
