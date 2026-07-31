@@ -23,12 +23,15 @@ export class OnboardingController {
     let event: any;
 
     try {
-      const secret = process.env.STRIPE_WEBHOOK_SECRET || 'whsec_test';
-      // Mocker bypass for local dev without real stripe signature
-      if (secret === 'whsec_test' && !signature) {
-         event = req.body as any;
+      const secret = process.env.STRIPE_WEBHOOK_SECRET;
+      if (!secret && process.env.NODE_ENV === 'production') {
+        throw new Error('STRIPE_WEBHOOK_SECRET environment variable is missing in production!');
+      }
+      const webhookSecret = secret || 'whsec_test';
+      if (process.env.NODE_ENV === 'test' && !signature) {
+        event = req.body as any;
       } else {
-         event = stripe.webhooks.constructEvent(req.rawBody as Buffer, signature, secret);
+        event = stripe.webhooks.constructEvent(req.rawBody as Buffer, signature, webhookSecret);
       }
     } catch (err) {
       throw new BadRequestException(`Webhook Error: ${err.message}`);

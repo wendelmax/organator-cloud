@@ -1,6 +1,7 @@
-import { Controller, Post, Body, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, UseGuards, BadRequestException } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ServicesService } from './services.service';
+import { CreateServiceDto } from './dto/create-service.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('v1/services')
@@ -13,20 +14,16 @@ export class ServicesController {
   }
 
   @Post()
-  async create(
-    @Body()
-    body: {
-      tenantId: string;
-      name: string;
-      provider: 'VERCEL' | 'AWS' | 'DOCKER_VPS';
-      repositoryUrl: string;
-    },
-  ) {
+  async create(@Body() body: CreateServiceDto) {
+    const repo = body.repositoryUrl || body.repository;
+    if (!repo) {
+      throw new BadRequestException('repository or repositoryUrl is required');
+    }
     return this.servicesService.createService(
       body.tenantId,
       body.name,
-      body.provider,
-      body.repositoryUrl,
+      body.cloudProvider,
+      repo,
     );
   }
 }

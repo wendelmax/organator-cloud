@@ -6,7 +6,7 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "text", placeholder: "admin@navant.app" },
+        email: { label: "Email", type: "text", placeholder: "admin@organator.app" },
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials, req) {

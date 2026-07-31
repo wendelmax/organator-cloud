@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Card, Input } from "@navant/ui";
+import { Button, Card, Input } from "@organator/ui";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 export function RegisterClient() {
   const [step, setStep] = useState(1);
@@ -21,7 +23,7 @@ export function RegisterClient() {
     const plan = (form.elements.namedItem('plan') as RadioNodeList).value;
 
     try {
-      const res = await fetch("http://localhost:3001/v1/onboarding/checkout", {
+      const res = await fetch(`${API_URL}/v1/onboarding/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

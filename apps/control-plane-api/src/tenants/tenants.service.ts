@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class TenantsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async createTenant(name: string, plan: string, adminEmail: string) {
+    const hashedPassword = await bcrypt.hash('hashedpassword123', 10);
     return this.prisma.tenant.create({
       data: {
         name,
@@ -17,7 +19,7 @@ export class TenantsService {
             {
               email: adminEmail,
               name: 'Admin',
-              password: 'hashedpassword123',
+              password: hashedPassword,
               role: 'OWNER',
             },
           ],
