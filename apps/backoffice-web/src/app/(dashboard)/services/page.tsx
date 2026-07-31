@@ -2,8 +2,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../../../lib/auth";
 import { ServicesClient } from "./ClientPage";
 
-async function getServices(token: string) {
-  const res = await fetch("http://localhost:3001/v1/services", {
+const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+async function getServices(token: string, tenantId: string) {
+  const res = await fetch(`${API_URL}/v1/services/tenant/${tenantId}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store"
   });
@@ -14,6 +16,8 @@ async function getServices(token: string) {
 export default async function ServicesPage() {
   const session = await getServerSession(authOptions);
   const token = (session as any)?.accessToken;
-  const services = token ? await getServices(token) : [];
+  const tenantId = (session as any)?.user?.tenantId || (session as any)?.tenantId;
+
+  const services = (token && tenantId) ? await getServices(token, tenantId) : [];
   return <ServicesClient initialServices={services} />;
 }
