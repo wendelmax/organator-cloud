@@ -6,8 +6,13 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { PrismaService } from '../prisma/prisma.service';
 
+const secret = process.env.JWT_SECRET;
+if (!secret && process.env.NODE_ENV === 'production') {
+  throw new Error('CRITICAL SECURITY FATAL: JWT_SECRET environment variable is missing in production!');
+}
+
 export const jwtConstants = {
-  secret: process.env.JWT_SECRET || 'super_secret_key_change_me_in_prod',
+  secret: secret || 'super_secret_key_change_me_in_prod',
 };
 
 @Module({

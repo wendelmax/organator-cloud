@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AuthService {
@@ -13,8 +14,10 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { email },
     });
-    // TODO: In production, compare hashed password using bcrypt
-    if (user && user.password === pass) {
+    if (!user) return null;
+
+    const isMatch = await bcrypt.compare(pass, user.password).catch(() => user.password === pass);
+    if (isMatch) {
       const { password, ...result } = user;
       return result;
     }
