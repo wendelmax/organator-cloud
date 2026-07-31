@@ -1,101 +1,108 @@
 import { Worker, Job } from 'bullmq';
-import { VPSClient, VercelClient } from '@organator/cloud-providers';
+import { VPSClient, VercelClient, AWSClient } from '@organator/cloud-providers';
+import { PrismaClient } from '@organator/core-models';
 
+const prisma = new PrismaClient();
 const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
 const REDIS_PORT = Number(process.env.REDIS_PORT) || 6379;
 
-const connection = {
-  host: REDIS_HOST,
-  port: REDIS_PORT,
-};
+const connection = { host: REDIS_HOST, port: REDIS_PORT };
 
 console.log(`[Provisioner Worker] Inicializando e conectando ao Redis em ${REDIS_HOST}:${REDIS_PORT}...`);
 
 const worker = new Worker('provisioner', async (job: Job) => {
   console.log(`\n======================================================`);
   console.log(`[Job Recebido] ID: ${job.id} | Nome: ${job.name}`);
-  console.log(`[Dados] TenantID: ${job.data.tenantId} | Plano: ${job.data.plan}`);
   
-  if (job.name === 'deploy-tenant-infra') {
-    await handleDeployTenantInfra(job);
-  } else if (job.name === 'deploy-microservice') {
-    await handleDeployMicroservice(job);
-  } else {
-    console.log(`[Aviso] Job de tipo desconhecido ignorado: ${job.name}`);
+  let deploymentId: string | null = null;
+  if (job.data.serviceId) {
+    try {
+      const dep = await prisma.deployment.create({
+        data: {
+          microserviceId: job.data.serviceId,
+          status: 'RUNNING',
+          logs: `[${new Date().toISOString()}] Job de deploy iniciado...\n`,
+        }
+      });
+      deploymentId = dep.id;
+    } catch (e: any) {
+      console.warn(`[Prisma Warning] Não foi possível criar registro de Deployment: ${e.message}`);
+    }
   }
-  
-  console.log(`======================================================\n`);
-  return { success: true, finishedAt: new Date().toISOString() };
+
+  try {
+    if (job.name === 'deploy-tenant-infra') {
+      await handleDeployTenantInfra(job, deploymentId);
+    } else if (job.name === 'deploy-microservice') {
+      await handleDeployMicroservice(job, deploymentId);
+    }
+    if (deploymentId) {
+      await prisma.deployment.update({
+        where: { id: deploymentId },
+        data: { status: 'SUCCESS' }
+      });
+    }
+    console.log(`======================================================\n`);
+    return { success: true, finishedAt: new Date().toISOString() };
+  } catch (err: any) {
+    if (deploymentId) {
+      const current = await prisma.deployment.findUnique({ where: { id: deploymentId } });
+      await prisma.deployment.update({
+        where: { id: deploymentId },
+        data: { 
+          status: 'FAILED',
+          logs: `${current?.logs || ''}[${new Date().toISOString()}] [ERRO] ${err.message}\n`
+        }
+      });
+    }
+    console.log(`======================================================\n`);
+    throw err;
+  }
 }, { connection });
 
-async function handleDeployTenantInfra(job: Job) {
-  const { tenantId, plan } = job.data;
-  
-  await logStep(job, `[Provisioner] Iniciando infraestrutura para Tenant ${tenantId}...`);
-  await sleep(1000);
-  
-  await logStep(job, `[Docker] Criando rede isolada 'tenant-${tenantId}-net'...`);
-  await sleep(1500);
-
-  await logStep(job, `[PostgreSQL] Subindo banco de dados (Schema isolado)...`);
-  await sleep(2000);
-
-  if (plan === 'Enterprise') {
-    await logStep(job, `[AWS] Solicitando recursos dedicados (Plano Enterprise)...`);
-    await sleep(2000);
+async function appendLog(deploymentId: string | null, job: Job, msg: string) {
+  console.log(msg);
+  await job.log(msg);
+  if (deploymentId) {
+    try {
+      const current = await prisma.deployment.findUnique({ where: { id: deploymentId } });
+      await prisma.deployment.update({
+        where: { id: deploymentId },
+        data: { logs: `${current?.logs || ''}[${new Date().toISOString()}] ${msg}\n` }
+      });
+    } catch (e: any) {
+      console.warn(`[Prisma Log Warning] ${e.message}`);
+    }
   }
-
-  await logStep(job, `[Traefik] Mapeando regras DNS...`);
-  await sleep(1000);
-
-  await logStep(job, `[Provisioner] Infraestrutura do Tenant pronta!`);
 }
 
-async function handleDeployMicroservice(job: Job) {
+async function handleDeployTenantInfra(job: Job, deploymentId: string | null) {
+  const { tenantId, plan } = job.data;
+  await appendLog(deploymentId, job, `[Provisioner] Criando infraestrutura do tenant ${tenantId}...`);
+  if (plan === 'Enterprise') {
+    const aws = new AWSClient('us-east-1', process.env.AWS_ACCESS_KEY_ID || '', process.env.AWS_SECRET_ACCESS_KEY || '');
+    const instanceId = await aws.createEC2Instance('ami-0c55b159cbfafe1f0', 't3.medium');
+    await appendLog(deploymentId, job, `[AWS EC2] Instância provisionada: ${instanceId}`);
+  }
+  await appendLog(deploymentId, job, `[Provisioner] Infraestrutura pronta com sucesso!`);
+}
+
+async function handleDeployMicroservice(job: Job, deploymentId: string | null) {
   const { serviceId, provider, repo, vpsHost } = job.data;
-  
-  await logStep(job, `[Deploy] Serviço ${serviceId} -> Nuvem: ${provider}`);
-  await sleep(1000);
-  
+  await appendLog(deploymentId, job, `[Deploy] Serviço ${serviceId} -> Nuvem: ${provider}`);
   if (provider === 'VERCEL') {
-    await logStep(job, `[Vercel API] Acionando pipeline do repositório ${repo}...`);
     const vercel = new VercelClient(process.env.VERCEL_TOKEN || 'mock-token');
     const project = await vercel.createProject(`service-${serviceId}`, repo);
     await vercel.injectEnvVar(project.id, 'SERVICE_ID', String(serviceId));
     const url = await vercel.createDeployment(project.id);
-    await logStep(job, `[Vercel API] Build completo e em produção: ${url}`);
+    await appendLog(deploymentId, job, `[Vercel] Build completo: ${url}`);
   } else if (provider === 'VPS') {
-    await logStep(job, `[SSH] Conectando ao host VPS (${vpsHost})...`);
-    
-    // Configuração simulada (Em prod os dados vêm do DB criptografados)
     const [user, host] = (vpsHost || 'root@localhost').split('@');
     const vps = new VPSClient(host, 22, user, process.env.SSH_PRIVATE_KEY || 'mock-key');
-
-    await logStep(job, `[Docker] Fazendo pull da imagem e recriando container...`);
-    // Simulando o pull da imagem
-    await sleep(2000); 
-
-    try {
-      // Ignorar erro se a chave for mock-key, para manter os logs limpos no demo local
-      if (process.env.SSH_PRIVATE_KEY) {
-        await vps.deployDockerContainer('nginx:alpine', `service-${serviceId}`, { PORT: '80' }, `service-${serviceId}.organator.local`);
-      } else {
-        await logStep(job, `[Docker VPS] Simulando execução nativa Docker via SSH para nginx:alpine...`);
-      }
-    } catch (e: any) {
-      await logStep(job, `[VPS Erro] Não foi possível executar no VPS remoto: ${e.message}`);
-    }
-    
-    await logStep(job, `[Traefik] Roteamento atualizado para o container.`);
+    const result = await vps.deployDockerContainer('nginx:alpine', `service-${serviceId}`, { PORT: '80' }, `service-${serviceId}.organator.local`);
+    await appendLog(deploymentId, job, `[SSH VPS] Imagem docker implantada com sucesso em ${host}. Resultado: ${result}`);
   }
 }
-
-async function logStep(job: Job, message: string) {
-  console.log(message);
-  await job.log(message);
-}
-
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 worker.on('completed', job => {
   console.log(`[Sucesso] Job ${job.id} concluído.`);
