@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button, Card, CardContent } from "@navant/ui";
+import { Button, Card, CardContent } from "@organator/ui";
 
 const SIMULATED_LOGS = [
   "[provisioner] Iniciando rotina de provisionamento...",

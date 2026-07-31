@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Button, Modal, Input, Card, CardHeader, CardTitle, CardContent } from "@navant/ui";
+import { Button, Modal, Input, Card, CardHeader, CardTitle, CardContent } from "@organator/ui";
 import { createTenant } from "./actions";
 
 interface Tenant {

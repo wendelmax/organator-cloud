@@ -1,5 +1,5 @@
 import { Worker, Job } from 'bullmq';
-import { VPSClient, VercelClient } from '@navant/cloud-providers';
+import { VPSClient, VercelClient } from '@organator/cloud-providers';
 
 const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
 const REDIS_PORT = Number(process.env.REDIS_PORT) || 6379;

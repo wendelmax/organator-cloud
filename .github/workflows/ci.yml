@@ -29,7 +29,7 @@ jobs:
             ${{ runner.os }}-turbo-
 
       - name: Prisma Generate
-        run: npm run turbo build --filter=@navant/core-models
+        run: npm run turbo build --filter=@organator/core-models
 
       - name: Lint
         run: npx turbo lint
