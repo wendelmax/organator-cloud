@@ -6,6 +6,8 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { PrismaService } from '../prisma/prisma.service';
 
+import { RolesGuard } from './roles.guard';
+
 const secret = process.env.JWT_SECRET;
 if (!secret && process.env.NODE_ENV === 'production') {
   throw new Error(
@@ -26,7 +28,7 @@ export const jwtConstants = {
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, PrismaService],
-  exports: [AuthService],
+  providers: [AuthService, JwtStrategy, PrismaService, RolesGuard],
+  exports: [AuthService, RolesGuard],
 })
 export class AuthModule {}
