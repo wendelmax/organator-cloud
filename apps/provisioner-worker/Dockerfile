@@ -1,4 +1,4 @@
-FROM node:20-slim AS base
+FROM node:24-slim AS base
 
 FROM base AS builder
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates

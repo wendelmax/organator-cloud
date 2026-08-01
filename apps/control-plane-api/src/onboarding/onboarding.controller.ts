@@ -9,6 +9,7 @@ import {
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { TenantsService } from '../tenants/tenants.service';
+import { IamService } from '../iam/iam.service';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_123', {
@@ -19,6 +20,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_123', {
 export class OnboardingController {
   constructor(
     private readonly tenantsService: TenantsService,
+    private readonly iamService: IamService,
     @InjectQueue('provisioner') private readonly provisionerQueue: Queue,
   ) {}
 
@@ -68,6 +70,13 @@ export class OnboardingController {
 
       console.log(
         `[Provisioner] Disparando fila para criar banco isolado para o tenant ${tenant.id}...`,
+      );
+
+      // IAM: grupo por tenant + convite do OWNER no VoidAuth (ou self-registration via OIDC)
+      await this.iamService.linkOwnerAfterCheckout(
+        tenant.id,
+        tenant.slug,
+        customer_email || 'customer@example.com',
       );
 
       await this.provisionerQueue.add('deploy-tenant-infra', {

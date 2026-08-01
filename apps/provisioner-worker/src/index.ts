@@ -2,6 +2,7 @@ import { Worker, Job } from 'bullmq';
 import { VPSClient, VercelClient, AWSClient } from '@organator/cloud-providers';
 import { PrismaClient } from '@organator/core-models';
 import Redis from 'ioredis';
+import Tasklets from '@wendelmax/tasklets';
 
 const prisma = new PrismaClient();
 const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
@@ -89,20 +90,50 @@ async function appendLog(deploymentId: string | null, job: Job, msg: string, sta
   await job.log(msg);
   if (deploymentId) {
     const logLine = `[${new Date().toISOString()}] ${msg}\n`;
+    // Processamento de log (sanitização de segredos + truncamento) offloadado p/ worker thread
+    const processed = await processLogLine(logLine);
     try {
       const current = await prisma.deployment.findUnique({ where: { id: deploymentId } });
       await prisma.deployment.update({
         where: { id: deploymentId },
-        data: { logs: `${current?.logs || ''}${logLine}` }
+        data: { logs: `${current?.logs || ''}${processed}` }
       });
       await redisPublisher.publish(
         `deploy_logs:${deploymentId}`,
-        JSON.stringify({ deploymentId, logLine, status })
+        JSON.stringify({ deploymentId, logLine: processed, status })
       );
     } catch (e: any) {
       console.warn(`[Prisma Log Warning] ${e.message}`);
     }
   }
+}
+
+/**
+ * Sanitiza e limita o tamanho de uma linha de log em worker thread (Tasklets),
+ * evitando bloquear o event loop do worker do BullMQ com payloads grandes.
+ */
+async function processLogLine(line: string): Promise<string> {
+  const MAX_LINE_BYTES = 16 * 1024;
+  const SECRET_PATTERNS = [
+    /sk_(test|live)_[A-Za-z0-9]+/g,
+    /-----BEGIN [A-Z ]+PRIVATE KEY-----[\s\S]*?-----END [A-Z ]+PRIVATE KEY-----/g,
+    /password["']?\s*[:=]\s*["'][^"']+["']/gi,
+    /token["']?\s*[:=]\s*["'][^"']+["']/gi,
+  ];
+
+  return Tasklets.run((input: string, maxBytes: number, patterns: RegExp[]) => {
+    let sanitized = input;
+    for (const pattern of patterns) {
+      sanitized = sanitized.replace(pattern, (match) => {
+        const keep = match.length > 12 ? match.slice(0, 6) + '[REDACTED]' : '[REDACTED]';
+        return keep;
+      });
+    }
+    if (Buffer.byteLength(sanitized, 'utf8') > maxBytes) {
+      sanitized = sanitized.slice(0, maxBytes) + '\n[TRUNCATED]\n';
+    }
+    return sanitized;
+  }, line, MAX_LINE_BYTES, SECRET_PATTERNS).catch(() => line);
 }
 
 async function handleDeployTenantInfra(job: Job, deploymentId: string | null) {

@@ -108,7 +108,11 @@ describe('TenantsService', () => {
 
   describe('updateMemberRole', () => {
     it('should update member role if member exists in tenant', async () => {
-      const existingUser = { id: 'user-1', tenantId: 'tenant-123', role: 'MEMBER' };
+      const existingUser = {
+        id: 'user-1',
+        tenantId: 'tenant-123',
+        role: 'MEMBER',
+      };
       const updatedUser = {
         id: 'user-1',
         email: 'user1@example.com',
@@ -119,7 +123,11 @@ describe('TenantsService', () => {
       mockPrisma.user.findFirst.mockResolvedValue(existingUser);
       mockPrisma.user.update.mockResolvedValue(updatedUser);
 
-      const result = await service.updateMemberRole('tenant-123', 'user-1', 'ADMIN');
+      const result = await service.updateMemberRole(
+        'tenant-123',
+        'user-1',
+        'ADMIN',
+      );
       expect(result).toEqual(updatedUser);
       expect(mockPrisma.user.update).toHaveBeenCalledWith({
         where: { id: 'user-1' },

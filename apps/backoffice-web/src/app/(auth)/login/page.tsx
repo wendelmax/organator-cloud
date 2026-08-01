@@ -79,6 +79,23 @@ export default function LoginPage() {
             {isSubmitting ? "Entrando..." : "Entrar"}
           </button>
         </form>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-neutral-700" />
+          </div>
+          <div className="relative flex justify-center text-xs text-neutral-500">
+            <span className="px-2 bg-neutral-900">ou</span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => signIn("voidauth", { callbackUrl: "/services" })}
+          className="w-full px-4 py-2 font-semibold text-white bg-neutral-700 rounded-lg hover:bg-neutral-600 transition-colors"
+        >
+          Entrar com VoidAuth (SSO)
+        </button>
       </div>
     </div>
   );

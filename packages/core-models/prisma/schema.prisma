@@ -19,18 +19,33 @@ model Tenant {
 
   users        User[]
   microservices Microservice[]
+  iamGroups    IamGroup[]
 }
 
 model User {
+  id                  String   @id @default(uuid())
+  email               String   @unique
+  password            String   // Hashed password
+  name                String?
+  tenantId            String
+  tenant              Tenant   @relation(fields: [tenantId], references: [id])
+  role                String   @default("MEMBER") // PLATFORM_ADMIN, ADMIN, OWNER, MEMBER
+  mustChangePassword  Boolean  @default(false) // força troca de senha no 1º login
+  authProvider        String   @default("credentials") // credentials | oidc
+  externalId          String?  // sub do IdP (VoidAuth)
+  mfaEnabled          Boolean  @default(false) // TOTP app-level
+  mfaSecretEncrypted  String?  // segredo TOTP cifrado
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model IamGroup {
   id        String   @id @default(uuid())
-  email     String   @unique
-  password  String   // Hashed password
-  name      String?
   tenantId  String
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  role      String   @default("MEMBER") // ADMIN, OWNER, MEMBER
+  name      String   // ex.: tenant-{slug}
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  @@unique([tenantId, name])
 }
 
 model Microservice {

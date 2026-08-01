@@ -26,7 +26,10 @@ export const PLAN_LIMITS: Record<string, PlanLimits> = {
 export class SaasService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async checkQuota(tenantId: string, resourceType: QuotaResourceType): Promise<void> {
+  async checkQuota(
+    tenantId: string,
+    resourceType: QuotaResourceType,
+  ): Promise<void> {
     if (!tenantId) {
       return;
     }

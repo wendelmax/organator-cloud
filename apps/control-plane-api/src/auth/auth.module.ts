@@ -4,6 +4,8 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
+import { OidcStrategy } from './oidc.strategy';
+import { MfaService } from './mfa.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { RolesGuard } from './roles.guard';
@@ -28,7 +30,14 @@ export const jwtConstants = {
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, PrismaService, RolesGuard],
-  exports: [AuthService, RolesGuard],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    OidcStrategy,
+    MfaService,
+    PrismaService,
+    RolesGuard,
+  ],
+  exports: [AuthService, RolesGuard, MfaService],
 })
 export class AuthModule {}

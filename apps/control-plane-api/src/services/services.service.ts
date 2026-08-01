@@ -28,7 +28,10 @@ export class ServicesService {
 
       subscriberRedis.subscribe(channel, (err) => {
         if (err) {
-          console.error(`[Redis Sub Error] Failed to subscribe to ${channel}:`, err);
+          console.error(
+            `[Redis Sub Error] Failed to subscribe to ${channel}:`,
+            err,
+          );
         }
       });
 

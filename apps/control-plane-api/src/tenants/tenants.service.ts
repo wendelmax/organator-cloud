@@ -1,13 +1,15 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class TenantsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async createTenant(name: string, plan: string, adminEmail: string) {
-    const hashedPassword = await bcrypt.hash('hashedpassword123', 10);
+    const tempPassword = crypto.randomBytes(16).toString('base64url');
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
     return this.prisma.tenant.create({
       data: {
         name,
@@ -21,6 +23,7 @@ export class TenantsService {
               name: 'Admin',
               password: hashedPassword,
               role: 'OWNER',
+              mustChangePassword: true,
             },
           ],
         },
@@ -57,7 +60,8 @@ export class TenantsService {
     role: string = 'MEMBER',
     password?: string,
   ) {
-    const rawPassword = password || 'changeme123';
+    const rawPassword =
+      password || crypto.randomBytes(16).toString('base64url');
     const hashedPassword = await bcrypt.hash(rawPassword, 10);
     return this.prisma.user.create({
       data: {
@@ -66,6 +70,7 @@ export class TenantsService {
         name: name || null,
         role: role || 'MEMBER',
         password: hashedPassword,
+        mustChangePassword: true,
       },
       select: {
         id: true,
@@ -109,4 +114,3 @@ export class TenantsService {
     });
   }
 }
-
