@@ -1,6 +1,20 @@
+"use client";
+
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === "authenticated" && (session?.user as any)?.mustChangePassword) {
+      router.replace("/set-password");
+    }
+  }, [status, session, router]);
+
   return (
     <div className="flex h-screen bg-neutral-950 text-white">
       {/* Sidebar Simples */}

@@ -77,6 +77,49 @@ services:
     image: grafana/grafana:10.4.0
     ports:
       - "3002:3000"
+    environment:
+      # SSO via VoidAuth (OIDC) — mesmo admin do Organator acessa o Grafana
+      - GF_AUTH_GENERIC_OAUTH_ENABLED=true
+      - GF_AUTH_GENERIC_OAUTH_NAME=VoidAuth
+      - GF_AUTH_GENERIC_OAUTH_CLIENT_ID=${VOIDAUTH_CLIENT_ID}
+      - GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET=${VOIDAUTH_CLIENT_SECRET}
+      - GF_AUTH_GENERIC_OAUTH_SCOPES=openid profile email groups
+      - GF_AUTH_GENERIC_OAUTH_AUTH_URL=${VOIDAUTH_URL}/oidc/authorize
+      - GF_AUTH_GENERIC_OAUTH_TOKEN_URL=${VOIDAUTH_URL}/oidc/token
+      - GF_AUTH_GENERIC_OAUTH_API_URL=${VOIDAUTH_URL}/oidc/userinfo
+      - GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH=contains(groups[*], 'auth_admins') && 'Admin' || 'Viewer'
+      - GF_AUTH_GENERIC_OAUTH_ALLOW_ASSIGN_GRAFANA_ADMIN=true
+      - GF_AUTH_DISABLE_LOGIN_FORM=false
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+
+  voidauth:
+    image: voidauth/voidauth:latest
+    restart: unless-stopped
+    environment:
+      APP_URL: ${VOIDAUTH_URL:-http://localhost:3003}
+      STORAGE_KEY: ${VOIDAUTH_STORAGE_KEY:-dev_storage_key_change_me}
+      DB_ADAPTER: postgres
+      DB_HOST: voidauth-db
+      DB_PASSWORD: ${VOIDAUTH_DB_PASSWORD:-password}
+    ports:
+      - "3003:3000"
+    depends_on:
+      voidauth-db:
+        condition: service_healthy
+
+  voidauth-db:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${VOIDAUTH_DB_PASSWORD:-password}
+    volumes:
+      - voidauth_db_data:/var/lib/postgresql/18/docker
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -h localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:
+  voidauth_db_data:

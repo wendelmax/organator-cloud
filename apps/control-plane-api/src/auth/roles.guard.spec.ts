@@ -77,7 +77,9 @@ describe('RolesGuard', () => {
   });
 
   it('should allow access if user has one of multiple required roles', () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['OWNER', 'ADMIN']);
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockReturnValue(['OWNER', 'ADMIN']);
     const contextAdmin = createMockContext('ADMIN');
     expect(guard.canActivate(contextAdmin)).toBe(true);
   });

@@ -101,4 +101,3 @@ export class TenantsController {
     return this.tenantsService.removeMember(tenantId, userId);
   }
 }
-

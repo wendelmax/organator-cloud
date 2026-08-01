@@ -9,12 +9,13 @@
   "dependencies": {
     "@organator/cloud-providers": "*",
     "@organator/core-models": "*",
+    "@wendelmax/tasklets": "^3.0.0",
     "bullmq": "^5.0.0",
     "ioredis": "^5.3.0"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0",
     "ts-node-dev": "^2.0.0",
-    "@types/node": "^20.0.0"
+    "typescript": "^5.0.0"
   }
 }

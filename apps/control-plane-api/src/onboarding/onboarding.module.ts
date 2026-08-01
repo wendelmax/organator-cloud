@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { OnboardingController } from './onboarding.controller';
 import { TenantsService } from '../tenants/tenants.service';
+import { IamModule } from '../iam/iam.module';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Module({
@@ -9,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
     BullModule.registerQueue({
       name: 'provisioner',
     }),
+    IamModule,
   ],
   controllers: [OnboardingController],
   providers: [TenantsService, PrismaService],

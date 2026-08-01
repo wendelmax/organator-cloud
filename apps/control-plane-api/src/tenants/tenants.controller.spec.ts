@@ -19,9 +19,7 @@ describe('TenantsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TenantsController],
-      providers: [
-        { provide: TenantsService, useValue: mockTenantsService },
-      ],
+      providers: [{ provide: TenantsService, useValue: mockTenantsService }],
     }).compile();
 
     controller = module.get<TenantsController>(TenantsController);
@@ -55,7 +53,11 @@ describe('TenantsController', () => {
   describe('addMember', () => {
     it('should call service.addMember with tenantId and details', async () => {
       const mockReq = { user: { tenantId: 'tenant-123' } };
-      const body = { email: 'new@example.com', name: 'New User', role: 'ADMIN' };
+      const body = {
+        email: 'new@example.com',
+        name: 'New User',
+        role: 'ADMIN',
+      };
       const createdMember = { id: 'user-2', email: 'new@example.com' };
       mockTenantsService.addMember.mockResolvedValue(createdMember);
 
