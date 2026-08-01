@@ -8,6 +8,7 @@ import { useEffect } from "react";
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const isPlatformAdmin = (session?.user as any)?.role === "PLATFORM_ADMIN";
 
   useEffect(() => {
     if (status === "authenticated" && (session?.user as any)?.mustChangePassword) {
@@ -27,6 +28,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Link href="/services" className="px-4 py-2 rounded-md hover:bg-neutral-800 transition">Services Catalog</Link>
           <Link href="/portal" className="px-4 py-2 rounded-md hover:bg-neutral-800 transition text-blue-400">Developer Portal</Link>
           <Link href="/billing" className="px-4 py-2 rounded-md hover:bg-neutral-800 transition">Billing (Stripe)</Link>
+          {isPlatformAdmin ? (
+            <Link href="/billing/plans" className="px-4 py-2 rounded-md hover:bg-neutral-800 transition text-amber-400">Planos (Admin)</Link>
+          ) : null}
         </nav>
       </aside>
       

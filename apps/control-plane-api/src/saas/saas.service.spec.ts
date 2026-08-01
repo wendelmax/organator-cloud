@@ -10,6 +10,9 @@ describe('SaasService', () => {
     tenant: {
       findUnique: jest.fn(),
     },
+    billingPlan: {
+      findUnique: jest.fn(),
+    },
     microservice: {
       count: jest.fn(),
     },
@@ -31,6 +34,7 @@ describe('SaasService', () => {
 
     service = module.get<SaasService>(SaasService);
     jest.clearAllMocks();
+    mockPrismaService.billingPlan.findUnique.mockResolvedValue(null);
   });
 
   it('should be defined', () => {
@@ -153,10 +157,44 @@ describe('SaasService', () => {
       ).resolves.not.toThrow();
       expect(mockPrismaService.microservice.count).not.toHaveBeenCalled();
     });
+  });
 
-    it('should allow unlimited deployments and not call count query', async () => {
+  describe('checkQuota - quotas from BillingPlan register', () => {
+    beforeEach(() => {
+      mockPrismaService.tenant.findUnique.mockResolvedValue({
+        id: 'tenant-custom',
+        plan: 'team',
+      });
+      mockPrismaService.billingPlan.findUnique.mockResolvedValue({
+        slug: 'team',
+        quotas: { MICROSERVICE: 5, DEPLOYMENT: -1 },
+      });
+    });
+
+    it('should use stored quota when the plan is registered', async () => {
+      mockPrismaService.microservice.count.mockResolvedValue(4);
+
       await expect(
-        service.checkQuota('tenant-enterprise', 'DEPLOYMENT'),
+        service.checkQuota('tenant-custom', 'MICROSERVICE'),
+      ).resolves.not.toThrow();
+    });
+
+    it('should throw HTTP 402 when stored quota is reached', async () => {
+      mockPrismaService.microservice.count.mockResolvedValue(5);
+
+      await expect(
+        service.checkQuota('tenant-custom', 'MICROSERVICE'),
+      ).rejects.toThrow(
+        new HttpException(
+          'Limite do plano atingido. Faça upgrade para continuar.',
+          HttpStatus.PAYMENT_REQUIRED,
+        ),
+      );
+    });
+
+    it('should treat -1 stored quota as unlimited (-1 deployment)', async () => {
+      await expect(
+        service.checkQuota('tenant-custom', 'DEPLOYMENT'),
       ).resolves.not.toThrow();
       expect(mockPrismaService.deployment.count).not.toHaveBeenCalled();
     });

@@ -10,6 +10,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { TenantsService } from '../tenants/tenants.service';
 import { IamService } from '../iam/iam.service';
+import { BillingPlansService } from '../billing/billing-plans.service';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_123', {
@@ -21,6 +22,7 @@ export class OnboardingController {
   constructor(
     private readonly tenantsService: TenantsService,
     private readonly iamService: IamService,
+    private readonly plansService: BillingPlansService,
     @InjectQueue('provisioner') private readonly provisionerQueue: Queue,
   ) {}
 
@@ -93,24 +95,32 @@ export class OnboardingController {
 
   @Post('checkout')
   async createCheckoutSession(@Body() body: any) {
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: [
-        {
+    const planSlug = (body.plan || 'free').toLowerCase();
+    const plan = await this.plansService.getBySlug(planSlug);
+    const unitAmount =
+      plan?.price ?? (planSlug === 'enterprise' ? 19900 : 4900);
+    const price = plan?.stripePriceId;
+
+    const lineItem = price
+      ? { price, quantity: 1 }
+      : {
           price_data: {
             currency: 'usd',
             product_data: { name: `Plan ${body.plan}` },
-            unit_amount: body.plan === 'Enterprise' ? 19900 : 4900,
+            unit_amount: unitAmount,
           },
           quantity: 1,
-        },
-      ],
+        };
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [lineItem],
       mode: 'payment',
       success_url: 'http://localhost:3000/login?success=true',
       cancel_url: 'http://localhost:3000/register?canceled=true',
       metadata: {
         tenantName: body.tenantName,
-        plan: body.plan,
+        plan: planSlug,
       },
       customer_email: body.email,
     });
