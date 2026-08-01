@@ -39,8 +39,25 @@ export class SaasService {
     });
 
     const planKey = (tenant?.plan || 'free').toLowerCase();
-    const limits = PLAN_LIMITS[planKey] || PLAN_LIMITS.free;
-    const maxLimit = limits[resourceType];
+
+    const storedPlan = await this.prisma.billingPlan.findUnique({
+      where: { slug: planKey },
+    });
+
+    const storedLimits =
+      (storedPlan?.quotas as Record<string, number> | null) || null;
+    const legacy = PLAN_LIMITS[planKey] || PLAN_LIMITS.free;
+    const limits = storedLimits
+      ? {
+          MICROSERVICE: storedLimits.MICROSERVICE ?? legacy.MICROSERVICE,
+          DEPLOYMENT: storedLimits.DEPLOYMENT ?? legacy.DEPLOYMENT,
+        }
+      : legacy;
+
+    let maxLimit = limits[resourceType];
+    if (maxLimit === -1) {
+      maxLimit = Infinity;
+    }
 
     if (maxLimit === Infinity) {
       return;

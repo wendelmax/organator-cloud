@@ -85,3 +85,22 @@ model Deployment {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
+
+model BillingPlan {
+  slug            String   @id // slug do plano, ex.: free | pro | enterprise
+  name            String
+  description     String?
+  price           Int      @default(0) // preço em centavos (0 = gratuito)
+  currency        String   @default("usd")
+  cycle           String   @default("monthly") // monthly | yearly
+  quotas          Json     @default("{}") // ex.: {"MICROSERVICE": 2, "DEPLOYMENT": 5} (-1 = ilimitado)
+  features        Json     @default("{}") // feature flags, ex.: {"apiKeys": true, "sso": false}
+  status          String   @default("active") // active | inactive
+  sortOrder       Int      @default(0)
+  stripeProductId String?
+  stripePriceId   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("billing_plans")
+}

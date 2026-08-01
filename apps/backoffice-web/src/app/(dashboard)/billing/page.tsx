@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Button, Card, CardHeader, CardTitle, CardContent } from "@organator/ui";
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/v1$/, "");
@@ -42,9 +43,14 @@ export default function BillingPage() {
           <h1 className="text-3xl font-bold tracking-tight text-white">Gestão Financeira & Faturamento</h1>
           <p className="text-neutral-400 mt-1">Gerencie planos e acesse o Stripe Customer Portal</p>
         </div>
-        <Button onClick={handleStripePortal} disabled={isSyncing}>
-          {isSyncing ? "Sincronizando..." : "Abrir Stripe Customer Portal"}
-        </Button>
+        <div className="flex items-center gap-3">
+          <Link href="/billing/plans">
+            <Button variant="outline">Gerenciar Planos</Button>
+          </Link>
+          <Button onClick={handleStripePortal} disabled={isSyncing}>
+            {isSyncing ? "Sincronizando..." : "Abrir Stripe Customer Portal"}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
