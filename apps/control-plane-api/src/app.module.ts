@@ -7,6 +7,7 @@ import { ServicesModule } from './services/services.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { AuthModule } from './auth/auth.module';
 import { DocsModule } from './docs/docs.module';
+import { BillingModule } from './billing/billing.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { DocsModule } from './docs/docs.module';
     OnboardingModule,
     AuthModule,
     DocsModule,
+    BillingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
