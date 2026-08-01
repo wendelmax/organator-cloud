@@ -8,7 +8,10 @@ export class BillingController {
   constructor(private readonly billingService: BillingService) {}
 
   @Post('create-portal-session')
-  async createPortalSession(@Req() req: any, @Body('returnUrl') returnUrl: string) {
+  async createPortalSession(
+    @Req() req: any,
+    @Body('returnUrl') returnUrl: string,
+  ) {
     const tenantId = req.user?.tenantId || 'default-tenant';
     return this.billingService.createPortalSession(tenantId, returnUrl);
   }

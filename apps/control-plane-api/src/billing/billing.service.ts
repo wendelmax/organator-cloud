@@ -11,7 +11,9 @@ export class BillingService {
   constructor(private readonly prisma: PrismaService) {}
 
   async createPortalSession(tenantId: string, returnUrl: string) {
-    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
     if (!tenant?.stripeId) {
       return { url: `https://billing.stripe.com/p/session/test_${Date.now()}` };
     }
@@ -28,12 +30,20 @@ export class BillingService {
   }
 
   async getSubscription(tenantId: string) {
-    const tenant = tenantId ? await this.prisma.tenant.findUnique({ where: { id: tenantId } }) : null;
+    const tenant = tenantId
+      ? await this.prisma.tenant.findUnique({ where: { id: tenantId } })
+      : null;
     return {
       plan: tenant?.plan || 'Pro',
       status: 'active',
       invoices: [
-        { id: 'inv_1001', amount: 4900, currency: 'usd', status: 'paid', date: new Date().toISOString() },
+        {
+          id: 'inv_1001',
+          amount: 4900,
+          currency: 'usd',
+          status: 'paid',
+          date: new Date().toISOString(),
+        },
       ],
     };
   }

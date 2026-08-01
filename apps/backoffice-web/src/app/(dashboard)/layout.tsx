@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen bg-neutral-950 text-white">
@@ -7,10 +9,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           Organator
         </div>
         <nav className="flex flex-col gap-2">
-          <a href="/tenants" className="px-4 py-2 rounded-md hover:bg-neutral-800 transition">Tenants</a>
-          <a href="/services" className="px-4 py-2 rounded-md hover:bg-neutral-800 transition">Services Catalog</a>
-          <a href="/portal" className="px-4 py-2 rounded-md hover:bg-neutral-800 transition text-blue-400">Developer Portal</a>
-          <a href="/billing" className="px-4 py-2 rounded-md hover:bg-neutral-800 transition">Billing (Stripe)</a>
+          <Link href="/tenants" className="px-4 py-2 rounded-md hover:bg-neutral-800 transition">Tenants</Link>
+          <Link href="/services" className="px-4 py-2 rounded-md hover:bg-neutral-800 transition">Services Catalog</Link>
+          <Link href="/portal" className="px-4 py-2 rounded-md hover:bg-neutral-800 transition text-blue-400">Developer Portal</Link>
+          <Link href="/billing" className="px-4 py-2 rounded-md hover:bg-neutral-800 transition">Billing (Stripe)</Link>
         </nav>
       </aside>
       

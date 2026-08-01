@@ -1,4 +1,12 @@
-import { Controller, Post, Get, Patch, Body, Param, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Patch,
+  Body,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { DocsService } from './docs.service';
 
@@ -8,7 +16,16 @@ export class DocsController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async create(@Body() body: { microserviceId: string; title: string; version: string; openApiSpec: string; isPublic?: boolean }) {
+  async create(
+    @Body()
+    body: {
+      microserviceId: string;
+      title: string;
+      version: string;
+      openApiSpec: string;
+      isPublic?: boolean;
+    },
+  ) {
     return this.docsService.createDoc(body);
   }
 
@@ -25,7 +42,10 @@ export class DocsController {
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id/visibility')
-  async toggleVisibility(@Param('id') id: string, @Body('isPublic') isPublic: boolean) {
+  async toggleVisibility(
+    @Param('id') id: string,
+    @Body('isPublic') isPublic: boolean,
+  ) {
     return this.docsService.toggleVisibility(id, isPublic);
   }
 }

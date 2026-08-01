@@ -8,7 +8,9 @@ import { PrismaService } from '../prisma/prisma.service';
 
 const secret = process.env.JWT_SECRET;
 if (!secret && process.env.NODE_ENV === 'production') {
-  throw new Error('CRITICAL SECURITY FATAL: JWT_SECRET environment variable is missing in production!');
+  throw new Error(
+    'CRITICAL SECURITY FATAL: JWT_SECRET environment variable is missing in production!',
+  );
 }
 
 export const jwtConstants = {

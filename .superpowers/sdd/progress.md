@@ -1,10 +1,10 @@
 # SDD Progress Ledger
 
-Plan: `docs/superpowers/plans/2026-07-31-bug-fixes-plan.md`
+Plan: `docs/superpowers/plans/2026-07-31-remaining-features-plan.md`
 
 | Task | Status | Commits | Notes |
 |---|---|---|---|
-| Task 1 | Complete | 186e97e | Fix POST /v1/services payload incompatibility |
-| Task 2 | Complete | f406f5d | Fix missing tenantId parameter |
-| Task 3 | Complete | 8ed621d | Connect login form & dynamic API URLs |
-| Task 4 | Complete | 858295f | Fix security issues (secrets, bcrypt, webhook) |
+| Task 1 | Complete | 1a359ab | Implement Cloud SDKs & Worker Prisma deployment logging |
+| Task 2 | Complete | 82b448b | Deployment history API & real-time logs UI |
+| Task 3 | Complete | db67cdc | Developer Portal OpenAPI spec management |
+| Task 4 | Complete | 2c881ed | Billing dashboard & Stripe Customer Portal |

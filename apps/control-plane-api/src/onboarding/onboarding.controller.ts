@@ -1,4 +1,11 @@
-import { Controller, Post, Body, Req, Headers, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Req,
+  Headers,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { TenantsService } from '../tenants/tenants.service';
@@ -25,24 +32,30 @@ export class OnboardingController {
     try {
       const secret = process.env.STRIPE_WEBHOOK_SECRET;
       if (!secret && process.env.NODE_ENV === 'production') {
-        throw new Error('STRIPE_WEBHOOK_SECRET environment variable is missing in production!');
+        throw new Error(
+          'STRIPE_WEBHOOK_SECRET environment variable is missing in production!',
+        );
       }
       const webhookSecret = secret || 'whsec_test';
       if (process.env.NODE_ENV === 'test' && !signature) {
-        event = req.body as any;
+        event = req.body;
       } else {
-        event = stripe.webhooks.constructEvent(req.rawBody as Buffer, signature, webhookSecret);
+        event = stripe.webhooks.constructEvent(
+          req.rawBody as Buffer,
+          signature,
+          webhookSecret,
+        );
       }
     } catch (err) {
       throw new BadRequestException(`Webhook Error: ${err.message}`);
     }
 
     if (event.type === 'checkout.session.completed') {
-      const session = event.data.object as any;
+      const session = event.data.object;
       const { metadata, customer_email } = session;
 
       if (!metadata?.tenantName) {
-         return { received: true, error: 'No tenantName in metadata' };
+        return { received: true, error: 'No tenantName in metadata' };
       }
 
       console.log(`[Webhook] Pagamento recebido para ${metadata.tenantName}`);
@@ -53,7 +66,9 @@ export class OnboardingController {
         customer_email || 'customer@example.com',
       );
 
-      console.log(`[Provisioner] Disparando fila para criar banco isolado para o tenant ${tenant.id}...`);
+      console.log(
+        `[Provisioner] Disparando fila para criar banco isolado para o tenant ${tenant.id}...`,
+      );
 
       await this.provisionerQueue.add('deploy-tenant-infra', {
         tenantId: tenant.id,

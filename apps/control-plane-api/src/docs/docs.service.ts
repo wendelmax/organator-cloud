@@ -5,7 +5,13 @@ import { PrismaService } from '../prisma/prisma.service';
 export class DocsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createDoc(data: { microserviceId: string; title: string; version: string; openApiSpec: string; isPublic?: boolean }) {
+  async createDoc(data: {
+    microserviceId: string;
+    title: string;
+    version: string;
+    openApiSpec: string;
+    isPublic?: boolean;
+  }) {
     return this.prisma.apiDoc.create({
       data: {
         microserviceId: data.microserviceId,

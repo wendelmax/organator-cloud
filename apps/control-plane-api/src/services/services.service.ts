@@ -7,7 +7,9 @@ import { PrismaService } from '../prisma/prisma.service';
 export class ServicesService {
   constructor(
     private readonly prisma: PrismaService,
-    @Optional() @InjectQueue('provisioner') private readonly provisionerQueue?: Queue,
+    @Optional()
+    @InjectQueue('provisioner')
+    private readonly provisionerQueue?: Queue,
   ) {}
 
   async createService(
@@ -40,7 +42,9 @@ export class ServicesService {
   }
 
   async triggerDeploy(serviceId: string) {
-    const service = await this.prisma.microservice.findUnique({ where: { id: serviceId } });
+    const service = await this.prisma.microservice.findUnique({
+      where: { id: serviceId },
+    });
     if (!service) throw new Error('Service not found');
 
     const deployment = await this.prisma.deployment.create({

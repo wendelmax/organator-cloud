@@ -78,7 +78,7 @@ export default function BillingPage() {
                 <div key={inv.id} className="flex justify-between items-center p-3 bg-neutral-950 rounded-lg border border-neutral-800 text-xs text-neutral-300 hover:border-neutral-700 transition-colors">
                   <div className="flex flex-col gap-0.5">
                     <span className="font-mono font-semibold text-white">{inv.id}</span>
-                    <span className="text-neutral-500 text-[10px]">{new Date(inv.date || Date.now()).toLocaleDateString()}</span>
+                    <span className="text-neutral-500 text-[10px]">{new Date(inv.date || '2026-07-31').toLocaleDateString()}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-semibold text-white">${(inv.amount / 100).toFixed(2)} USD</span>
