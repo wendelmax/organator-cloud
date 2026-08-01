@@ -6,6 +6,7 @@ import {
   Body,
   Param,
   UseGuards,
+  Request,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { DocsService } from './docs.service';
@@ -17,6 +18,7 @@ export class DocsController {
   @UseGuards(JwtAuthGuard)
   @Post()
   async create(
+    @Request() req: any,
     @Body()
     body: {
       microserviceId: string;
@@ -26,7 +28,7 @@ export class DocsController {
       isPublic?: boolean;
     },
   ) {
-    return this.docsService.createDoc(body);
+    return this.docsService.createDoc(body, req.user?.tenantId);
   }
 
   @Get('public')

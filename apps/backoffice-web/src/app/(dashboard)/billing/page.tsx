@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button, Card, CardHeader, CardTitle, CardContent } from "@organator/ui";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/v1$/, "");
 
 export default function BillingPage() {
   const [subscription, setSubscription] = useState<any>(null);

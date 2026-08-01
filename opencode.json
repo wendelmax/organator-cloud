@@ -5,6 +5,24 @@
       "type": "local",
       "command": ["npx", "-y", "@playwright/mcp@latest"],
       "enabled": true
+    },
+    "postgres": {
+      "type": "local",
+      "command": ["npx", "-y", "@fauzitech/mcp-postgres"],
+      "environment": {
+        "DATABASE_URL": "postgresql://organator:password@localhost:5433/organator_db"
+      },
+      "enabled": true
+    },
+    "redis": {
+      "type": "local",
+      "command": ["redis-mcp-server", "--url", "redis://localhost:6379/0"],
+      "enabled": true
+    },
+    "docker": {
+      "type": "local",
+      "command": ["npx", "-y", "@alisaitteke/docker-mcp"],
+      "enabled": true
     }
   }
 }

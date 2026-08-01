@@ -13,8 +13,8 @@ export async function createTenant(formData: FormData) {
 
   const payload = {
     name: formData.get("name"),
-    slug: formData.get("slug"),
-    planId: "free"
+    plan: (formData.get("plan") as string) || "free",
+    adminEmail: (session as any)?.user?.email,
   };
 
   const res = await fetch(`${API_URL}/v1/tenants`, {
