@@ -28,6 +28,7 @@ export const authOptions: NextAuthOptions = {
               name: data.user.email,
               email: data.user.email,
               role: data.user.role,
+              tenantId: data.user.tenantId,
               mustChangePassword: data.user.mustChangePassword,
               mfaEnabled: data.user.mfaEnabled,
               token: data.access_token
@@ -76,6 +77,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, account }) {
       if (user) {
         token.role = (user as any).role;
+        token.tenantId = (user as any).tenantId;
         token.mustChangePassword = (user as any).mustChangePassword;
         token.mfaEnabled = (user as any).mfaEnabled;
         token.accessToken = (user as any).token;
@@ -85,6 +87,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session?.user) {
         (session.user as any).role = token.role;
+        (session.user as any).tenantId = token.tenantId;
         (session.user as any).mustChangePassword = token.mustChangePassword;
         (session as any).accessToken = token.accessToken;
       }

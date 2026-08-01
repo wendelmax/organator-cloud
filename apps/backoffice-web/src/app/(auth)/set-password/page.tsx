@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signIn, getSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { SessionProvider } from "next-auth/react";
+
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/v1$/, "");
 
 function SetPasswordForm() {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -32,14 +33,18 @@ function SetPasswordForm() {
     }
 
     try {
-      const token = (session as any)?.accessToken;
+      let token = (session as any)?.accessToken;
+      if (!token) {
+        const fresh = await getSession();
+        token = (fresh as any)?.accessToken;
+      }
       if (!token) {
         setError("Sessão inválida. Faça login novamente.");
         setIsSubmitting(false);
         return;
       }
 
-      const res = await fetch("http://localhost:3001/v1/auth/change-password", {
+      const res = await fetch(`${API_URL}/v1/auth/change-password`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -48,13 +53,27 @@ function SetPasswordForm() {
         body: JSON.stringify({ currentPassword, newPassword }),
       });
 
-      if (res.ok) {
-        setSuccess(true);
-        setTimeout(() => router.push("/services"), 1200);
-      } else {
+      if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setError(data.message || "Não foi possível alterar a senha.");
+        setIsSubmitting(false);
+        return;
       }
+
+      // Re-autentica com a nova senha para renovar mustChangePassword=false
+      const signInRes = await signIn("credentials", {
+        email: (session?.user as any)?.email,
+        password: newPassword,
+        redirect: false,
+      });
+      if (signInRes?.error) {
+        setError("Senha alterada, mas o login automático falhou. Faça login novamente.");
+        router.push("/login");
+        return;
+      }
+
+      setSuccess(true);
+      setTimeout(() => router.push("/services"), 1200);
     } catch (err) {
       setError("Ocorreu um erro ao tentar alterar a senha.");
     } finally {
@@ -64,6 +83,9 @@ function SetPasswordForm() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-neutral-950">
+      {status === "loading" ? (
+        <div className="p-4 text-sm text-neutral-400">Carregando sessão...</div>
+      ) : (
       <div className="w-full max-w-md p-8 space-y-6 bg-neutral-900 rounded-xl shadow-2xl border border-neutral-800">
         <h1 className="text-3xl font-bold text-center text-white">Organator</h1>
         <p className="text-sm text-center text-neutral-400">
@@ -124,14 +146,11 @@ function SetPasswordForm() {
           </button>
         </form>
       </div>
+      )}
     </div>
   );
 }
 
 export default function SetPasswordPage() {
-  return (
-    <SessionProvider>
-      <SetPasswordForm />
-    </SessionProvider>
-  );
+  return <SetPasswordForm />;
 }

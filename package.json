@@ -10,6 +10,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "prettier": "^3.2.5",
     "turbo": "^2.0.0"
   },

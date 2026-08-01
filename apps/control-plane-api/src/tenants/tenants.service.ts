@@ -7,26 +7,34 @@ import * as crypto from 'crypto';
 export class TenantsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createTenant(name: string, plan: string, adminEmail: string) {
-    const tempPassword = crypto.randomBytes(16).toString('base64url');
-    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+  async createTenant(name: string, plan?: string, adminEmail?: string) {
+    const slug = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    let admin: { id: string } | null = null;
+    if (adminEmail) {
+      admin = await this.prisma.user.findUnique({ where: { email: adminEmail } });
+    }
+
     return this.prisma.tenant.create({
       data: {
         name,
-        slug: name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-        plan,
+        slug,
+        plan: plan || 'free',
         stripeId: `cus_simulated_${Date.now()}`,
-        users: {
-          create: [
-            {
-              email: adminEmail,
-              name: 'Admin',
-              password: hashedPassword,
-              role: 'OWNER',
-              mustChangePassword: true,
-            },
-          ],
-        },
+        users: admin
+          ? { connect: { id: admin.id } }
+          : adminEmail
+            ? {
+                create: [
+                  {
+                    email: adminEmail,
+                    name: 'Admin',
+                    password: await bcrypt.hash(crypto.randomBytes(16).toString('base64url'), 10),
+                    role: 'OWNER',
+                    mustChangePassword: true,
+                  },
+                ],
+              }
+            : undefined,
       },
     });
   }

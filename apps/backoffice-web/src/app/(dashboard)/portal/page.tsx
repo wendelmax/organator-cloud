@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { Button, Card, CardHeader, CardTitle, CardContent, Modal, Input } from "@organator/ui";
+import { useSession } from "next-auth/react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/v1$/, "");
 
 interface ApiDoc {
   id: string;
@@ -16,6 +17,7 @@ interface ApiDoc {
 }
 
 export default function DeveloperPortalPage() {
+  const { data: session } = useSession();
   const [docs, setDocs] = useState<ApiDoc[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<ApiDoc | null>(null);
@@ -25,7 +27,10 @@ export default function DeveloperPortalPage() {
   const fetchPublicDocs = () => {
     setLoading(true);
     fetch(`${API_URL}/v1/docs/public`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
       .then((data) => {
         setDocs(Array.isArray(data) ? data : []);
         setLoading(false);
@@ -43,11 +48,19 @@ export default function DeveloperPortalPage() {
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await fetch(`${API_URL}/v1/docs`, {
+      const res = await fetch(`${API_URL}/v1/docs`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${(session as any)?.accessToken ?? ""}`,
+        },
         body: JSON.stringify({ ...formData, isPublic: true }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.error("Falha ao publicar spec:", data.message || `HTTP ${res.status}`);
+        return;
+      }
       setIsModalOpen(false);
       setFormData({ title: "", version: "1.0.0", microserviceId: "", openApiSpec: "" });
       fetchPublicDocs();
