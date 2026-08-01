@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button, Card } from "@organator/ui";
 
 interface Deployment {
@@ -10,9 +10,62 @@ interface Deployment {
   createdAt: string;
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
 export function ServiceDetailsClient({ serviceId, initialDeployments }: { serviceId: string; initialDeployments: Deployment[] }) {
   const [deployments, setDeployments] = useState<Deployment[]>(initialDeployments);
   const [selectedDeployment, setSelectedDeployment] = useState<Deployment | null>(initialDeployments[0] || null);
+
+  const selectedDeploymentId = selectedDeployment?.id;
+
+  useEffect(() => {
+    if (!selectedDeploymentId) return;
+
+    const eventSource = new EventSource(`${API_URL}/v1/services/deployments/${selectedDeploymentId}/stream`);
+
+    eventSource.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        const logLine = payload.logLine || (typeof payload === 'string' ? payload : '');
+        const newStatus = payload.status;
+        const targetId = payload.deploymentId || selectedDeploymentId;
+
+        if (logLine || newStatus) {
+          setSelectedDeployment((prev) => {
+            if (!prev || prev.id !== targetId) return prev;
+            return {
+              ...prev,
+              logs: (prev.logs || '') + (logLine || ''),
+              status: newStatus || prev.status,
+            };
+          });
+
+          setDeployments((prevList) =>
+            prevList.map((d) =>
+              d.id === targetId
+                ? {
+                    ...d,
+                    logs: (d.logs || '') + (logLine || ''),
+                    status: newStatus || d.status,
+                  }
+                : d
+            )
+          );
+        }
+      } catch (err) {
+        console.error("Error processing log event:", err);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.warn("EventSource error or closed:", err);
+      eventSource.close();
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [selectedDeploymentId]);
 
   return (
     <div className="space-y-6">

@@ -1,12 +1,14 @@
 import { Worker, Job } from 'bullmq';
 import { VPSClient, VercelClient, AWSClient } from '@organator/cloud-providers';
 import { PrismaClient } from '@organator/core-models';
+import Redis from 'ioredis';
 
 const prisma = new PrismaClient();
 const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
 const REDIS_PORT = Number(process.env.REDIS_PORT) || 6379;
 
 const connection = { host: REDIS_HOST, port: REDIS_PORT };
+const redisPublisher = new Redis({ host: REDIS_HOST, port: REDIS_PORT });
 
 console.log(`[Provisioner Worker] Inicializando e conectando ao Redis em ${REDIS_HOST}:${REDIS_PORT}...`);
 
@@ -14,8 +16,8 @@ const worker = new Worker('provisioner', async (job: Job) => {
   console.log(`\n======================================================`);
   console.log(`[Job Recebido] ID: ${job.id} | Nome: ${job.name}`);
   
-  let deploymentId: string | null = null;
-  if (job.data.serviceId) {
+  let deploymentId: string | null = job.data.deploymentId || null;
+  if (job.data.serviceId && !deploymentId) {
     try {
       const dep = await prisma.deployment.create({
         data: {
@@ -30,6 +32,14 @@ const worker = new Worker('provisioner', async (job: Job) => {
     }
   }
 
+  if (deploymentId) {
+    const initialLog = `[${new Date().toISOString()}] Job de deploy iniciado...\n`;
+    redisPublisher.publish(
+      `deploy_logs:${deploymentId}`,
+      JSON.stringify({ deploymentId, logLine: initialLog, status: 'RUNNING' })
+    ).catch((e: any) => console.warn(`[Redis Pub Warning] ${e.message}`));
+  }
+
   try {
     if (job.name === 'deploy-tenant-infra') {
       await handleDeployTenantInfra(job, deploymentId);
@@ -37,39 +47,58 @@ const worker = new Worker('provisioner', async (job: Job) => {
       await handleDeployMicroservice(job, deploymentId);
     }
     if (deploymentId) {
+      const successLog = `[${new Date().toISOString()}] Deploy concluído com sucesso!\n`;
+      const current = await prisma.deployment.findUnique({ where: { id: deploymentId } });
       await prisma.deployment.update({
         where: { id: deploymentId },
-        data: { status: 'SUCCESS' }
+        data: {
+          status: 'SUCCESS',
+          logs: `${current?.logs || ''}${successLog}`
+        }
       });
+      await redisPublisher.publish(
+        `deploy_logs:${deploymentId}`,
+        JSON.stringify({ deploymentId, logLine: successLog, status: 'SUCCESS' })
+      );
     }
     console.log(`======================================================\n`);
     return { success: true, finishedAt: new Date().toISOString() };
   } catch (err: any) {
     if (deploymentId) {
       const current = await prisma.deployment.findUnique({ where: { id: deploymentId } });
+      const errLog = `[${new Date().toISOString()}] [ERRO] ${err.message}\n`;
       await prisma.deployment.update({
         where: { id: deploymentId },
         data: { 
           status: 'FAILED',
-          logs: `${current?.logs || ''}[${new Date().toISOString()}] [ERRO] ${err.message}\n`
+          logs: `${current?.logs || ''}${errLog}`
         }
       });
+      await redisPublisher.publish(
+        `deploy_logs:${deploymentId}`,
+        JSON.stringify({ deploymentId, logLine: errLog, status: 'FAILED' })
+      );
     }
     console.log(`======================================================\n`);
     throw err;
   }
 }, { connection });
 
-async function appendLog(deploymentId: string | null, job: Job, msg: string) {
+async function appendLog(deploymentId: string | null, job: Job, msg: string, status: string = 'RUNNING') {
   console.log(msg);
   await job.log(msg);
   if (deploymentId) {
+    const logLine = `[${new Date().toISOString()}] ${msg}\n`;
     try {
       const current = await prisma.deployment.findUnique({ where: { id: deploymentId } });
       await prisma.deployment.update({
         where: { id: deploymentId },
-        data: { logs: `${current?.logs || ''}[${new Date().toISOString()}] ${msg}\n` }
+        data: { logs: `${current?.logs || ''}${logLine}` }
       });
+      await redisPublisher.publish(
+        `deploy_logs:${deploymentId}`,
+        JSON.stringify({ deploymentId, logLine, status })
+      );
     } catch (e: any) {
       console.warn(`[Prisma Log Warning] ${e.message}`);
     }
