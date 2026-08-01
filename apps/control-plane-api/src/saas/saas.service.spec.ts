@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SaasService } from './saas.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { HttpException, HttpStatus } from '@nestjs/common';
+import { HttpStatus } from '@nestjs/common';
 
 describe('SaasService', () => {
   let service: SaasService;
@@ -19,7 +19,20 @@ describe('SaasService', () => {
     deployment: {
       count: jest.fn(),
     },
+    user: {
+      count: jest.fn(),
+    },
+    apiDoc: {
+      count: jest.fn(),
+    },
   };
+
+  const quotaError = (partial: Record<string, unknown> = {}) => ({
+    statusCode: HttpStatus.PAYMENT_REQUIRED,
+    code: 'QUOTA_EXCEEDED',
+    message: 'Limite do plano atingido. Faça upgrade para continuar.',
+    ...partial,
+  });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -41,7 +54,12 @@ describe('SaasService', () => {
     expect(service).toBeDefined();
   });
 
-  describe('checkQuota - free plan', () => {
+  it('should return early without queries when tenantId is missing', async () => {
+    await expect(service.checkQuota('', 'MICROSERVICE')).resolves.not.toThrow();
+    expect(mockPrismaService.tenant.findUnique).not.toHaveBeenCalled();
+  });
+
+  describe('checkQuota - free plan (fallback)', () => {
     beforeEach(() => {
       mockPrismaService.tenant.findUnique.mockResolvedValue({
         id: 'tenant-free',
@@ -57,17 +75,20 @@ describe('SaasService', () => {
       ).resolves.not.toThrow();
     });
 
-    it('should throw HTTP 402 if microservice quota reached (2 microservices)', async () => {
+    it('should throw HTTP 402 with quota details if microservice quota reached', async () => {
       mockPrismaService.microservice.count.mockResolvedValue(2);
 
       await expect(
         service.checkQuota('tenant-free', 'MICROSERVICE'),
-      ).rejects.toThrow(
-        new HttpException(
-          'Limite do plano atingido. Faça upgrade para continuar.',
-          HttpStatus.PAYMENT_REQUIRED,
-        ),
-      );
+      ).rejects.toMatchObject({
+        status: HttpStatus.PAYMENT_REQUIRED,
+        response: quotaError({
+          plan: 'free',
+          resource: 'MICROSERVICE',
+          limit: 2,
+          usage: 2,
+        }),
+      });
     });
 
     it('should allow deployment if under limit (4 deployments)', async () => {
@@ -78,21 +99,58 @@ describe('SaasService', () => {
       ).resolves.not.toThrow();
     });
 
-    it('should throw HTTP 402 if deployment quota reached (5 deployments)', async () => {
+    it('should throw HTTP 402 with quota details if deployment quota reached', async () => {
       mockPrismaService.deployment.count.mockResolvedValue(5);
 
       await expect(
         service.checkQuota('tenant-free', 'DEPLOYMENT'),
-      ).rejects.toThrow(
-        new HttpException(
-          'Limite do plano atingido. Faça upgrade para continuar.',
-          HttpStatus.PAYMENT_REQUIRED,
-        ),
-      );
+      ).rejects.toMatchObject({
+        status: HttpStatus.PAYMENT_REQUIRED,
+        response: quotaError({
+          plan: 'free',
+          resource: 'DEPLOYMENT',
+          limit: 5,
+          usage: 5,
+        }),
+      });
     });
   });
 
-  describe('checkQuota - pro plan', () => {
+  describe('checkQuota - tenant without plan falls back to free', () => {
+    it('should resolve free limits when tenant.plan is null', async () => {
+      mockPrismaService.tenant.findUnique.mockResolvedValue({
+        id: 'tenant-null',
+        plan: null,
+      });
+      mockPrismaService.user.count.mockResolvedValue(3);
+
+      await expect(
+        service.checkQuota('tenant-null', 'SEATS'),
+      ).rejects.toMatchObject({
+        response: quotaError({ plan: 'free', resource: 'SEATS', limit: 3 }),
+      });
+    });
+
+    it('should resolve free limits when tenant.plan is unknown', async () => {
+      mockPrismaService.tenant.findUnique.mockResolvedValue({
+        id: 'tenant-unknown',
+        plan: 'does-not-exist',
+      });
+      mockPrismaService.microservice.count.mockResolvedValue(2);
+
+      await expect(
+        service.checkQuota('tenant-unknown', 'MICROSERVICE'),
+      ).rejects.toMatchObject({
+        response: quotaError({
+          plan: 'does-not-exist',
+          resource: 'MICROSERVICE',
+          limit: 2,
+        }),
+      });
+    });
+  });
+
+  describe('checkQuota - pro plan (fallback)', () => {
     beforeEach(() => {
       mockPrismaService.tenant.findUnique.mockResolvedValue({
         id: 'tenant-pro',
@@ -113,37 +171,18 @@ describe('SaasService', () => {
 
       await expect(
         service.checkQuota('tenant-pro', 'MICROSERVICE'),
-      ).rejects.toThrow(
-        new HttpException(
-          'Limite do plano atingido. Faça upgrade para continuar.',
-          HttpStatus.PAYMENT_REQUIRED,
-        ),
-      );
-    });
-
-    it('should allow up to 99 deployments', async () => {
-      mockPrismaService.deployment.count.mockResolvedValue(99);
-
-      await expect(
-        service.checkQuota('tenant-pro', 'DEPLOYMENT'),
-      ).resolves.not.toThrow();
-    });
-
-    it('should throw HTTP 402 at 100 deployments', async () => {
-      mockPrismaService.deployment.count.mockResolvedValue(100);
-
-      await expect(
-        service.checkQuota('tenant-pro', 'DEPLOYMENT'),
-      ).rejects.toThrow(
-        new HttpException(
-          'Limite do plano atingido. Faça upgrade para continuar.',
-          HttpStatus.PAYMENT_REQUIRED,
-        ),
-      );
+      ).rejects.toMatchObject({
+        response: quotaError({
+          plan: 'pro',
+          resource: 'MICROSERVICE',
+          limit: 20,
+          usage: 20,
+        }),
+      });
     });
   });
 
-  describe('checkQuota - enterprise plan', () => {
+  describe('checkQuota - enterprise plan (fallback, unlimited)', () => {
     beforeEach(() => {
       mockPrismaService.tenant.findUnique.mockResolvedValue({
         id: 'tenant-enterprise',
@@ -157,6 +196,13 @@ describe('SaasService', () => {
       ).resolves.not.toThrow();
       expect(mockPrismaService.microservice.count).not.toHaveBeenCalled();
     });
+
+    it('should allow unlimited deployments and not call count query', async () => {
+      await expect(
+        service.checkQuota('tenant-enterprise', 'DEPLOYMENT'),
+      ).resolves.not.toThrow();
+      expect(mockPrismaService.deployment.count).not.toHaveBeenCalled();
+    });
   });
 
   describe('checkQuota - quotas from BillingPlan register', () => {
@@ -167,7 +213,14 @@ describe('SaasService', () => {
       });
       mockPrismaService.billingPlan.findUnique.mockResolvedValue({
         slug: 'team',
-        quotas: { MICROSERVICE: 5, DEPLOYMENT: -1 },
+        quotas: {
+          MICROSERVICE: 5,
+          DEPLOYMENT: -1,
+          SEATS: 4,
+          APIS: 2,
+          DOMAINS: 1,
+          GB_STORAGE: 1,
+        },
       });
     });
 
@@ -184,19 +237,66 @@ describe('SaasService', () => {
 
       await expect(
         service.checkQuota('tenant-custom', 'MICROSERVICE'),
-      ).rejects.toThrow(
-        new HttpException(
-          'Limite do plano atingido. Faça upgrade para continuar.',
-          HttpStatus.PAYMENT_REQUIRED,
-        ),
-      );
+      ).rejects.toMatchObject({
+        response: quotaError({
+          plan: 'team',
+          resource: 'MICROSERVICE',
+          limit: 5,
+          usage: 5,
+        }),
+      });
     });
 
-    it('should treat -1 stored quota as unlimited (-1 deployment)', async () => {
+    it('should treat -1 stored quota as unlimited', async () => {
       await expect(
         service.checkQuota('tenant-custom', 'DEPLOYMENT'),
       ).resolves.not.toThrow();
       expect(mockPrismaService.deployment.count).not.toHaveBeenCalled();
+    });
+
+    it('should count SEATS from users and enforce the stored limit', async () => {
+      mockPrismaService.user.count.mockResolvedValue(4);
+
+      await expect(
+        service.checkQuota('tenant-custom', 'SEATS'),
+      ).rejects.toMatchObject({
+        response: quotaError({
+          plan: 'team',
+          resource: 'SEATS',
+          limit: 4,
+          usage: 4,
+        }),
+      });
+      expect(mockPrismaService.user.count).toHaveBeenCalledWith({
+        where: { tenantId: 'tenant-custom' },
+      });
+    });
+
+    it('should count APIS from api docs and enforce the stored limit', async () => {
+      mockPrismaService.apiDoc.count.mockResolvedValue(2);
+
+      await expect(
+        service.checkQuota('tenant-custom', 'APIS'),
+      ).rejects.toMatchObject({
+        response: quotaError({
+          plan: 'team',
+          resource: 'APIS',
+          limit: 2,
+          usage: 2,
+        }),
+      });
+      expect(mockPrismaService.apiDoc.count).toHaveBeenCalledWith({
+        where: { microservice: { tenantId: 'tenant-custom' } },
+      });
+    });
+
+    it('should not block DOMAINS and GB_STORAGE (usage not tracked yet)', async () => {
+      await expect(
+        service.checkQuota('tenant-custom', 'DOMAINS'),
+      ).resolves.not.toThrow();
+      await expect(
+        service.checkQuota('tenant-custom', 'GB_STORAGE'),
+      ).resolves.not.toThrow();
     });
   });
 });
