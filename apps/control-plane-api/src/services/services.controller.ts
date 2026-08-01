@@ -11,6 +11,8 @@ import {
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { QuotaGuard } from '../saas/quota.guard';
+import { CheckQuota } from '../saas/quota.decorator';
 import { ServicesService } from './services.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 
@@ -30,13 +32,15 @@ export class ServicesController {
     return this.servicesService.getDeploymentsByService(id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, QuotaGuard)
+  @CheckQuota('DEPLOYMENT')
   @Post(':id/deploy')
   async triggerDeploy(@Param('id') id: string) {
     return this.servicesService.triggerDeploy(id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, QuotaGuard)
+  @CheckQuota('MICROSERVICE')
   @Post()
   async create(@Body() body: CreateServiceDto) {
     const repo = body.repositoryUrl || body.repository;

@@ -8,6 +8,7 @@ import { OnboardingModule } from './onboarding/onboarding.module';
 import { AuthModule } from './auth/auth.module';
 import { DocsModule } from './docs/docs.module';
 import { BillingModule } from './billing/billing.module';
+import { SaasModule } from './saas/saas.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { BillingModule } from './billing/billing.module';
     AuthModule,
     DocsModule,
     BillingModule,
+    SaasModule,
   ],
   controllers: [AppController],
   providers: [AppService],
