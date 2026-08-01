@@ -13,6 +13,16 @@ export class ServicesController {
     return this.servicesService.getServicesByTenant(tenantId);
   }
 
+  @Get(':id/deployments')
+  async getDeployments(@Param('id') id: string) {
+    return this.servicesService.getDeploymentsByService(id);
+  }
+
+  @Post(':id/deploy')
+  async triggerDeploy(@Param('id') id: string) {
+    return this.servicesService.triggerDeploy(id);
+  }
+
   @Post()
   async create(@Body() body: CreateServiceDto) {
     const repo = body.repositoryUrl || body.repository;
