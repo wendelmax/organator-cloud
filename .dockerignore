@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+.git
+.turbo
+**/.turbo
+dist
+**/dist
+.next
+**/.next
+*.log
+Dockerfile
+.dockerignore
+.scratch
+scratch
