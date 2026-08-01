@@ -33,3 +33,6 @@ out
 # Prisma
 *.db
 *.db-journal
+
+# embedded wiki checkout
+scratch/organator-cloud.wiki/

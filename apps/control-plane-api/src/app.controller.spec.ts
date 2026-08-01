@@ -15,8 +15,12 @@ describe('AppController', () => {
   });
 
   describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+    it('should return service info', () => {
+      const info = appController.getServiceInfo();
+      expect(info).toMatchObject({
+        service: 'organator-control-plane-api',
+        status: 'healthy',
+      });
     });
   });
 });

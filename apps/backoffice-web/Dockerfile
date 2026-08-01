@@ -16,8 +16,6 @@ COPY --from=builder /app/out/json/ .
 COPY --from=builder /app/out/package-lock.json ./package-lock.json
 RUN npm install
 COPY --from=builder /app/out/full/ .
-# Generate Prisma Client
-RUN cd packages/core-models && npx prisma generate
 RUN npm run build --filter=backoffice-web
 
 FROM base AS runner
