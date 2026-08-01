@@ -1,12 +1,13 @@
 import axios from 'axios';
+import { decryptSecret } from './crypto';
 
 export class VercelClient {
   private apiToken: string;
   private teamId?: string;
 
   constructor(apiToken: string, teamId?: string) {
-    this.apiToken = apiToken;
-    this.teamId = teamId;
+    this.apiToken = decryptSecret(apiToken);
+    this.teamId = teamId ? decryptSecret(teamId) : teamId;
   }
 
   private get headers() {

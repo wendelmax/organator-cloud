@@ -1,14 +1,18 @@
 import { EC2Client, RunInstancesCommand } from '@aws-sdk/client-ec2';
+import { decryptSecret } from './crypto';
 
 export class AWSClient {
   private ec2: EC2Client;
 
   constructor(region: string, accessKeyId: string, secretAccessKey: string) {
+    const decryptedAccessKeyId = decryptSecret(accessKeyId);
+    const decryptedSecretAccessKey = decryptSecret(secretAccessKey);
+
     this.ec2 = new EC2Client({
       region: region || 'us-east-1',
       credentials: {
-        accessKeyId: accessKeyId || 'mock-access-key',
-        secretAccessKey: secretAccessKey || 'mock-secret-key'
+        accessKeyId: decryptedAccessKeyId || 'mock-access-key',
+        secretAccessKey: decryptedSecretAccessKey || 'mock-secret-key'
       }
     });
   }

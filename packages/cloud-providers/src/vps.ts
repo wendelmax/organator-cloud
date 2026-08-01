@@ -1,4 +1,5 @@
 import { Client } from 'ssh2';
+import { decryptSecret } from './crypto';
 
 export class VPSClient {
   private host: string;
@@ -10,7 +11,7 @@ export class VPSClient {
     this.host = host;
     this.port = port;
     this.username = username;
-    this.privateKey = privateKey;
+    this.privateKey = decryptSecret(privateKey);
   }
 
   async execCommand(command: string): Promise<string> {
