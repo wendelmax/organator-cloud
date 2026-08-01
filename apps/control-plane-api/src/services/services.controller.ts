@@ -1,4 +1,12 @@
-import { Controller, Post, Body, Get, Param, UseGuards, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Param,
+  UseGuards,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ServicesService } from './services.service';
 import { CreateServiceDto } from './dto/create-service.dto';
@@ -11,6 +19,16 @@ export class ServicesController {
   @Get('tenant/:tenantId')
   async findByTenant(@Param('tenantId') tenantId: string) {
     return this.servicesService.getServicesByTenant(tenantId);
+  }
+
+  @Get(':id/deployments')
+  async getDeployments(@Param('id') id: string) {
+    return this.servicesService.getDeploymentsByService(id);
+  }
+
+  @Post(':id/deploy')
+  async triggerDeploy(@Param('id') id: string) {
+    return this.servicesService.triggerDeploy(id);
   }
 
   @Post()
