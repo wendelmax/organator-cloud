@@ -6,6 +6,13 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
+import { AuditService } from '../audit/audit.service';
+import { TenantLifecycleService } from './tenant-lifecycle.service';
+import {
+  TenantState,
+  VALID_STATES,
+  legacyStatusFor,
+} from './tenant-lifecycle.types';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
@@ -28,10 +35,23 @@ export class TenantsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly entitlementsService: EntitlementsService,
+    private readonly auditService: AuditService,
+    private readonly lifecycleService: TenantLifecycleService,
   ) {}
 
-  async createTenant(name: string, plan?: string, adminEmail?: string) {
+  async createTenant(
+    name: string,
+    plan?: string,
+    adminEmail?: string,
+    opts: { state?: TenantState; actorId?: string; actorEmail?: string } = {},
+  ) {
     const slug = normalizeSlug(name);
+    const state = opts.state || 'active';
+    if (!VALID_STATES.includes(state)) {
+      throw new BadRequestException(
+        `Invalid state "${state}". Allowed: ${VALID_STATES.join(', ')}`,
+      );
+    }
     let admin: { id: string } | null = null;
     if (adminEmail) {
       admin = await this.prisma.user.findUnique({
@@ -39,12 +59,14 @@ export class TenantsService {
       });
     }
 
-    return this.prisma.tenant.create({
+    const tenant = await this.prisma.tenant.create({
       data: {
         name,
         slug,
         plan: plan || 'free',
-        status: 'active',
+        status: legacyStatusFor(state),
+        state,
+        stateChangedAt: new Date(),
         stripeId: `cus_simulated_${Date.now()}`,
         users: admin
           ? { connect: { id: admin.id } }
@@ -66,6 +88,17 @@ export class TenantsService {
             : undefined,
       },
     });
+
+    await this.auditService.record({
+      actorId: opts.actorId ?? null,
+      actorEmail: opts.actorEmail ?? null,
+      action: 'tenant.created',
+      resourceType: 'Tenant',
+      resourceId: tenant.id,
+      changes: { name, plan: plan || 'free', state },
+    });
+
+    return tenant;
   }
 
   async getTenants() {
@@ -168,22 +201,43 @@ export class TenantsService {
         `Invalid status. Allowed: ${VALID_STATUSES.join(', ')}`,
       );
     }
-    return this.prisma.tenant.update({
-      where: { id: tenantId },
-      data: { status },
+    // Mantém a state machine em sincronia com o status legado (#34).
+    const state: TenantState =
+      status === 'suspended'
+        ? 'suspended'
+        : status === 'archived'
+          ? 'offboarding'
+          : 'active';
+    return this.lifecycleService.transition(tenantId, state, {
+      reason: 'legacy.status_set',
     });
   }
 
-  async suspendTenant(tenantId: string) {
-    return this.setTenantStatus(tenantId, 'suspended');
+  async suspendTenant(tenantId: string, opts: Record<string, unknown> = {}) {
+    await this.ensureTenantExists(tenantId);
+    return this.lifecycleService.markSuspended(tenantId, {
+      reason: (opts.reason as string) || 'manual.admin',
+      actorId: (opts.actorId as string) || null,
+      actorEmail: (opts.actorEmail as string) || null,
+    });
   }
 
-  async reactivateTenant(tenantId: string) {
-    return this.setTenantStatus(tenantId, 'active');
+  async reactivateTenant(tenantId: string, opts: Record<string, unknown> = {}) {
+    await this.ensureTenantExists(tenantId);
+    return this.lifecycleService.restoreActive(tenantId, {
+      reason: (opts.reason as string) || 'manual.admin',
+      actorId: (opts.actorId as string) || null,
+      actorEmail: (opts.actorEmail as string) || null,
+    });
   }
 
-  async archiveTenant(tenantId: string) {
-    return this.setTenantStatus(tenantId, 'archived');
+  async archiveTenant(tenantId: string, opts: Record<string, unknown> = {}) {
+    await this.ensureTenantExists(tenantId);
+    return this.lifecycleService.markOffboarding(tenantId, {
+      reason: (opts.reason as string) || 'manual.admin',
+      actorId: (opts.actorId as string) || null,
+      actorEmail: (opts.actorEmail as string) || null,
+    });
   }
 
   async transferOwnership(tenantId: string, newOwnerId: string) {
@@ -366,6 +420,10 @@ export class TenantsService {
       slug: tenant.slug,
       plan: tenant.plan,
       status: tenant.status,
+      state: tenant.state,
+      graceEndsAt: tenant.graceEndsAt,
+      suspendedAt: tenant.suspendedAt,
+      stateChangedAt: tenant.stateChangedAt,
       stripeId: tenant.stripeId,
       createdAt: tenant.createdAt,
       updatedAt: tenant.updatedAt,

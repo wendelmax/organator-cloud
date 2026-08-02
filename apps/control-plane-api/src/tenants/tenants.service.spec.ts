@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TenantsService } from './tenants.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
+import { AuditService } from '../audit/audit.service';
+import { TenantLifecycleService } from './tenant-lifecycle.service';
 import {
   NotFoundException,
   BadRequestException,
@@ -13,6 +15,16 @@ describe('TenantsService', () => {
 
   const mockEntitlements = {
     bust: jest.fn(),
+  };
+
+  const mockAudit = {
+    record: jest.fn(),
+  };
+
+  const mockLifecycle = {
+    markSuspended: jest.fn(),
+    restoreActive: jest.fn(),
+    markOffboarding: jest.fn(),
   };
 
   const mockPrisma = {
@@ -53,6 +65,8 @@ describe('TenantsService', () => {
         TenantsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: EntitlementsService, useValue: mockEntitlements },
+        { provide: AuditService, useValue: mockAudit },
+        { provide: TenantLifecycleService, useValue: mockLifecycle },
       ],
     }).compile();
 
@@ -167,51 +181,71 @@ describe('TenantsService', () => {
     });
   });
 
-  describe('tenant status lifecycle', () => {
-    it('should suspend a tenant', async () => {
+  describe('tenant status lifecycle (via state machine)', () => {
+    it('should suspend a tenant through the lifecycle state machine', async () => {
       mockPrisma.tenant.findUnique.mockResolvedValue({
         id: 'tenant-1',
         status: 'active',
+        state: 'active',
       });
-      mockPrisma.tenant.update.mockResolvedValue({
+      mockLifecycle.markSuspended.mockResolvedValue({
         id: 'tenant-1',
         status: 'suspended',
+        state: 'suspended',
       });
 
       const result = await service.suspendTenant('tenant-1');
-      expect(result).toEqual({ id: 'tenant-1', status: 'suspended' });
-      expect(mockPrisma.tenant.update).toHaveBeenCalledWith({
-        where: { id: 'tenant-1' },
-        data: { status: 'suspended' },
+      expect(result).toEqual({
+        id: 'tenant-1',
+        status: 'suspended',
+        state: 'suspended',
       });
+      expect(mockLifecycle.markSuspended).toHaveBeenCalledWith(
+        'tenant-1',
+        expect.objectContaining({ reason: 'manual.admin' }),
+      );
     });
 
-    it('should reactivate a tenant', async () => {
+    it('should reactivate a tenant through the lifecycle state machine', async () => {
       mockPrisma.tenant.findUnique.mockResolvedValue({
         id: 'tenant-1',
         status: 'suspended',
+        state: 'suspended',
       });
-      mockPrisma.tenant.update.mockResolvedValue({
+      mockLifecycle.restoreActive.mockResolvedValue({
         id: 'tenant-1',
         status: 'active',
+        state: 'active',
       });
 
       const result = await service.reactivateTenant('tenant-1');
       expect(result.status).toBe('active');
+      expect(result.state).toBe('active');
+      expect(mockLifecycle.restoreActive).toHaveBeenCalledWith(
+        'tenant-1',
+        expect.objectContaining({ reason: 'manual.admin' }),
+      );
     });
 
-    it('should archive a tenant', async () => {
+    it('should archive a tenant as offboarding through the lifecycle', async () => {
       mockPrisma.tenant.findUnique.mockResolvedValue({
         id: 'tenant-1',
         status: 'active',
+        state: 'active',
       });
-      mockPrisma.tenant.update.mockResolvedValue({
+      mockLifecycle.markOffboarding.mockResolvedValue({
         id: 'tenant-1',
         status: 'archived',
+        state: 'offboarding',
       });
 
       const result = await service.archiveTenant('tenant-1');
       expect(result.status).toBe('archived');
+      expect(result.state).toBe('offboarding');
+      expect(mockLifecycle.markOffboarding).toHaveBeenCalledWith(
+        'tenant-1',
+        expect.objectContaining({ reason: 'manual.admin' }),
+      );
     });
 
     it('should throw NotFoundException if tenant does not exist', async () => {

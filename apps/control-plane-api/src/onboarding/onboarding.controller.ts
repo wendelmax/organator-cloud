@@ -6,11 +6,8 @@ import {
   Headers,
   BadRequestException,
 } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
-import { TenantsService } from '../tenants/tenants.service';
-import { IamService } from '../iam/iam.service';
 import { BillingPlansService } from '../billing/billing-plans.service';
+import { BillingWebhookService } from '../billing/billing-webhook.service';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_123', {
@@ -20,10 +17,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_123', {
 @Controller('v1/onboarding')
 export class OnboardingController {
   constructor(
-    private readonly tenantsService: TenantsService,
-    private readonly iamService: IamService,
+    private readonly billingWebhook: BillingWebhookService,
     private readonly plansService: BillingPlansService,
-    @InjectQueue('provisioner') private readonly provisionerQueue: Queue,
   ) {}
 
   @Post('webhook')
@@ -54,43 +49,7 @@ export class OnboardingController {
       throw new BadRequestException(`Webhook Error: ${err.message}`);
     }
 
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object;
-      const { metadata, customer_email } = session;
-
-      if (!metadata?.tenantName) {
-        return { received: true, error: 'No tenantName in metadata' };
-      }
-
-      console.log(`[Webhook] Pagamento recebido para ${metadata.tenantName}`);
-
-      const tenant = await this.tenantsService.createTenant(
-        metadata.tenantName,
-        metadata.plan,
-        customer_email || 'customer@example.com',
-      );
-
-      console.log(
-        `[Provisioner] Disparando fila para criar banco isolado para o tenant ${tenant.id}...`,
-      );
-
-      // IAM: grupo por tenant + convite do OWNER no VoidAuth (ou self-registration via OIDC)
-      await this.iamService.linkOwnerAfterCheckout(
-        tenant.id,
-        tenant.slug,
-        customer_email || 'customer@example.com',
-      );
-
-      await this.provisionerQueue.add('deploy-tenant-infra', {
-        tenantId: tenant.id,
-        plan: tenant.plan,
-        action: 'INITIAL_PROVISIONING',
-      });
-
-      return { received: true, tenantId: tenant.id };
-    }
-
-    return { received: true };
+    return this.billingWebhook.process(event);
   }
 
   @Post('checkout')

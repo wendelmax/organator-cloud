@@ -1,13 +1,31 @@
 import { Module } from '@nestjs/common';
+import { BullModule } from '@nestjs/bullmq';
 import { BillingController } from './billing.controller';
 import { BillingService } from './billing.service';
 import { BillingPlansController } from './billing-plans.controller';
 import { BillingPlansService } from './billing-plans.service';
+import { BillingWebhookService } from './billing-webhook.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantsModule } from '../tenants/tenants.module';
+import { IamModule } from '../iam/iam.module';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
+  imports: [
+    BullModule.registerQueue({
+      name: 'provisioner',
+    }),
+    TenantsModule,
+    IamModule,
+    AuditModule,
+  ],
   controllers: [BillingController, BillingPlansController],
-  providers: [BillingService, BillingPlansService, PrismaService],
-  exports: [BillingService, BillingPlansService],
+  providers: [
+    BillingService,
+    BillingPlansService,
+    BillingWebhookService,
+    PrismaService,
+  ],
+  exports: [BillingService, BillingPlansService, BillingWebhookService],
 })
 export class BillingModule {}

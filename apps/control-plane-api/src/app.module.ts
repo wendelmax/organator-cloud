@@ -11,6 +11,7 @@ import { BillingModule } from './billing/billing.module';
 import { SaasModule } from './saas/saas.module';
 import { IamModule } from './iam/iam.module';
 import { EntitlementsModule } from './entitlements/entitlements.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { EntitlementsModule } from './entitlements/entitlements.module';
     SaasModule,
     IamModule,
     EntitlementsModule,
+    AuditModule,
   ],
   controllers: [AppController],
   providers: [AppService],
