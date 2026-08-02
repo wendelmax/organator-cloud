@@ -2,12 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { TenantStateGuard } from './tenant-state.guard';
 import { TenantLifecycleService } from './tenant-lifecycle.service';
+import { ApiKeysService } from '../api-keys/api-keys.service';
 
 describe('TenantStateGuard', () => {
   let guard: TenantStateGuard;
 
   const mockJwt = { verify: jest.fn() };
   const mockLifecycle = { assertAccess: jest.fn() };
+  const mockApiKeys = { resolveTenantId: jest.fn() };
 
   const makeReq = (url: string, method = 'GET', token?: string | null) => ({
     url,
@@ -22,6 +24,7 @@ describe('TenantStateGuard', () => {
         TenantStateGuard,
         { provide: JwtService, useValue: mockJwt },
         { provide: TenantLifecycleService, useValue: mockLifecycle },
+        { provide: ApiKeysService, useValue: mockApiKeys },
       ],
     }).compile();
 
@@ -87,6 +90,31 @@ describe('TenantStateGuard', () => {
 
     await expect(guard.canActivate(ctx)).resolves.toBe(true);
     expect(mockLifecycle.assertAccess).toHaveBeenCalledWith('t1', 'POST');
+  });
+
+  it('should enforce state access for API key tokens', async () => {
+    mockApiKeys.resolveTenantId.mockResolvedValue('t1');
+    mockLifecycle.assertAccess.mockResolvedValue(undefined);
+    const ctx = {
+      switchToHttp: () => ({
+        getRequest: () => makeReq('/v1/services', 'POST', 'sk_deadbeef'),
+      }),
+    } as any;
+
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    expect(mockLifecycle.assertAccess).toHaveBeenCalledWith('t1', 'POST');
+  });
+
+  it('should skip state enforcement for invalid API key', async () => {
+    mockApiKeys.resolveTenantId.mockResolvedValue(null);
+    const ctx = {
+      switchToHttp: () => ({
+        getRequest: () => makeReq('/v1/services', 'GET', 'sk_deadbeef'),
+      }),
+    } as any;
+
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    expect(mockLifecycle.assertAccess).not.toHaveBeenCalled();
   });
 
   it('should propagate block from lifecycle (suspended)', async () => {

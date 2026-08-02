@@ -22,10 +22,10 @@ export const IS_PUBLIC_KEY = 'isPublic';
 @Injectable()
 export class JwtAuthGuard extends AuthGuard(
   resolveAuthMode() === 'legacy'
-    ? 'jwt'
+    ? ['jwt', 'api-key']
     : resolveAuthMode() === 'oidc'
-      ? 'oidc'
-      : ['jwt', 'oidc'],
+      ? ['oidc', 'api-key']
+      : ['jwt', 'oidc', 'api-key'],
 ) {
   constructor(private readonly reflector: Reflector) {
     super();
