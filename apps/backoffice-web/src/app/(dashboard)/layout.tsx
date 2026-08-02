@@ -29,7 +29,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Link href="/portal" className="px-4 py-2 rounded-md hover:bg-neutral-800 transition text-blue-400">Developer Portal</Link>
           <Link href="/billing" className="px-4 py-2 rounded-md hover:bg-neutral-800 transition">Billing (Stripe)</Link>
           {isPlatformAdmin ? (
-            <Link href="/billing/plans" className="px-4 py-2 rounded-md hover:bg-neutral-800 transition text-amber-400">Planos (Admin)</Link>
+            <>
+              <Link href="/billing/plans" className="px-4 py-2 rounded-md hover:bg-neutral-800 transition text-amber-400">Planos (Admin)</Link>
+              <Link href="/providers" className="px-4 py-2 rounded-md hover:bg-neutral-800 transition text-emerald-400">Provedores</Link>
+            </>
           ) : null}
         </nav>
       </aside>

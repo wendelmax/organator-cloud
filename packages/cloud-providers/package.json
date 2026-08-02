@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-ec2": "^3.0.0",
+    "@aws-sdk/client-sts": "^3.1101.0",
     "@wendelmax/tasklets": "^3.0.0",
     "axios": "^1.6.0",
     "ssh2": "^1.16.0"

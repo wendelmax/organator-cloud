@@ -140,7 +140,12 @@ async function handleDeployTenantInfra(job: Job, deploymentId: string | null) {
   const { tenantId, plan } = job.data;
   await appendLog(deploymentId, job, `[Provisioner] Criando infraestrutura do tenant ${tenantId}...`);
   if (plan === 'Enterprise') {
-    const aws = new AWSClient('us-east-1', process.env.AWS_ACCESS_KEY_ID || '', process.env.AWS_SECRET_ACCESS_KEY || '');
+    const creds = job.data.credentials?.secrets || {};
+    const aws = new AWSClient(
+      job.data.credentials?.config?.region || 'us-east-1',
+      creds.accessKeyId || process.env.AWS_ACCESS_KEY_ID || '',
+      creds.secretAccessKey || process.env.AWS_SECRET_ACCESS_KEY || '',
+    );
     const instanceId = await aws.createEC2Instance('ami-0c55b159cbfafe1f0', 't3.medium');
     await appendLog(deploymentId, job, `[AWS EC2] Instância provisionada: ${instanceId}`);
   }
@@ -149,16 +154,18 @@ async function handleDeployTenantInfra(job: Job, deploymentId: string | null) {
 
 async function handleDeployMicroservice(job: Job, deploymentId: string | null) {
   const { serviceId, provider, repo, vpsHost } = job.data;
+  const creds = job.data.credentials?.secrets || {};
+  const config = job.data.credentials?.config || {};
   await appendLog(deploymentId, job, `[Deploy] Serviço ${serviceId} -> Nuvem: ${provider}`);
   if (provider === 'VERCEL') {
-    const vercel = new VercelClient(process.env.VERCEL_TOKEN || 'mock-token');
+    const vercel = new VercelClient(creds.apiToken || process.env.VERCEL_TOKEN || 'mock-token');
     const project = await vercel.createProject(`service-${serviceId}`, repo);
     await vercel.injectEnvVar(project.id, 'SERVICE_ID', String(serviceId));
     const url = await vercel.createDeployment(project.id);
     await appendLog(deploymentId, job, `[Vercel] Build completo: ${url}`);
   } else if (provider === 'VPS') {
-    const [user, host] = (vpsHost || 'root@localhost').split('@');
-    const vps = new VPSClient(host, 22, user, process.env.SSH_PRIVATE_KEY || 'mock-key');
+    const [user, host] = (vpsHost || config.host || 'root@localhost').split('@');
+    const vps = new VPSClient(host, Number(config.port) || 22, user, creds.privateKey || process.env.SSH_PRIVATE_KEY || 'mock-key');
     const result = await vps.deployDockerContainer('nginx:alpine', `service-${serviceId}`, { PORT: '80' }, `service-${serviceId}.organator.local`);
     await appendLog(deploymentId, job, `[SSH VPS] Imagem docker implantada com sucesso em ${host}. Resultado: ${result}`);
   }

@@ -157,6 +157,22 @@ model BillingPlan {
   @@map("billing_plans")
 }
 
+// Credenciais de provedores de nuvem (AWS | VERCEL | VPS) — os segredos são
+// cifrados com AES-256-GCM via ENCRYPTION_KEY; leitura nunca expõe o segredo (#31).
+model ProviderCredential {
+  id            String   @id @default(uuid())
+  type          String   // AWS | VERCEL | VPS
+  name          String   // nome amigável, ex.: "AWS principal"
+  encryptedData Json     // segredos cifrados, ex.: { accessKeyId: <enc>, secretAccessKey: <enc> } | { apiToken: <enc> } | { privateKey: <enc> }
+  config        Json     @default("{}") // não-secretos: { region, teamId, host, port, username, domain, network }
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([type, name])
+  @@map("provider_credentials")
+}
+
 // Overrides de entitlements por tenant (ex.: crédito de cortesia) sem alterar o plano.
 model TenantEntitlementOverride {
   id        String   @id @default(uuid())
