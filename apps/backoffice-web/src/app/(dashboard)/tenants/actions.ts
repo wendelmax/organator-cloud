@@ -126,3 +126,135 @@ export async function removeMember(userId: string) {
   revalidatePath("/tenants");
   return { success: true };
 }
+
+export async function updateTenant(tenantId: string, formData: FormData) {
+  const session = await getServerSession(authOptions);
+  const token = (session as any)?.accessToken;
+  if (!token) throw new Error("Unauthorized");
+
+  const payload: Record<string, string> = {};
+  const name = formData.get("name") as string;
+  const slug = formData.get("slug") as string;
+  if (name) payload.name = name;
+  if (slug) payload.slug = slug;
+
+  const res = await fetch(`${API_URL}/v1/tenants/${tenantId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to update tenant");
+  }
+
+  revalidatePath("/tenants");
+  return { success: true };
+}
+
+export async function changePlan(tenantId: string, plan: string) {
+  const session = await getServerSession(authOptions);
+  const token = (session as any)?.accessToken;
+  if (!token) throw new Error("Unauthorized");
+
+  const res = await fetch(`${API_URL}/v1/tenants/${tenantId}/plan`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ plan })
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to change plan");
+  }
+
+  revalidatePath("/tenants");
+  return { success: true };
+}
+
+export async function suspendTenant(tenantId: string) {
+  const session = await getServerSession(authOptions);
+  const token = (session as any)?.accessToken;
+  if (!token) throw new Error("Unauthorized");
+
+  const res = await fetch(`${API_URL}/v1/tenants/${tenantId}/suspend`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to suspend tenant");
+  }
+
+  revalidatePath("/tenants");
+  return { success: true };
+}
+
+export async function reactivateTenant(tenantId: string) {
+  const session = await getServerSession(authOptions);
+  const token = (session as any)?.accessToken;
+  if (!token) throw new Error("Unauthorized");
+
+  const res = await fetch(`${API_URL}/v1/tenants/${tenantId}/reactivate`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to reactivate tenant");
+  }
+
+  revalidatePath("/tenants");
+  return { success: true };
+}
+
+export async function archiveTenant(tenantId: string) {
+  const session = await getServerSession(authOptions);
+  const token = (session as any)?.accessToken;
+  if (!token) throw new Error("Unauthorized");
+
+  const res = await fetch(`${API_URL}/v1/tenants/${tenantId}/archive`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to archive tenant");
+  }
+
+  revalidatePath("/tenants");
+  return { success: true };
+}
+
+export async function transferOwnership(tenantId: string, newOwnerId: string) {
+  const session = await getServerSession(authOptions);
+  const token = (session as any)?.accessToken;
+  if (!token) throw new Error("Unauthorized");
+
+  const res = await fetch(`${API_URL}/v1/tenants/${tenantId}/transfer-ownership`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ newOwnerId })
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to transfer ownership");
+  }
+
+  revalidatePath("/tenants");
+  return { success: true };
+}

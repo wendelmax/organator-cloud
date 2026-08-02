@@ -21,19 +21,9 @@ export class TenantsController {
   constructor(private readonly tenantsService: TenantsService) {}
 
   @Get()
+  @Roles('PLATFORM_ADMIN')
   async findAll() {
     return this.tenantsService.getTenants();
-  }
-
-  @Post()
-  async create(
-    @Body() body: { name: string; plan: string; adminEmail: string },
-  ) {
-    return this.tenantsService.createTenant(
-      body.name,
-      body.plan,
-      body.adminEmail,
-    );
   }
 
   @Get('members')
@@ -43,6 +33,87 @@ export class TenantsController {
       throw new BadRequestException('Tenant ID is required');
     }
     return this.tenantsService.getMembers(tenantId);
+  }
+
+  @Get(':id/metrics')
+  @Roles('PLATFORM_ADMIN')
+  async getTenantMetrics(@Param('id') id: string) {
+    return this.tenantsService.getTenantMetrics(id);
+  }
+
+  @Get(':id/quota-usage')
+  @Roles('PLATFORM_ADMIN')
+  async getTenantQuotaUsage(@Param('id') id: string) {
+    return this.tenantsService.getTenantQuotaUsage(id);
+  }
+
+  @Get(':id')
+  @Roles('PLATFORM_ADMIN')
+  async findOne(@Param('id') id: string) {
+    return this.tenantsService.getTenant(id);
+  }
+
+  @Post()
+  @Roles('PLATFORM_ADMIN')
+  async create(
+    @Body() body: { name: string; plan: string; adminEmail: string },
+  ) {
+    if (!body.name) {
+      throw new BadRequestException('Name is required');
+    }
+    return this.tenantsService.createTenant(
+      body.name,
+      body.plan,
+      body.adminEmail,
+    );
+  }
+
+  @Patch(':id')
+  @Roles('PLATFORM_ADMIN')
+  async update(
+    @Param('id') id: string,
+    @Body() body: { name?: string; slug?: string },
+  ) {
+    return this.tenantsService.updateTenant(id, body);
+  }
+
+  @Patch(':id/plan')
+  @Roles('PLATFORM_ADMIN')
+  async changePlan(@Param('id') id: string, @Body() body: { plan: string }) {
+    if (!body.plan) {
+      throw new BadRequestException('Plan is required');
+    }
+    return this.tenantsService.changePlan(id, body.plan);
+  }
+
+  @Post(':id/suspend')
+  @Roles('PLATFORM_ADMIN')
+  async suspendTenant(@Param('id') id: string) {
+    return this.tenantsService.suspendTenant(id);
+  }
+
+  @Post(':id/reactivate')
+  @Roles('PLATFORM_ADMIN')
+  async reactivateTenant(@Param('id') id: string) {
+    return this.tenantsService.reactivateTenant(id);
+  }
+
+  @Post(':id/archive')
+  @Roles('PLATFORM_ADMIN')
+  async archiveTenant(@Param('id') id: string) {
+    return this.tenantsService.archiveTenant(id);
+  }
+
+  @Post(':id/transfer-ownership')
+  @Roles('PLATFORM_ADMIN')
+  async transferOwnership(
+    @Param('id') id: string,
+    @Body() body: { newOwnerId: string },
+  ) {
+    if (!body.newOwnerId) {
+      throw new BadRequestException('newOwnerId is required');
+    }
+    return this.tenantsService.transferOwnership(id, body.newOwnerId);
   }
 
   @Post('members')
