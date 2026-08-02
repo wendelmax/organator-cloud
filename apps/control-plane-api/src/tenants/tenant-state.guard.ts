@@ -1,6 +1,8 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { TenantLifecycleService } from './tenant-lifecycle.service';
+import { ApiKeysService } from '../api-keys/api-keys.service';
+import { API_KEY_PREFIX } from '../api-keys/api-keys.types';
 
 /** Rotas que não dependem do tenant logado (webhook, auth, docs públicos). */
 const PUBLIC_PATHS = [
@@ -20,14 +22,16 @@ const PUBLIC_PATHS = [
  * - offboarding/deleted => acesso bloqueado (403)
  * - active/onboarding   => liberado
  *
- * Requisições sem JWT ou sem tenant (ex.: PLATFORM_ADMIN) passam para os
- * guards de autenticação/autorização decidirem.
+ * Funciona tanto para tokens JWT quanto para API keys (sk_...). Requisições
+ * sem token, token inválido ou sem tenant passam para os guards de
+ * autenticação/autorização decidirem.
  */
 @Injectable()
 export class TenantStateGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtService,
     private readonly lifecycle: TenantLifecycleService,
+    private readonly apiKeysService: ApiKeysService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -40,6 +44,16 @@ export class TenantStateGuard implements CanActivate {
     const token = this.extractBearer(req);
     if (!token) {
       return true; // sem token: guard de auth cuida do 401
+    }
+
+    // API key: resolve o tenantId da chave (sem efeitos colaterais).
+    if (token.startsWith(API_KEY_PREFIX)) {
+      const tenantId = await this.apiKeysService.resolveTenantId(token);
+      if (!tenantId) {
+        return true; // chave inválida/expirada: guard de auth rejeita
+      }
+      await this.lifecycle.assertAccess(tenantId, req.method);
+      return true;
     }
 
     let payload: any;

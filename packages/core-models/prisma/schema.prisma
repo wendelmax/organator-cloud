@@ -26,7 +26,26 @@ model Tenant {
   users        User[]
   microservices Microservice[]
   iamGroups    IamGroup[]
+  apiKeys      ApiKey[]
   entitlementOverride TenantEntitlementOverride?
+}
+
+// Tokens de serviço para automação (CI/CD, SDKs) — o token bruto só é
+// exibido na criação; no banco fica apenas o hash sha256 (#33).
+model ApiKey {
+  id         String   @id @default(uuid())
+  name       String
+  hash       String   @unique // sha256 hex do token sk_... (nunca em claro)
+  prefix     String   // identificador público exibido na listagem (ex.: sk_a1b2c3)
+  scopes     Json     @default("[]") // array de escopos, ex.: ["services:write"]
+  tenantId   String?
+  tenant     Tenant?  @relation(fields: [tenantId], references: [id])
+  createdBy  String?
+  expiresAt  DateTime?
+  lastUsedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@map("api_keys")
 }
 
 model AuditLog {

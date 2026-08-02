@@ -12,6 +12,7 @@ import { SaasModule } from './saas/saas.module';
 import { IamModule } from './iam/iam.module';
 import { EntitlementsModule } from './entitlements/entitlements.module';
 import { AuditModule } from './audit/audit.module';
+import { ApiKeysModule } from './api-keys/api-keys.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { AuditModule } from './audit/audit.module';
     IamModule,
     EntitlementsModule,
     AuditModule,
+    ApiKeysModule,
   ],
   controllers: [AppController],
   providers: [AppService],
