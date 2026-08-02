@@ -17,10 +17,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: any) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      include: { tenant: { select: { status: true } } },
+      include: { tenant: { select: { status: true, state: true } } },
     });
     if (!user) return null;
-    if (user.tenant && user.tenant.status !== 'active') return null;
+    // Tenants em offboarding/deleted não podem usar a API (#46).
+    // past_due/suspended passam para o TenantStateGuard decidir
+    // (read-only vs paywall).
+    const state = user.tenant?.state || 'active';
+    if (user.tenant && ['offboarding', 'deleted'].includes(state)) {
+      return null;
+    }
 
     return {
       userId: user.id,

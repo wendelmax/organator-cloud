@@ -38,11 +38,16 @@ export class AuthService {
   async assertTenantActive(tenantId: string) {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { status: true },
+      select: { status: true, state: true },
     });
-    if (tenant && tenant.status !== 'active') {
-      const label = tenant.status === 'archived' ? 'arquivado' : 'suspenso';
-      throw new ForbiddenException(`Acesso bloqueado: o tenant está ${label}.`);
+    const state = tenant?.state || 'active';
+    // Login bloqueado para suspended/offboarding/deleted (#46).
+    // past_due pode logar para manter acesso de leitura durante a graça.
+    if (['suspended', 'offboarding', 'deleted'].includes(state)) {
+      const label = state === 'suspended' ? 'suspenso' : 'arquivado';
+      throw new ForbiddenException(
+        `Acesso bloqueado: o tenant está ${label}. Regularize o pagamento para reativar o serviço.`,
+      );
     }
   }
 

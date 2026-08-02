@@ -15,6 +15,11 @@ model Tenant {
   stripeId  String?  @unique // Stripe Customer ID
   plan      String   @default("free")
   status    String   @default("active") // active | suspended | archived
+  // Máquina de estados dirigida por eventos de pagamento (#46)
+  state         String    @default("active") // onboarding | active | past_due | suspended | offboarding | deleted
+  graceEndsAt   DateTime? // fim do período de graça quando past_due
+  suspendedAt   DateTime? // quando foi suspenso
+  stateChangedAt DateTime? // última transição de estado
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -22,6 +27,31 @@ model Tenant {
   microservices Microservice[]
   iamGroups    IamGroup[]
   entitlementOverride TenantEntitlementOverride?
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  actorId      String?  // quem executou (null = sistema/webhook)
+  actorEmail   String?
+  action       String   // ex.: tenant.state_change, tenant.plan_change
+  resourceType String   // ex.: Tenant
+  resourceId   String?
+  changes      Json     @default("{}") // diff { from, to }
+  ip           String?
+  createdAt    DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+model WebhookEvent {
+  id          String   @id @default(uuid())
+  eventId     String   @unique // Stripe event id (idempotência)
+  type        String
+  tenantId    String?
+  payload     Json     @default("{}")
+  processedAt DateTime @default(now())
+
+  @@map("webhook_events")
 }
 
 model User {
