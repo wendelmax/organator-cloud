@@ -28,7 +28,7 @@ export class AuthService {
       .compare(pass, user.password)
       .catch(() => user.password === pass);
     if (isMatch) {
-      const result = { ...user } as any;
+      const result = { ...user } as Partial<typeof user>;
       delete result.password;
       return result;
     }
@@ -75,7 +75,7 @@ export class AuthService {
   async me(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
-    const safe = { ...user } as any;
+    const safe = { ...user } as Partial<typeof user>;
     delete safe.password;
     delete safe.mfaSecretEncrypted;
     return safe;
