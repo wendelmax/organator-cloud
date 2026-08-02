@@ -29,7 +29,10 @@ jobs:
             ${{ runner.os }}-turbo-
 
       - name: Prisma Generate
-        run: npx turbo build --filter=@organator/core-models
+        env:
+          # url dummy: `prisma generate` não conecta no banco, apenas valida a config
+          DATABASE_URL: postgresql://organator:password@localhost:5432/organator_db?schema=public
+        run: npx prisma generate --schema packages/core-models/prisma/schema.prisma
 
       - name: Lint
         run: npx turbo lint
