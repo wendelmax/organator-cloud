@@ -21,6 +21,7 @@ model Tenant {
   users        User[]
   microservices Microservice[]
   iamGroups    IamGroup[]
+  entitlementOverride TenantEntitlementOverride?
 }
 
 model User {
@@ -95,7 +96,8 @@ model BillingPlan {
   currency        String   @default("usd")
   cycle           String   @default("monthly") // monthly | yearly
   quotas          Json     @default("{}") // ex.: {"MICROSERVICE": 2, "DEPLOYMENT": 5} (-1 = ilimitado)
-  features        Json     @default("{}") // feature flags, ex.: {"apiKeys": true, "sso": false}
+  features        Json     @default("{}") // feature flags, ex.: {"api_keys": true, "sso_saml": false}
+  limitTypes      Json     @default("{}") // tipo de limite por recurso, ex.: {"MICROSERVICE": "hard", "SEATS": "soft"}
   status          String   @default("active") // active | inactive
   sortOrder       Int      @default(0)
   stripeProductId String?
@@ -104,4 +106,18 @@ model BillingPlan {
   updatedAt       DateTime @updatedAt
 
   @@map("billing_plans")
+}
+
+// Overrides de entitlements por tenant (ex.: crédito de cortesia) sem alterar o plano.
+model TenantEntitlementOverride {
+  id        String   @id @default(uuid())
+  tenantId  String   @unique
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  quotas    Json     @default("{}") // ex.: {"MICROSERVICE": 10} (-1 = ilimitado)
+  features  Json     @default("{}") // ex.: {"api_keys": true}
+  limits    Json     @default("{}") // ex.: {"SEATS": "soft"}
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tenant_entitlement_overrides")
 }

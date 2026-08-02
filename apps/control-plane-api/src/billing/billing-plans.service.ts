@@ -19,6 +19,7 @@ export interface BillingPlanInput {
   cycle?: string;
   quotas?: Record<string, number>;
   features?: Record<string, boolean>;
+  limitTypes?: Record<string, 'soft' | 'hard'>;
   status?: string;
   sortOrder?: number;
   syncStripe?: boolean;
@@ -82,6 +83,7 @@ export class BillingPlansService {
         cycle: input.cycle || 'monthly',
         quotas: (input.quotas || {}) as any,
         features: (input.features || {}) as any,
+        limitTypes: (input.limitTypes || {}) as any,
         status: input.status || 'active',
         sortOrder: input.sortOrder ?? 0,
         ...stripeRefs,
@@ -125,6 +127,7 @@ export class BillingPlansService {
         cycle: input.cycle,
         quotas: input.quotas as any,
         features: input.features as any,
+        limitTypes: input.limitTypes as any,
         status: input.status,
         sortOrder: input.sortOrder,
         ...stripeRefs,

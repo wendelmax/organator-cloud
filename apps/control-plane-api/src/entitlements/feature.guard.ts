@@ -1,13 +1,12 @@
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../prisma/prisma.service';
-import { EntitlementsService } from '../entitlements/entitlements.service';
-import { extractTenantId } from '../entitlements/request-tenant.util';
-import { QUOTA_KEY } from './quota.decorator';
-import { QuotaResourceType } from '../entitlements/entitlement.types';
+import { EntitlementsService } from './entitlements.service';
+import { extractTenantId } from './request-tenant.util';
+import { FEATURE_KEY } from './require-feature.decorator';
 
 @Injectable()
-export class QuotaGuard implements CanActivate {
+export class FeatureGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly entitlements: EntitlementsService,
@@ -15,20 +14,19 @@ export class QuotaGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const resourceType = this.reflector.getAllAndOverride<QuotaResourceType>(
-      QUOTA_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const feature = this.reflector.getAllAndOverride<string>(FEATURE_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
-    if (!resourceType) {
+    if (!feature) {
       return true;
     }
 
     const request = context.switchToHttp().getRequest();
     const tenantId = await extractTenantId(request, this.prisma);
-
     if (tenantId) {
-      await this.entitlements.checkQuota(tenantId, resourceType);
+      await this.entitlements.requireFeature(tenantId, feature);
     }
 
     return true;

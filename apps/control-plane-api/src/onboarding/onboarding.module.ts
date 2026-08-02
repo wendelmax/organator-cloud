@@ -4,6 +4,7 @@ import { OnboardingController } from './onboarding.controller';
 import { TenantsService } from '../tenants/tenants.service';
 import { IamModule } from '../iam/iam.module';
 import { BillingModule } from '../billing/billing.module';
+import { EntitlementsModule } from '../entitlements/entitlements.module';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Module({
@@ -13,6 +14,7 @@ import { PrismaService } from '../prisma/prisma.service';
     }),
     IamModule,
     BillingModule,
+    EntitlementsModule,
   ],
   controllers: [OnboardingController],
   providers: [TenantsService, PrismaService],

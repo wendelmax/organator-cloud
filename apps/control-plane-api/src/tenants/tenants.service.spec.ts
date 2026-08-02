@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TenantsService } from './tenants.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 import {
   NotFoundException,
   BadRequestException,
@@ -9,6 +10,10 @@ import {
 
 describe('TenantsService', () => {
   let service: TenantsService;
+
+  const mockEntitlements = {
+    bust: jest.fn(),
+  };
 
   const mockPrisma = {
     tenant: {
@@ -47,6 +52,7 @@ describe('TenantsService', () => {
       providers: [
         TenantsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: EntitlementsService, useValue: mockEntitlements },
       ],
     }).compile();
 

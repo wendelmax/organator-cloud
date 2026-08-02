@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
-import { SaasService } from './saas.service';
 import { QuotaGuard } from './quota.guard';
+import { EntitlementsModule } from '../entitlements/entitlements.module';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Module({
-  providers: [SaasService, QuotaGuard, PrismaService],
-  exports: [SaasService, QuotaGuard],
+  imports: [EntitlementsModule],
+  providers: [QuotaGuard, PrismaService],
+  exports: [QuotaGuard],
 })
 export class SaasModule {}

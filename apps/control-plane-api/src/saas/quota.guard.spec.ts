@@ -1,16 +1,16 @@
 import { Reflector } from '@nestjs/core';
 import { ExecutionContext } from '@nestjs/common';
 import { QuotaGuard } from './quota.guard';
-import { SaasService } from './saas.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 describe('QuotaGuard', () => {
   let guard: QuotaGuard;
   let reflector: Reflector;
-  let saasService: SaasService;
+  let entitlementsService: EntitlementsService;
   let prismaService: PrismaService;
 
-  const mockSaasService = {
+  const mockEntitlementsService = {
     checkQuota: jest.fn(),
   };
 
@@ -22,9 +22,10 @@ describe('QuotaGuard', () => {
 
   beforeEach(() => {
     reflector = new Reflector();
-    saasService = mockSaasService as unknown as SaasService;
+    entitlementsService =
+      mockEntitlementsService as unknown as EntitlementsService;
     prismaService = mockPrismaService as unknown as PrismaService;
-    guard = new QuotaGuard(reflector, saasService, prismaService);
+    guard = new QuotaGuard(reflector, entitlementsService, prismaService);
     jest.clearAllMocks();
   });
 
@@ -45,7 +46,7 @@ describe('QuotaGuard', () => {
     const result = await guard.canActivate(context);
 
     expect(result).toBe(true);
-    expect(mockSaasService.checkQuota).not.toHaveBeenCalled();
+    expect(mockEntitlementsService.checkQuota).not.toHaveBeenCalled();
   });
 
   it('should extract tenantId from req.user and call checkQuota', async () => {
@@ -57,7 +58,7 @@ describe('QuotaGuard', () => {
     const result = await guard.canActivate(context);
 
     expect(result).toBe(true);
-    expect(mockSaasService.checkQuota).toHaveBeenCalledWith(
+    expect(mockEntitlementsService.checkQuota).toHaveBeenCalledWith(
       'tenant-123',
       'MICROSERVICE',
     );
@@ -72,7 +73,7 @@ describe('QuotaGuard', () => {
     const result = await guard.canActivate(context);
 
     expect(result).toBe(true);
-    expect(mockSaasService.checkQuota).toHaveBeenCalledWith(
+    expect(mockEntitlementsService.checkQuota).toHaveBeenCalledWith(
       'tenant-456',
       'MICROSERVICE',
     );
@@ -96,7 +97,7 @@ describe('QuotaGuard', () => {
       where: { id: 'svc-789' },
       select: { tenantId: true },
     });
-    expect(mockSaasService.checkQuota).toHaveBeenCalledWith(
+    expect(mockEntitlementsService.checkQuota).toHaveBeenCalledWith(
       'tenant-789',
       'DEPLOYMENT',
     );

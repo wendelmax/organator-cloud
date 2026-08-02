@@ -14,11 +14,15 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { TenantsService } from './tenants.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('v1/tenants')
 export class TenantsController {
-  constructor(private readonly tenantsService: TenantsService) {}
+  constructor(
+    private readonly tenantsService: TenantsService,
+    private readonly entitlementsService: EntitlementsService,
+  ) {}
 
   @Get()
   @Roles('PLATFORM_ADMIN')
@@ -45,6 +49,12 @@ export class TenantsController {
   @Roles('PLATFORM_ADMIN')
   async getTenantQuotaUsage(@Param('id') id: string) {
     return this.tenantsService.getTenantQuotaUsage(id);
+  }
+
+  @Get(':id/entitlements')
+  @Roles('PLATFORM_ADMIN')
+  async getTenantEntitlements(@Param('id') id: string) {
+    return this.entitlementsService.resolve(id);
   }
 
   @Get(':id')
