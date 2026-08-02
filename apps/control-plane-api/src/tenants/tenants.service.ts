@@ -5,6 +5,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
@@ -24,7 +25,10 @@ export function normalizeSlug(value: string): string {
 
 @Injectable()
 export class TenantsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly entitlementsService: EntitlementsService,
+  ) {}
 
   async createTenant(name: string, plan?: string, adminEmail?: string) {
     const slug = normalizeSlug(name);
@@ -147,10 +151,14 @@ export class TenantsService {
       );
     }
 
-    return this.prisma.tenant.update({
+    const result = await this.prisma.tenant.update({
       where: { id: tenantId },
       data: { plan: normalizedPlan },
     });
+
+    this.entitlementsService.bust(tenantId);
+
+    return result;
   }
 
   async setTenantStatus(tenantId: string, status: TenantStatus) {

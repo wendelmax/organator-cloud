@@ -1,10 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TenantsController } from './tenants.controller';
 import { TenantsService } from './tenants.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 import { BadRequestException } from '@nestjs/common';
 
 describe('TenantsController', () => {
   let controller: TenantsController;
+
+  const mockEntitlementsService = {
+    resolve: jest.fn(),
+  };
 
   const mockTenantsService = {
     getTenants: jest.fn(),
@@ -27,7 +32,10 @@ describe('TenantsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TenantsController],
-      providers: [{ provide: TenantsService, useValue: mockTenantsService }],
+      providers: [
+        { provide: TenantsService, useValue: mockTenantsService },
+        { provide: EntitlementsService, useValue: mockEntitlementsService },
+      ],
     }).compile();
 
     controller = module.get<TenantsController>(TenantsController);
@@ -254,6 +262,26 @@ describe('TenantsController', () => {
       expect(mockTenantsService.removeMember).toHaveBeenCalledWith(
         'tenant-123',
         'user-1',
+      );
+    });
+  });
+
+  describe('getTenantEntitlements', () => {
+    it('should resolve entitlements for the tenant', async () => {
+      const entitlements = {
+        tenantId: 'tenant-123',
+        plan: 'pro',
+        quotas: { MICROSERVICE: 20 },
+        features: { api_keys: true },
+        limits: { MICROSERVICE: 'hard' },
+        computedAt: new Date(),
+      };
+      mockEntitlementsService.resolve.mockResolvedValue(entitlements);
+
+      const result = await controller.getTenantEntitlements('tenant-123');
+      expect(result).toEqual(entitlements);
+      expect(mockEntitlementsService.resolve).toHaveBeenCalledWith(
+        'tenant-123',
       );
     });
   });
