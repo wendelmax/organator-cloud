@@ -75,7 +75,9 @@ export class TenantsService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return Promise.all(tenants.map((tenant) => this.enrichWithMetrics(tenant)));
+    return Promise.all(
+      tenants.map((tenant: any) => this.enrichWithMetrics(tenant)),
+    );
   }
 
   async getTenant(tenantId: string) {
