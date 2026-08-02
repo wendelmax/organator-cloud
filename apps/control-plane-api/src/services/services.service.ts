@@ -2,6 +2,7 @@ import { Injectable, Optional } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
+import { ProvidersService } from '../providers/providers.service';
 import { Observable } from 'rxjs';
 import Redis from 'ioredis';
 
@@ -15,6 +16,8 @@ export class ServicesService {
     @Optional()
     @InjectQueue('provisioner')
     private readonly provisionerQueue?: Queue,
+    @Optional()
+    private readonly providersService?: ProvidersService,
   ) {}
 
   streamDeploymentLogs(deploymentId: string): Observable<{ data: string }> {
@@ -96,11 +99,18 @@ export class ServicesService {
 
     if (this.provisionerQueue) {
       try {
+        // Credenciais resolvidas no enqueue (decifradas na hora, nunca no banco
+        // em claro) e injetadas no payload do job — o worker cai para env/mock
+        // quando não há credencial cadastrada (#31).
+        const credentials = await this.providersService?.resolveForDeploy(
+          service.cloudProvider,
+        );
         await this.provisionerQueue.add('deploy-microservice', {
           serviceId: service.id,
           provider: service.cloudProvider,
           repo: service.repository,
           deploymentId: deployment.id,
+          ...(credentials ? { credentials } : {}),
         });
       } catch (err) {
         console.warn('Could not trigger BullMQ job:', err);

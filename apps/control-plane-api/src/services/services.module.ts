@@ -5,6 +5,7 @@ import { ServicesService } from './services.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SaasModule } from '../saas/saas.module';
 import { EntitlementsModule } from '../entitlements/entitlements.module';
+import { ProvidersModule } from '../providers/providers.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { EntitlementsModule } from '../entitlements/entitlements.module';
     }),
     SaasModule,
     EntitlementsModule,
+    ProvidersModule,
   ],
   controllers: [ServicesController],
   providers: [ServicesService, PrismaService],
