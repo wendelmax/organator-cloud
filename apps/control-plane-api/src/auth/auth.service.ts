@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -21,6 +22,8 @@ export class AuthService {
     });
     if (!user) return null;
 
+    await this.assertTenantActive(user.tenantId);
+
     const isMatch = await bcrypt
       .compare(pass, user.password)
       .catch(() => user.password === pass);
@@ -30,6 +33,17 @@ export class AuthService {
       return result;
     }
     return null;
+  }
+
+  async assertTenantActive(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { status: true },
+    });
+    if (tenant && tenant.status !== 'active') {
+      const label = tenant.status === 'archived' ? 'arquivado' : 'suspenso';
+      throw new ForbiddenException(`Acesso bloqueado: o tenant está ${label}.`);
+    }
   }
 
   async login(user: any) {

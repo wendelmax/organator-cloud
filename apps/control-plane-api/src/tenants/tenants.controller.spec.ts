@@ -5,11 +5,19 @@ import { BadRequestException } from '@nestjs/common';
 
 describe('TenantsController', () => {
   let controller: TenantsController;
-  let service: TenantsService;
 
   const mockTenantsService = {
     getTenants: jest.fn(),
+    getTenant: jest.fn(),
+    getTenantMetrics: jest.fn(),
+    getTenantQuotaUsage: jest.fn(),
     createTenant: jest.fn(),
+    updateTenant: jest.fn(),
+    changePlan: jest.fn(),
+    suspendTenant: jest.fn(),
+    reactivateTenant: jest.fn(),
+    archiveTenant: jest.fn(),
+    transferOwnership: jest.fn(),
     getMembers: jest.fn(),
     addMember: jest.fn(),
     updateMemberRole: jest.fn(),
@@ -23,12 +31,150 @@ describe('TenantsController', () => {
     }).compile();
 
     controller = module.get<TenantsController>(TenantsController);
-    service = module.get<TenantsService>(TenantsService);
     jest.clearAllMocks();
   });
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
+  });
+
+  describe('findAll', () => {
+    it('should call service.getTenants', async () => {
+      mockTenantsService.getTenants.mockResolvedValue([{ id: 't1' }]);
+      const result = await controller.findAll();
+      expect(result).toEqual([{ id: 't1' }]);
+      expect(mockTenantsService.getTenants).toHaveBeenCalled();
+    });
+  });
+
+  describe('findOne', () => {
+    it('should call service.getTenant with id', async () => {
+      mockTenantsService.getTenant.mockResolvedValue({ id: 't1' });
+      const result = await controller.findOne('t1');
+      expect(result).toEqual({ id: 't1' });
+      expect(mockTenantsService.getTenant).toHaveBeenCalledWith('t1');
+    });
+  });
+
+  describe('create', () => {
+    it('should call service.createTenant', async () => {
+      mockTenantsService.createTenant.mockResolvedValue({ id: 't1' });
+      const result = await controller.create({
+        name: 'Acme',
+        plan: 'free',
+        adminEmail: 'a@b.com',
+      });
+      expect(result).toEqual({ id: 't1' });
+      expect(mockTenantsService.createTenant).toHaveBeenCalledWith(
+        'Acme',
+        'free',
+        'a@b.com',
+      );
+    });
+
+    it('should throw BadRequestException when name missing', async () => {
+      await expect(
+        controller.create({ name: '', plan: 'free', adminEmail: 'a@b.com' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('update', () => {
+    it('should call service.updateTenant', async () => {
+      mockTenantsService.updateTenant.mockResolvedValue({ id: 't1' });
+      const result = await controller.update('t1', { name: 'Acme 2' });
+      expect(result).toEqual({ id: 't1' });
+      expect(mockTenantsService.updateTenant).toHaveBeenCalledWith('t1', {
+        name: 'Acme 2',
+      });
+    });
+  });
+
+  describe('changePlan', () => {
+    it('should call service.changePlan', async () => {
+      mockTenantsService.changePlan.mockResolvedValue({
+        id: 't1',
+        plan: 'pro',
+      });
+      const result = await controller.changePlan('t1', { plan: 'pro' });
+      expect(result).toEqual({ id: 't1', plan: 'pro' });
+      expect(mockTenantsService.changePlan).toHaveBeenCalledWith('t1', 'pro');
+    });
+
+    it('should throw BadRequestException when plan missing', async () => {
+      await expect(controller.changePlan('t1', { plan: '' })).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  describe('status endpoints', () => {
+    it('should suspend a tenant', async () => {
+      mockTenantsService.suspendTenant.mockResolvedValue({
+        status: 'suspended',
+      });
+      const result = await controller.suspendTenant('t1');
+      expect(mockTenantsService.suspendTenant).toHaveBeenCalledWith('t1');
+      expect(result).toEqual({ status: 'suspended' });
+    });
+
+    it('should reactivate a tenant', async () => {
+      mockTenantsService.reactivateTenant.mockResolvedValue({
+        status: 'active',
+      });
+      const result = await controller.reactivateTenant('t1');
+      expect(mockTenantsService.reactivateTenant).toHaveBeenCalledWith('t1');
+      expect(result).toEqual({ status: 'active' });
+    });
+
+    it('should archive a tenant', async () => {
+      mockTenantsService.archiveTenant.mockResolvedValue({
+        status: 'archived',
+      });
+      const result = await controller.archiveTenant('t1');
+      expect(mockTenantsService.archiveTenant).toHaveBeenCalledWith('t1');
+      expect(result).toEqual({ status: 'archived' });
+    });
+  });
+
+  describe('transferOwnership', () => {
+    it('should call service.transferOwnership', async () => {
+      mockTenantsService.transferOwnership.mockResolvedValue({ id: 'u2' });
+      const result = await controller.transferOwnership('t1', {
+        newOwnerId: 'u2',
+      });
+      expect(result).toEqual({ id: 'u2' });
+      expect(mockTenantsService.transferOwnership).toHaveBeenCalledWith(
+        't1',
+        'u2',
+      );
+    });
+
+    it('should throw BadRequestException when newOwnerId missing', async () => {
+      await expect(
+        controller.transferOwnership('t1', { newOwnerId: '' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('metrics endpoints', () => {
+    it('should get tenant metrics', async () => {
+      mockTenantsService.getTenantMetrics.mockResolvedValue({
+        microservices: 1,
+      });
+      const result = await controller.getTenantMetrics('t1');
+      expect(mockTenantsService.getTenantMetrics).toHaveBeenCalledWith('t1');
+      expect(result).toEqual({ microservices: 1 });
+    });
+
+    it('should get quota usage', async () => {
+      mockTenantsService.getTenantQuotaUsage.mockResolvedValue({
+        plan: 'free',
+      });
+      const result = await controller.getTenantQuotaUsage('t1');
+      expect(mockTenantsService.getTenantQuotaUsage).toHaveBeenCalledWith('t1');
+      expect(result).toEqual({ plan: 'free' });
+    });
   });
 
   describe('getMembers', () => {
