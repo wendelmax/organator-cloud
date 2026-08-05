@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -38,21 +39,37 @@ export class BillingPlansController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('PLATFORM_ADMIN')
-  create(@Body() body: BillingPlanInput) {
-    return this.plansService.create(body);
+  create(@Req() req: any, @Body() body: BillingPlanInput) {
+    return this.plansService.create(body, {
+      actorId: req.user?.sub,
+      actorEmail: req.user?.email,
+      ip: req.ip,
+    });
   }
 
   @Patch(':slug')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('PLATFORM_ADMIN')
-  update(@Param('slug') slug: string, @Body() body: BillingPlanInput) {
-    return this.plansService.update(slug, body);
+  update(
+    @Req() req: any,
+    @Param('slug') slug: string,
+    @Body() body: BillingPlanInput,
+  ) {
+    return this.plansService.update(slug, body, {
+      actorId: req.user?.sub,
+      actorEmail: req.user?.email,
+      ip: req.ip,
+    });
   }
 
   @Delete(':slug')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('PLATFORM_ADMIN')
-  deactivate(@Param('slug') slug: string) {
-    return this.plansService.deactivate(slug);
+  deactivate(@Req() req: any, @Param('slug') slug: string) {
+    return this.plansService.deactivate(slug, {
+      actorId: req.user?.sub,
+      actorEmail: req.user?.email,
+      ip: req.ip,
+    });
   }
 }

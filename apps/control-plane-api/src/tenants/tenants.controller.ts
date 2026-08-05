@@ -152,6 +152,7 @@ export class TenantsController {
       body.name,
       body.role,
       body.password,
+      { actorId: req.user?.sub, actorEmail: req.user?.email, ip: req.ip },
     );
   }
 
@@ -169,7 +170,11 @@ export class TenantsController {
     if (!body.role) {
       throw new BadRequestException('Role is required');
     }
-    return this.tenantsService.updateMemberRole(tenantId, userId, body.role);
+    return this.tenantsService.updateMemberRole(tenantId, userId, body.role, {
+      actorId: req.user?.sub,
+      actorEmail: req.user?.email,
+      ip: req.ip,
+    });
   }
 
   @Delete('members/:userId')
@@ -179,6 +184,10 @@ export class TenantsController {
     if (!tenantId) {
       throw new BadRequestException('Tenant ID is required');
     }
-    return this.tenantsService.removeMember(tenantId, userId);
+    return this.tenantsService.removeMember(tenantId, userId, {
+      actorId: req.user?.sub,
+      actorEmail: req.user?.email,
+      ip: req.ip,
+    });
   }
 }

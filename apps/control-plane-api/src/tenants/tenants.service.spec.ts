@@ -424,6 +424,42 @@ describe('TenantsService', () => {
         },
       });
     });
+
+    it('records an audit entry with actor info', async () => {
+      mockPrisma.user.create.mockResolvedValue({
+        id: 'user-2',
+        email: 'user2@example.com',
+        role: 'MEMBER',
+        createdAt: new Date(),
+      });
+
+      await service.addMember(
+        'tenant-123',
+        'user2@example.com',
+        undefined,
+        'MEMBER',
+        undefined,
+        {
+          actorId: 'admin-1',
+          actorEmail: 'admin@organator.app',
+          ip: '127.0.0.1',
+        },
+      );
+
+      expect(mockAudit.record).toHaveBeenCalledWith({
+        actorId: 'admin-1',
+        actorEmail: 'admin@organator.app',
+        ip: '127.0.0.1',
+        action: 'tenant.member.added',
+        resourceType: 'TenantMember',
+        resourceId: 'user-2',
+        changes: {
+          tenantId: 'tenant-123',
+          email: 'user2@example.com',
+          role: 'MEMBER',
+        },
+      });
+    });
   });
 
   describe('updateMemberRole', () => {
@@ -458,6 +494,42 @@ describe('TenantsService', () => {
           name: true,
           role: true,
           createdAt: true,
+        },
+      });
+    });
+
+    it('records an audit entry with from/to role', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue({
+        id: 'user-1',
+        tenantId: 'tenant-123',
+        role: 'MEMBER',
+        email: 'user1@example.com',
+      });
+      mockPrisma.user.update.mockResolvedValue({
+        id: 'user-1',
+        email: 'user1@example.com',
+        role: 'ADMIN',
+        createdAt: new Date(),
+      });
+
+      await service.updateMemberRole('tenant-123', 'user-1', 'ADMIN', {
+        actorId: 'admin-1',
+        actorEmail: 'admin@organator.app',
+        ip: '127.0.0.1',
+      });
+
+      expect(mockAudit.record).toHaveBeenCalledWith({
+        actorId: 'admin-1',
+        actorEmail: 'admin@organator.app',
+        ip: '127.0.0.1',
+        action: 'tenant.member.role_changed',
+        resourceType: 'TenantMember',
+        resourceId: 'user-1',
+        changes: {
+          tenantId: 'tenant-123',
+          email: 'user1@example.com',
+          from: 'MEMBER',
+          to: 'ADMIN',
         },
       });
     });
@@ -498,6 +570,37 @@ describe('TenantsService', () => {
       expect(result).toEqual(existingUser);
       expect(mockPrisma.user.delete).toHaveBeenCalledWith({
         where: { id: 'user-1' },
+      });
+    });
+
+    it('records an audit entry when removing a member', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue({
+        id: 'user-1',
+        tenantId: 'tenant-123',
+        role: 'MEMBER',
+        email: 'user1@example.com',
+      });
+      mockPrisma.user.count.mockResolvedValue(2);
+      mockPrisma.user.delete.mockResolvedValue({});
+
+      await service.removeMember('tenant-123', 'user-1', {
+        actorId: 'admin-1',
+        actorEmail: 'admin@organator.app',
+        ip: '127.0.0.1',
+      });
+
+      expect(mockAudit.record).toHaveBeenCalledWith({
+        actorId: 'admin-1',
+        actorEmail: 'admin@organator.app',
+        ip: '127.0.0.1',
+        action: 'tenant.member.removed',
+        resourceType: 'TenantMember',
+        resourceId: 'user-1',
+        changes: {
+          tenantId: 'tenant-123',
+          email: 'user1@example.com',
+          role: 'MEMBER',
+        },
       });
     });
 

@@ -9,6 +9,7 @@ import { MfaService } from './mfa.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { RolesGuard } from './roles.guard';
+import { AuditModule } from '../audit/audit.module';
 
 const secret = process.env.JWT_SECRET;
 if (!secret && process.env.NODE_ENV === 'production') {
@@ -28,6 +29,7 @@ export const jwtConstants = {
       secret: jwtConstants.secret,
       signOptions: { expiresIn: '1d' },
     }),
+    AuditModule,
   ],
   controllers: [AuthController],
   providers: [
