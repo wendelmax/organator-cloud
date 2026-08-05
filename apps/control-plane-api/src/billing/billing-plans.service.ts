@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_123', {
   apiVersion: '2025-02-24.acacia' as any,
@@ -29,7 +30,10 @@ const DEV_STRIPE_KEYS = ['sk_test_123', 'sk_test_placeholder', ''];
 
 @Injectable()
 export class BillingPlansService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
 
   async listActive() {
     return this.prisma.billingPlan.findMany({
@@ -50,7 +54,10 @@ export class BillingPlansService {
     });
   }
 
-  async create(input: BillingPlanInput) {
+  async create(
+    input: BillingPlanInput,
+    opts: { actorId?: string; actorEmail?: string; ip?: string } = {},
+  ) {
     const slug = (input.slug ?? input.name ?? '')
       .toLowerCase()
       .replace(/[^a-z0-9]/g, '-');
@@ -73,7 +80,7 @@ export class BillingPlansService {
       enabled: input.syncStripe !== false,
     });
 
-    return this.prisma.billingPlan.create({
+    const plan = await this.prisma.billingPlan.create({
       data: {
         slug,
         name: input.name || slug,
@@ -89,9 +96,32 @@ export class BillingPlansService {
         ...stripeRefs,
       },
     });
+
+    await this.auditService.record({
+      actorId: opts.actorId ?? null,
+      actorEmail: opts.actorEmail ?? null,
+      ip: opts.ip ?? null,
+      action: 'billing_plan.created',
+      resourceType: 'BillingPlan',
+      resourceId: plan.slug,
+      changes: {
+        slug,
+        name: plan.name,
+        price: plan.price,
+        currency: plan.currency,
+        cycle: plan.cycle,
+        status: plan.status,
+      },
+    });
+
+    return plan;
   }
 
-  async update(slug: string, input: BillingPlanInput) {
+  async update(
+    slug: string,
+    input: BillingPlanInput,
+    opts: { actorId?: string; actorEmail?: string; ip?: string } = {},
+  ) {
     const existing = await this.prisma.billingPlan.findUnique({
       where: { slug },
     });
@@ -117,7 +147,7 @@ export class BillingPlansService {
       });
     }
 
-    return this.prisma.billingPlan.update({
+    const updated = await this.prisma.billingPlan.update({
       where: { slug },
       data: {
         name: input.name,
@@ -133,22 +163,63 @@ export class BillingPlansService {
         ...stripeRefs,
       },
     });
+
+    await this.auditService.record({
+      actorId: opts.actorId ?? null,
+      actorEmail: opts.actorEmail ?? null,
+      ip: opts.ip ?? null,
+      action: 'billing_plan.updated',
+      resourceType: 'BillingPlan',
+      resourceId: updated.slug,
+      changes: {
+        slug,
+        name: input.name,
+        price: input.price,
+        status: input.status,
+        quotas: input.quotas,
+        features: input.features,
+      },
+    });
+
+    return updated;
   }
 
-  async deactivate(slug: string) {
+  async deactivate(
+    slug: string,
+    opts: { actorId?: string; actorEmail?: string; ip?: string } = {},
+  ) {
     const existing = await this.prisma.billingPlan.findUnique({
       where: { slug },
     });
     if (!existing) {
       throw new NotFoundException(`Plan "${slug}" not found`);
     }
-    return this.prisma.billingPlan.update({
+    const nextStatus = existing.status === 'active' ? 'inactive' : 'active';
+    const updated = await this.prisma.billingPlan.update({
       where: { slug },
-      data: { status: existing.status === 'active' ? 'inactive' : 'active' },
+      data: { status: nextStatus },
     });
+
+    await this.auditService.record({
+      actorId: opts.actorId ?? null,
+      actorEmail: opts.actorEmail ?? null,
+      ip: opts.ip ?? null,
+      action:
+        nextStatus === 'active'
+          ? 'billing_plan.activated'
+          : 'billing_plan.deactivated',
+      resourceType: 'BillingPlan',
+      resourceId: updated.slug,
+      changes: { slug, status: nextStatus },
+    });
+
+    return updated;
   }
 
-  async remove(slug: string) {
+  async remove(
+    slug: string,
+    opts: { actorId?: string; actorEmail?: string; ip?: string } = {},
+  ) {
     const existing = await this.prisma.billingPlan.findUnique({
       where: { slug },
     });
@@ -156,6 +227,17 @@ export class BillingPlansService {
       throw new NotFoundException(`Plan "${slug}" not found`);
     }
     await this.prisma.billingPlan.delete({ where: { slug } });
+
+    await this.auditService.record({
+      actorId: opts.actorId ?? null,
+      actorEmail: opts.actorEmail ?? null,
+      ip: opts.ip ?? null,
+      action: 'billing_plan.deleted',
+      resourceType: 'BillingPlan',
+      resourceId: existing.slug,
+      changes: { slug, name: existing.name, price: existing.price },
+    });
+
     return { deleted: true, slug };
   }
 

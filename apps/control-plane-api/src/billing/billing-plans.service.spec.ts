@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BillingPlansService } from './billing-plans.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { NotFoundException, ConflictException } from '@nestjs/common';
 
 jest.mock('stripe', () => {
@@ -17,6 +18,8 @@ jest.mock('stripe', () => {
 
 describe('BillingPlansService', () => {
   let service: BillingPlansService;
+
+  const mockAudit = { record: jest.fn().mockResolvedValue(undefined) };
 
   const mockPrismaService = {
     billingPlan: {
@@ -35,6 +38,10 @@ describe('BillingPlansService', () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: AuditService,
+          useValue: mockAudit,
         },
       ],
     }).compile();
@@ -90,6 +97,36 @@ describe('BillingPlansService', () => {
           }),
         }),
       );
+    });
+
+    it('records an audit entry with the actor', async () => {
+      mockPrismaService.billingPlan.findUnique.mockResolvedValue(null);
+      mockPrismaService.billingPlan.create.mockImplementation(({ data }) =>
+        Promise.resolve({ id: 'plan-1', slug: data.slug, ...data }),
+      );
+
+      await service.create(
+        { name: 'Pro', price: 9900 },
+        {
+          actorId: 'admin-1',
+          actorEmail: 'admin@organator.app',
+          ip: '127.0.0.1',
+        },
+      );
+
+      expect(mockAudit.record).toHaveBeenCalledWith({
+        actorId: 'admin-1',
+        actorEmail: 'admin@organator.app',
+        ip: '127.0.0.1',
+        action: 'billing_plan.created',
+        resourceType: 'BillingPlan',
+        resourceId: 'pro',
+        changes: expect.objectContaining({
+          slug: 'pro',
+          name: 'Pro',
+          price: 9900,
+        }),
+      });
     });
 
     it('should throw ConflictException when slug already exists', async () => {

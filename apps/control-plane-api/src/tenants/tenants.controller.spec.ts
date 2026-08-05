@@ -206,7 +206,14 @@ describe('TenantsController', () => {
 
   describe('addMember', () => {
     it('should call service.addMember with tenantId and details', async () => {
-      const mockReq = { user: { tenantId: 'tenant-123' } };
+      const mockReq = {
+        user: {
+          tenantId: 'tenant-123',
+          sub: 'admin-1',
+          email: 'admin@organator.app',
+        },
+        ip: '127.0.0.1',
+      };
       const body = {
         email: 'new@example.com',
         name: 'New User',
@@ -223,6 +230,11 @@ describe('TenantsController', () => {
         'New User',
         'ADMIN',
         undefined,
+        {
+          actorId: 'admin-1',
+          actorEmail: 'admin@organator.app',
+          ip: '127.0.0.1',
+        },
       );
     });
 
@@ -236,7 +248,14 @@ describe('TenantsController', () => {
 
   describe('updateMemberRole', () => {
     it('should call service.updateMemberRole', async () => {
-      const mockReq = { user: { tenantId: 'tenant-123' } };
+      const mockReq = {
+        user: {
+          tenantId: 'tenant-123',
+          sub: 'admin-1',
+          email: 'admin@organator.app',
+        },
+        ip: '127.0.0.1',
+      };
       const updatedMember = { id: 'user-1', role: 'OWNER' };
       mockTenantsService.updateMemberRole.mockResolvedValue(updatedMember);
 
@@ -248,13 +267,25 @@ describe('TenantsController', () => {
         'tenant-123',
         'user-1',
         'OWNER',
+        {
+          actorId: 'admin-1',
+          actorEmail: 'admin@organator.app',
+          ip: '127.0.0.1',
+        },
       );
     });
   });
 
   describe('removeMember', () => {
     it('should call service.removeMember', async () => {
-      const mockReq = { user: { tenantId: 'tenant-123' } };
+      const mockReq = {
+        user: {
+          tenantId: 'tenant-123',
+          sub: 'admin-1',
+          email: 'admin@organator.app',
+        },
+        ip: '127.0.0.1',
+      };
       mockTenantsService.removeMember.mockResolvedValue({ id: 'user-1' });
 
       const result = await controller.removeMember(mockReq, 'user-1');
@@ -262,6 +293,11 @@ describe('TenantsController', () => {
       expect(mockTenantsService.removeMember).toHaveBeenCalledWith(
         'tenant-123',
         'user-1',
+        {
+          actorId: 'admin-1',
+          actorEmail: 'admin@organator.app',
+          ip: '127.0.0.1',
+        },
       );
     });
   });

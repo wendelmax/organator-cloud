@@ -304,16 +304,18 @@ export class TenantsService {
     name?: string,
     role: string = 'MEMBER',
     password?: string,
+    opts: { actorId?: string; actorEmail?: string; ip?: string } = {},
   ) {
     const rawPassword =
       password || crypto.randomBytes(16).toString('base64url');
     const hashedPassword = await bcrypt.hash(rawPassword, 10);
-    return this.prisma.user.create({
+    const normalizedRole = String(role || 'MEMBER').toUpperCase();
+    const member = await this.prisma.user.create({
       data: {
         tenantId,
         email,
         name: name || null,
-        role: role || 'MEMBER',
+        role: normalizedRole,
         password: hashedPassword,
         mustChangePassword: true,
       },
@@ -325,9 +327,26 @@ export class TenantsService {
         createdAt: true,
       },
     });
+
+    await this.auditService.record({
+      actorId: opts.actorId ?? null,
+      actorEmail: opts.actorEmail ?? null,
+      ip: opts.ip ?? null,
+      action: 'tenant.member.added',
+      resourceType: 'TenantMember',
+      resourceId: member.id,
+      changes: { tenantId, email, role: normalizedRole },
+    });
+
+    return member;
   }
 
-  async updateMemberRole(tenantId: string, userId: string, role: string) {
+  async updateMemberRole(
+    tenantId: string,
+    userId: string,
+    role: string,
+    opts: { actorId?: string; actorEmail?: string; ip?: string } = {},
+  ) {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, tenantId },
     });
@@ -342,7 +361,7 @@ export class TenantsService {
       );
     }
 
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id: userId },
       data: { role: normalizedRole },
       select: {
@@ -353,9 +372,30 @@ export class TenantsService {
         createdAt: true,
       },
     });
+
+    await this.auditService.record({
+      actorId: opts.actorId ?? null,
+      actorEmail: opts.actorEmail ?? null,
+      ip: opts.ip ?? null,
+      action: 'tenant.member.role_changed',
+      resourceType: 'TenantMember',
+      resourceId: userId,
+      changes: {
+        tenantId,
+        email: user.email,
+        from: user.role,
+        to: normalizedRole,
+      },
+    });
+
+    return updated;
   }
 
-  async removeMember(tenantId: string, userId: string) {
+  async removeMember(
+    tenantId: string,
+    userId: string,
+    opts: { actorId?: string; actorEmail?: string; ip?: string } = {},
+  ) {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, tenantId },
     });
@@ -372,9 +412,21 @@ export class TenantsService {
       );
     }
 
-    return this.prisma.user.delete({
+    const removed = await this.prisma.user.delete({
       where: { id: userId },
     });
+
+    await this.auditService.record({
+      actorId: opts.actorId ?? null,
+      actorEmail: opts.actorEmail ?? null,
+      ip: opts.ip ?? null,
+      action: 'tenant.member.removed',
+      resourceType: 'TenantMember',
+      resourceId: userId,
+      changes: { tenantId, email: user.email, role: user.role },
+    });
+
+    return removed;
   }
 
   async getTenantQuotaUsage(tenantId: string) {

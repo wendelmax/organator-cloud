@@ -11,21 +11,41 @@ import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { AllowPasswordChange } from './allow-password-change.decorator';
 import { MfaService } from './mfa.service';
+import { AuditService } from '../audit/audit.service';
 
 @Controller('v1/auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly mfaService: MfaService,
+    private readonly auditService: AuditService,
   ) {}
 
   @Post('login')
-  async login(@Body() body: Record<string, string>) {
+  async login(@Req() req: any, @Body() body: Record<string, string>) {
     const user = await this.authService.validateUser(body.email, body.password);
     if (!user) {
+      await this.auditService.record({
+        actorEmail: body.email ?? null,
+        ip: req.ip ?? null,
+        action: 'auth.login_failed',
+        resourceType: 'Auth',
+        resourceId: null,
+        changes: { email: body.email ?? null },
+      });
       throw new UnauthorizedException('Invalid credentials');
     }
-    return this.authService.login(user);
+    const result = await this.authService.login(user);
+    await this.auditService.record({
+      actorId: user.id,
+      actorEmail: user.email,
+      ip: req.ip ?? null,
+      action: 'auth.login_succeeded',
+      resourceType: 'Auth',
+      resourceId: user.id,
+      changes: { role: user.role, tenantId: user.tenantId },
+    });
+    return result;
   }
 
   @UseGuards(JwtAuthGuard)
@@ -42,11 +62,21 @@ export class AuthController {
     @Req() req: any,
     @Body() body: { currentPassword: string; newPassword: string },
   ) {
-    return this.authService.changePassword(
+    const result = await this.authService.changePassword(
       req.user.userId,
       body.currentPassword,
       body.newPassword,
     );
+    await this.auditService.record({
+      actorId: req.user?.sub,
+      actorEmail: req.user?.email,
+      ip: req.ip ?? null,
+      action: 'auth.password_changed',
+      resourceType: 'Auth',
+      resourceId: req.user.userId,
+      changes: {},
+    });
+    return result;
   }
 
   // ---- MFA (TOTP app-level) ----
@@ -69,13 +99,33 @@ export class AuthController {
   @AllowPasswordChange()
   @Post('mfa/enable')
   async mfaEnable(@Req() req: any, @Body() body: { code: string }) {
-    return this.mfaService.enable(req.user.userId, body.code);
+    const result = await this.mfaService.enable(req.user.userId, body.code);
+    await this.auditService.record({
+      actorId: req.user?.sub,
+      actorEmail: req.user?.email,
+      ip: req.ip ?? null,
+      action: 'auth.mfa_enabled',
+      resourceType: 'Auth',
+      resourceId: req.user.userId,
+      changes: { enabled: true },
+    });
+    return result;
   }
 
   @UseGuards(JwtAuthGuard)
   @AllowPasswordChange()
   @Post('mfa/disable')
   async mfaDisable(@Req() req: any, @Body() body: { code: string }) {
-    return this.mfaService.disable(req.user.userId, body.code);
+    const result = await this.mfaService.disable(req.user.userId, body.code);
+    await this.auditService.record({
+      actorId: req.user?.sub,
+      actorEmail: req.user?.email,
+      ip: req.ip ?? null,
+      action: 'auth.mfa_disabled',
+      resourceType: 'Auth',
+      resourceId: req.user.userId,
+      changes: { enabled: false },
+    });
+    return result;
   }
 }
