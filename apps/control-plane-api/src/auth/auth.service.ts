@@ -8,12 +8,16 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
+import { MfaService } from './mfa.service';
+import { MfaPolicyService } from './mfa-policy.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly mfaService: MfaService,
+    private readonly mfaPolicy: MfaPolicyService,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<any> {
@@ -52,6 +56,13 @@ export class AuthService {
   }
 
   async login(user: any) {
+    if (!user.mfaBypass && await this.mfaPolicy.requiresMfa(user.tenantId, user.role, user.idpMfa)) {
+      return {
+        mfa_required: true,
+        ...(await this.mfaService.createChallenge(user)),
+        user: { id: user.id, email: user.email, role: user.role, tenantId: user.tenantId },
+      };
+    }
     const payload = {
       email: user.email,
       sub: user.id,

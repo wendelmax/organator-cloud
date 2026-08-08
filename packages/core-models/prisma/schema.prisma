@@ -28,6 +28,7 @@ model Tenant {
   iamGroups    IamGroup[]
   apiKeys      ApiKey[]
   entitlementOverride TenantEntitlementOverride?
+  securityPolicy TenantSecurityPolicy?
 }
 
 // Tokens de serviço para automação (CI/CD, SDKs) — o token bruto só é
@@ -86,8 +87,53 @@ model User {
   externalId          String?  // sub do IdP (VoidAuth)
   mfaEnabled          Boolean  @default(false) // TOTP app-level
   mfaSecretEncrypted  String?  // segredo TOTP cifrado
+  mfaFailedAttempts   Int      @default(0)
+  mfaLockedUntil      DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+
+  mfaChallenges       MfaChallenge[]
+  mfaRecoveryCodes    MfaRecoveryCode[]
+}
+
+model TenantSecurityPolicy {
+  id           String   @id @default(uuid())
+  tenantId     String   @unique
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  mfaMode      String   @default("optional") // optional | required_for_roles | required_for_all
+  requiredRoles Json     @default("[]")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("tenant_security_policies")
+}
+
+model MfaChallenge {
+  id         String   @id @default(uuid())
+  tokenHash  String   @unique
+  userId     String
+  tenantId   String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  attempts   Int      @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, expiresAt])
+  @@index([tenantId, expiresAt])
+  @@map("mfa_challenges")
+}
+
+model MfaRecoveryCode {
+  id         String   @id @default(uuid())
+  userId     String
+  codeHash   String
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, usedAt])
+  @@map("mfa_recovery_codes")
 }
 
 model IamGroup {
