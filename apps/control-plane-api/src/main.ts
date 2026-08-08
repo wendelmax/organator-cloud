@@ -1,19 +1,21 @@
 import { NestFactory } from '@nestjs/core';
-import {
-  FastifyAdapter,
-  NestFastifyApplication,
-} from '@nestjs/platform-fastify';
+import { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module';
+import {
+  configureAppSecurity,
+  createFastifyAdapter,
+  readSecurityConfig,
+} from './common/security.config';
 
 async function bootstrap() {
+  const security = readSecurityConfig();
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter(),
+    createFastifyAdapter(security),
     { rawBody: true },
   );
 
-  // Opcional: configurar CORS globalmente se desejar
-  app.enableCors();
+  await configureAppSecurity(app);
 
   // Fastify escuta na porta 3000 por padrão, configurando 0.0.0.0 para funcionar bem com Docker
   await app.listen(process.env.PORT ?? 3001, '0.0.0.0');

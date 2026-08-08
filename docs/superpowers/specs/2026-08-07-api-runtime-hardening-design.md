@@ -4,8 +4,9 @@
 
 Implementar a primeira parte da issue #121: proteção do runtime NestJS/Fastify.
 Inclui validação de configuração de segurança, CORS por allowlist, validação
-global de requests, limites de payload, headers HTTP e rate limiting. KMS,
-secret store e manifests Kubernetes ficam fora deste recorte.
+global de requests, limites de payload, headers HTTP, rate limiting e o wiring
+Helm para um Secret Kubernetes preexistente. A criação/rotação via KMS ou secret
+store permanece fora deste recorte.
 
 ## Configuração
 
@@ -45,5 +46,6 @@ acima do limite rejeitado e limite de requisições aplicado.
 
 O contrato de ambiente será documentado em `.env.example`. A mudança de CORS
 é breaking para origins não declaradas, portanto produção deve definir
-`CORS_ORIGINS` antes do deploy. Não há migração de banco, eventos externos ou
-alteração de autorização neste recorte.
+`CORS_ORIGINS` e disponibilizar `JWT_SECRET`/`ENCRYPTION_KEY` no Secret antes do
+deploy. Não há migração de banco, eventos externos ou alteração de autorização
+neste recorte.

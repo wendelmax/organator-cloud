@@ -21,6 +21,11 @@ import {
   ResolvedProviderCredential,
 } from './providers.types';
 
+type ProviderCredentialRecord = {
+  encryptedData: unknown;
+  [key: string]: unknown;
+};
+
 @Injectable()
 export class ProvidersService {
   constructor(
@@ -75,7 +80,9 @@ export class ProvidersService {
     const all = await this.prisma.providerCredential.findMany({
       orderBy: [{ type: 'asc' }, { createdAt: 'desc' }],
     });
-    return all.map((c) => this.sanitize(c));
+    return all.map((credential: ProviderCredentialRecord) =>
+      this.sanitize(credential),
+    );
   }
 
   async get(id: string) {
@@ -220,7 +227,7 @@ export class ProvidersService {
   }
 
   /** Resposta de leitura: segredos sempre mascarados, nunca decifrados. */
-  private sanitize(credential: any) {
+  private sanitize(credential: ProviderCredentialRecord) {
     const { encryptedData, ...rest } = credential;
     return {
       ...rest,
