@@ -4,6 +4,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { MfaService } from './mfa.service';
 import { AuditService } from '../audit/audit.service';
+import { MfaPolicyService } from './mfa-policy.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -21,6 +22,8 @@ describe('AuthController', () => {
     enroll: jest.fn(),
     enable: jest.fn(),
     disable: jest.fn(),
+    verifyChallenge: jest.fn(),
+    issueRecoveryCodes: jest.fn(),
   };
 
   const mockAuditService = {
@@ -35,6 +38,7 @@ describe('AuthController', () => {
         { provide: AuthService, useValue: mockAuthService },
         { provide: MfaService, useValue: mockMfaService },
         { provide: AuditService, useValue: mockAuditService },
+        { provide: MfaPolicyService, useValue: { get: jest.fn(), update: jest.fn() } },
       ],
     }).compile();
 

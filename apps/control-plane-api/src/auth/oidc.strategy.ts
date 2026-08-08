@@ -1,7 +1,8 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException, Optional } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service';
+import { MfaPolicyService } from './mfa-policy.service';
 
 export const AUTH_MODES = ['legacy', 'oidc', 'both'] as const;
 export type AuthMode = (typeof AUTH_MODES)[number];
@@ -26,7 +27,10 @@ export class OidcStrategy extends PassportStrategy(Strategy, 'oidc') {
   private readonly logger = new Logger(OidcStrategy.name);
   private jwks: RemoteJWKSet | null = null;
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly mfaPolicy?: MfaPolicyService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -97,6 +101,9 @@ export class OidcStrategy extends PassportStrategy(Strategy, 'oidc') {
     });
     if (!user) {
       return null;
+    }
+    if (this.mfaPolicy && await this.mfaPolicy.requiresMfa(user.tenantId, user.role, payload?.amr?.includes?.('mfa') || payload?.acr === 'mfa')) {
+      throw new UnauthorizedException('MFA_REQUIRED_FOR_TENANT');
     }
     return {
       userId: user.id,

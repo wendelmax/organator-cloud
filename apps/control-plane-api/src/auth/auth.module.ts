@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RolesGuard } from './roles.guard';
 import { AuditModule } from '../audit/audit.module';
 import { readSecurityConfig } from '../common/security.config';
+import { MfaPolicyService } from './mfa-policy.service';
 
 const securityConfig = readSecurityConfig();
 
@@ -33,6 +34,7 @@ export const jwtConstants = {
     JwtStrategy,
     OidcStrategy,
     MfaService,
+    MfaPolicyService,
     PrismaService,
     RolesGuard,
   ],
