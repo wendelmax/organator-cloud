@@ -229,9 +229,15 @@ export class ProvidersService {
   /** Resposta de leitura: segredos sempre mascarados, nunca decifrados. */
   private sanitize(credential: ProviderCredentialRecord) {
     const { encryptedData, ...rest } = credential;
+    const encryptedSecrets: Record<string, unknown> =
+        encryptedData !== null &&
+        typeof encryptedData === 'object' &&
+        !Array.isArray(encryptedData)
+        ? Object.fromEntries(Object.entries(encryptedData))
+        : {};
     return {
       ...rest,
-      secrets: maskProviderData(encryptedData as Record<string, unknown>),
+      secrets: maskProviderData(encryptedSecrets),
     };
   }
 }
