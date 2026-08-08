@@ -24,6 +24,12 @@ export interface CreateApiKeyInput {
   createdBy?: string | null;
 }
 
+type ApiKeyRecord = {
+  hash?: unknown;
+  scopes?: unknown;
+  [key: string]: unknown;
+};
+
 @Injectable()
 export class ApiKeysService {
   constructor(
@@ -85,7 +91,7 @@ export class ApiKeysService {
     const keys = await this.prisma.apiKey.findMany({
       orderBy: { createdAt: 'desc' },
     });
-    return keys.map((k) => this.sanitize(k));
+    return keys.map((key: ApiKeyRecord) => this.sanitize(key));
   }
 
   async get(id: string) {
@@ -228,7 +234,7 @@ export class ApiKeysService {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
 
-  private sanitize(key: any) {
+  private sanitize(key: ApiKeyRecord) {
     const { hash: _hash, ...rest } = key;
     void _hash;
     return {

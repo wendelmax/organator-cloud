@@ -5,11 +5,24 @@ const ALGORITHM = 'aes-256-gcm';
 const DEFAULT_KEY_HEX = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
 function getEncryptionKey(): Buffer {
-  const envKey = process.env.ENCRYPTION_KEY || DEFAULT_KEY_HEX;
+  const envKey = resolveEncryptionKey();
   if (envKey.length === 64) {
     return Buffer.from(envKey, 'hex');
   }
   return Buffer.from(envKey.padEnd(32, '0').slice(0, 32), 'utf8');
+}
+
+function resolveEncryptionKey(): string {
+  const envKey = process.env.ENCRYPTION_KEY;
+  if (process.env.NODE_ENV === 'production') {
+    if (!envKey || !/^[a-fA-F0-9]{64}$/.test(envKey)) {
+      throw new Error(
+        'CRITICAL SECURITY FATAL: ENCRYPTION_KEY must be 64 hexadecimal characters in production',
+      );
+    }
+    return envKey;
+  }
+  return envKey || DEFAULT_KEY_HEX;
 }
 
 /**
@@ -70,7 +83,7 @@ export function decryptSecret(encryptedText: string): string {
  */
 export async function encryptSecretAsync(text: string): Promise<string> {
   if (!text) return text;
-  const keyHex = process.env.ENCRYPTION_KEY || DEFAULT_KEY_HEX;
+  const keyHex = resolveEncryptionKey();
   return Tasklets.run(
     (value: string, key: string) => {
       const cryptoLib = require('crypto');
@@ -96,7 +109,7 @@ export async function encryptSecretAsync(text: string): Promise<string> {
  */
 export async function decryptSecretAsync(encryptedText: string): Promise<string> {
   if (!encryptedText) return encryptedText;
-  const keyHex = process.env.ENCRYPTION_KEY || DEFAULT_KEY_HEX;
+  const keyHex = resolveEncryptionKey();
   return Tasklets.run(
     (value: string, key: string) => {
       const cryptoLib = require('crypto');
@@ -122,4 +135,3 @@ export async function decryptSecretAsync(encryptedText: string): Promise<string>
     keyHex,
   );
 }
-

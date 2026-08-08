@@ -1,10 +1,5 @@
 export type QuotaResourceType =
-  | 'MICROSERVICE'
-  | 'DEPLOYMENT'
-  | 'SEATS'
-  | 'APIS'
-  | 'DOMAINS'
-  | 'GB_STORAGE';
+  'MICROSERVICE' | 'DEPLOYMENT' | 'SEATS' | 'APIS' | 'DOMAINS' | 'GB_STORAGE';
 
 export type LimitType = 'soft' | 'hard';
 

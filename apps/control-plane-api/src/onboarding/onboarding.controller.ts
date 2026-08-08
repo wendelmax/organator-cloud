@@ -46,7 +46,8 @@ export class OnboardingController {
         );
       }
     } catch (err) {
-      throw new BadRequestException(`Webhook Error: ${err.message}`);
+      const message = err instanceof Error ? err.message : String(err);
+      throw new BadRequestException(`Webhook Error: ${message}`);
     }
 
     return this.billingWebhook.process(event);

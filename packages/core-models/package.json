@@ -9,7 +9,7 @@
     "generate": "prisma generate"
   },
   "dependencies": {
-    "zod": "^3.22.4",
+    "zod": "^4.4.3",
     "@prisma/client": "^5.10.0"
   },
   "devDependencies": {

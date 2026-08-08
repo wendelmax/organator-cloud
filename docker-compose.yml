@@ -27,6 +27,7 @@ services:
       context: .
       dockerfile: apps/control-plane-api/Dockerfile
     environment:
+      - NODE_ENV=development
       - PORT=3000
       - DATABASE_URL=postgresql://organator:password@postgres:5432/organator_db?schema=public
       - REDIS_HOST=redis

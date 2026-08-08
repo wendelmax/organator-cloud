@@ -23,12 +23,32 @@ spec:
               containerPort: 3001
               protocol: TCP
           env:
+            - name: NODE_ENV
+              value: "production"
             - name: DATABASE_URL
               value: "postgresql://postgres:{{ .Values.postgresql.auth.postgresPassword }}@{{ include "organator-cloud.fullname" . }}-postgresql:5432/{{ .Values.postgresql.auth.database }}?schema=public"
             - name: REDIS_HOST
               value: "{{ include "organator-cloud.fullname" . }}-redis-master"
+            - name: CORS_ORIGINS
+              value: {{ .Values.controlPlaneApi.env.CORS_ORIGINS | quote }}
+            - name: RATE_LIMIT_MAX
+              value: {{ .Values.controlPlaneApi.env.RATE_LIMIT_MAX | quote }}
+            - name: HEALTH_RATE_LIMIT_MAX
+              value: {{ .Values.controlPlaneApi.env.HEALTH_RATE_LIMIT_MAX | quote }}
+            - name: RATE_LIMIT_WINDOW_MS
+              value: {{ .Values.controlPlaneApi.env.RATE_LIMIT_WINDOW_MS | quote }}
+            - name: TRUST_PROXY_HOPS
+              value: {{ .Values.controlPlaneApi.env.TRUST_PROXY_HOPS | quote }}
             - name: JWT_SECRET
-              value: {{ .Values.controlPlaneApi.env.JWT_SECRET | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.controlPlaneApi.env.existingSecret | quote }}
+                  key: JWT_SECRET
+            - name: ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.controlPlaneApi.env.existingSecret | quote }}
+                  key: ENCRYPTION_KEY
 ---
 apiVersion: v1
 kind: Service

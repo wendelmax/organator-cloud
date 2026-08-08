@@ -1,12 +1,7 @@
 import { SetMetadata } from '@nestjs/common';
 
 export type QuotaResourceType =
-  | 'MICROSERVICE'
-  | 'DEPLOYMENT'
-  | 'SEATS'
-  | 'APIS'
-  | 'DOMAINS'
-  | 'GB_STORAGE';
+  'MICROSERVICE' | 'DEPLOYMENT' | 'SEATS' | 'APIS' | 'DOMAINS' | 'GB_STORAGE';
 
 export const QUOTA_RESOURCES: QuotaResourceType[] = [
   'MICROSERVICE',

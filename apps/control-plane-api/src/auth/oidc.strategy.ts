@@ -1,7 +1,6 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import * as jose from 'jose';
 import { PrismaService } from '../prisma/prisma.service';
 
 export const AUTH_MODES = ['legacy', 'oidc', 'both'] as const;
@@ -12,7 +11,8 @@ export function resolveAuthMode(): AuthMode {
   return AUTH_MODES.includes(mode as AuthMode) ? (mode as AuthMode) : 'both';
 }
 
-type RemoteJWKSet = ReturnType<typeof jose.createRemoteJWKSet>;
+type JoseModule = typeof import('jose');
+type RemoteJWKSet = ReturnType<JoseModule['createRemoteJWKSet']>;
 
 /**
  * Valida tokens emitidos por um OIDC Provider (ex.: VoidAuth) via JWKS.
@@ -56,11 +56,13 @@ export class OidcStrategy extends PassportStrategy(Strategy, 'oidc') {
     if (!doc.jwks_uri) {
       throw new Error('OIDC discovery did not expose jwks_uri');
     }
+    const jose = await import('jose');
     this.jwks = jose.createRemoteJWKSet(new URL(doc.jwks_uri));
     return this.jwks;
   }
 
   private async resolveSigningKey(rawJwtToken: string): Promise<string> {
+    const jose = await import('jose');
     const protectedHeader = jose.decodeProtectedHeader(rawJwtToken);
     const key = await (await this.getJwks())(protectedHeader);
     if (key instanceof Uint8Array) {

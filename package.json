@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "O Control Plane Open-Source para fundadores de SaaS. Automatize o onboarding e o provisionamento de infraestrutura (AWS/Vercel/Docker) para clientes Enterprise.",
   "private": true,
+  "engines": {
+    "node": ">=24 <25",
+    "npm": ">=11"
+  },
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
@@ -14,7 +18,7 @@
     "prettier": "^3.2.5",
     "turbo": "^2.0.0"
   },
-  "packageManager": "npm@10.5.0",
+  "packageManager": "npm@11.17.0",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -23,10 +27,14 @@
     "@babel/types": "^7.29.7",
     "es-abstract": "^1.24.2",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "ioredis": "^6.0.0",
     "zod": "^4.4.3"
   },
   "optionalDependencies": {
     "@tailwindcss/oxide-linux-x64-gnu": "^4.3.3",
     "lightningcss-linux-x64-gnu": "^1.33.0"
+  },
+  "overrides": {
+    "find-my-way": "9.7.0"
   }
 }

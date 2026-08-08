@@ -22,4 +22,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -
 WORKDIR /app
 COPY --from=installer /app .
 WORKDIR /app/apps/control-plane-api
+ENV NODE_ENV=production
 CMD ["npm", "run", "start:prod"]

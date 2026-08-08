@@ -3,14 +3,14 @@ import { IsString, IsNotEmpty, IsEnum, IsOptional } from 'class-validator';
 export class CreateServiceDto {
   @IsString()
   @IsNotEmpty()
-  tenantId: string;
+  tenantId!: string;
 
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name!: string;
 
   @IsEnum(['VERCEL', 'AWS', 'DOCKER_VPS'])
-  cloudProvider: 'VERCEL' | 'AWS' | 'DOCKER_VPS';
+  cloudProvider!: 'VERCEL' | 'AWS' | 'DOCKER_VPS';
 
   @IsString()
   @IsOptional()

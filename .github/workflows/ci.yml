@@ -32,7 +32,7 @@ jobs:
         env:
           # url dummy: `prisma generate` não conecta no banco, apenas valida a config
           DATABASE_URL: postgresql://organator:password@localhost:5432/organator_db?schema=public
-        run: npx prisma generate --schema packages/core-models/prisma/schema.prisma
+        run: npm run generate --workspace=@organator/core-models
 
       - name: Lint
         run: npx turbo lint
