@@ -89,11 +89,11 @@ export class TenantsController {
 
   @Patch(':id/plan')
   @Roles('PLATFORM_ADMIN')
-  async changePlan(@Param('id') id: string, @Body() body: { plan: string }) {
+  async changePlan(@Param('id') id: string, @Body() body: { plan: string }, @Req() req: any) {
     if (!body.plan) {
       throw new BadRequestException('Plan is required');
     }
-    return this.tenantsService.changePlan(id, body.plan);
+    return this.tenantsService.changePlan(id, body.plan, req.user?.userId);
   }
 
   @Post(':id/suspend')

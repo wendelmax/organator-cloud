@@ -45,6 +45,8 @@ const worker = new Worker('provisioner', async (job: Job) => {
       await handleDeployTenantInfra(job, deploymentId);
     } else if (job.name === 'deprovision-tenant-infra') {
       await handleDeprovisionTenantInfra(job, deploymentId);
+    } else if (job.name === 'migrate-tenant-plan') {
+      await handleMigrateTenantPlan(job, deploymentId);
     } else if (job.name === 'deploy-microservice') {
       await handleDeployMicroservice(job, deploymentId);
     }
@@ -160,6 +162,12 @@ async function handleDeprovisionTenantInfra(job: Job, deploymentId: string | nul
   await appendLog(deploymentId, job, `[Deprovisioner] Removendo DNS/TLS`, 'DNS');
   await appendLog(deploymentId, job, `[Deprovisioner] Removendo rede`, 'NETWORK');
   await appendLog(deploymentId, job, `[Deprovisioner] Removendo banco`, 'DB');
+}
+
+async function handleMigrateTenantPlan(job: Job, deploymentId: string | null) {
+  await appendLog(deploymentId, job, `[PlanMigration] Reconciliando ${job.data.fromPlan} -> ${job.data.toPlan}`, 'NETWORK');
+  if (job.data.gracePeriod) await appendLog(deploymentId, job, '[PlanMigration] Downgrade em período de graça; dados preservados');
+  await appendLog(deploymentId, job, '[PlanMigration] Infraestrutura reconciliada', 'DONE');
 }
 
 async function handleDeployMicroservice(job: Job, deploymentId: string | null) {
