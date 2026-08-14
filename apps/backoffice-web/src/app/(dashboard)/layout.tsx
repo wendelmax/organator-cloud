@@ -27,6 +27,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Link href="/tenants" className="px-4 py-2 rounded-md hover:bg-neutral-800 transition">Tenants</Link>
           <Link href="/services" className="px-4 py-2 rounded-md hover:bg-neutral-800 transition">Services Catalog</Link>
           <Link href="/portal" className="px-4 py-2 rounded-md hover:bg-neutral-800 transition text-blue-400">Developer Portal</Link>
+          <Link href="/api-keys" className="px-4 py-2 rounded-md hover:bg-neutral-800 transition">API Keys</Link>
           <Link href="/billing" className="px-4 py-2 rounded-md hover:bg-neutral-800 transition">Billing (Stripe)</Link>
           {isPlatformAdmin ? (
             <>
