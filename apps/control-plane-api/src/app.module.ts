@@ -15,6 +15,7 @@ import { AuditModule } from './audit/audit.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { ProvidersModule } from './providers/providers.module';
 import { PlacementModule } from './placement/placement.module';
+import { DomainsModule } from './domains/domains.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { PlacementModule } from './placement/placement.module';
     ApiKeysModule,
     ProvidersModule,
     PlacementModule,
+    DomainsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
