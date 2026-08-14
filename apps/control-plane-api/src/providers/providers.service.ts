@@ -195,7 +195,7 @@ export class ProvidersService {
     const credential = await this.prisma.providerCredential.findUnique({ where: { id: input.credentialId } });
     if (!credential || credential.type !== input.type) throw new BadRequestException('Credencial incompatível com o tipo do perfil');
     if (input.isDefault) await this.prisma.providerProfile.updateMany({ where: { tenantId: input.tenantId ?? null, type: input.type }, data: { isDefault: false } });
-    const profile = await this.prisma.providerProfile.create({ data: { name: input.name.trim(), type: input.type, tenantId: input.tenantId ?? null, credentialId: input.credentialId, config: input.config ?? {}, isDefault: input.isDefault ?? false } });
+    const profile = await this.prisma.providerProfile.create({ data: { name: input.name.trim(), type: input.type, tenantId: input.tenantId ?? null, credentialId: input.credentialId, config: (input.config ?? {}) as any, isDefault: input.isDefault ?? false } });
     await this.auditService.record({ actorId, action: 'provider_profile.created', resourceType: 'ProviderProfile', resourceId: profile.id, changes: { name: profile.name, type: profile.type, tenantId: profile.tenantId } });
     return profile;
   }
