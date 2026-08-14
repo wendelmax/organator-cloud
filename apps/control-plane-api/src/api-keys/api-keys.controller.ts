@@ -16,7 +16,7 @@ import { Roles } from '../auth/roles.decorator';
 import { ApiKeysService } from './api-keys.service';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('PLATFORM_ADMIN')
+@Roles('PLATFORM_ADMIN', 'OWNER', 'ADMIN', 'DEVELOPER')
 @Controller('v1/api-keys')
 export class ApiKeysController {
   constructor(private readonly apiKeysService: ApiKeysService) {}
@@ -29,20 +29,20 @@ export class ApiKeysController {
     return this.apiKeysService.create({
       name: body.name,
       scopes: body.scopes,
-      tenantId: body.tenantId,
+      tenantId: req.user?.role === 'PLATFORM_ADMIN' ? body.tenantId : req.user?.tenantId,
       expiresAt: body.expiresAt,
       createdBy: req.user?.userId ?? null,
     });
   }
 
   @Get()
-  async list() {
-    return this.apiKeysService.list();
+  async list(@Req() req: any) {
+    return this.apiKeysService.list(req.user?.role === 'PLATFORM_ADMIN' ? undefined : req.user?.tenantId);
   }
 
   @Get(':id')
-  async get(@Param('id') id: string) {
-    return this.apiKeysService.get(id);
+  async get(@Param('id') id: string, @Req() req: any) {
+    return this.apiKeysService.get(id, req.user?.role === 'PLATFORM_ADMIN' ? undefined : req.user?.tenantId);
   }
 
   @Patch(':id')
@@ -56,12 +56,13 @@ export class ApiKeysController {
         tenantId: body.tenantId,
       },
       req.user?.userId ?? null,
+      req.user?.role === 'PLATFORM_ADMIN' ? undefined : req.user?.tenantId,
     );
   }
 
   @Delete(':id')
   async remove(@Req() req: any, @Param('id') id: string) {
-    await this.apiKeysService.delete(id, req.user?.userId ?? null);
+    await this.apiKeysService.delete(id, req.user?.userId ?? null, req.user?.role === 'PLATFORM_ADMIN' ? undefined : req.user?.tenantId);
     return { deleted: true };
   }
 }
