@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TenantsModule } from '../tenants/tenants.module';
 import { IamModule } from '../iam/iam.module';
 import { AuditModule } from '../audit/audit.module';
+import { EntitlementsModule } from '../entitlements/entitlements.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AuditModule } from '../audit/audit.module';
     TenantsModule,
     IamModule,
     AuditModule,
+    EntitlementsModule,
   ],
   controllers: [BillingController, BillingPlansController],
   providers: [
