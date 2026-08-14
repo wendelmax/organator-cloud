@@ -83,7 +83,10 @@ export class ServicesService {
     });
   }
 
-  async triggerDeploy(serviceId: string) {
+  async triggerDeploy(serviceId: string, environment = 'production') {
+    if (!['production', 'staging', 'development'].includes(environment)) {
+      throw new Error('environment must be production, staging or development');
+    }
     const service = await this.prisma.microservice.findUnique({
       where: { id: serviceId },
     });
@@ -93,6 +96,7 @@ export class ServicesService {
       data: {
         microserviceId: serviceId,
         status: 'PENDING',
+        environment,
         logs: 'Aguardando worker iniciar o deploy...\n',
       },
     });
@@ -110,6 +114,7 @@ export class ServicesService {
           provider: service.cloudProvider,
           repo: service.repository,
           deploymentId: deployment.id,
+          environment,
           ...(credentials ? { credentials } : {}),
         });
       } catch (err) {
