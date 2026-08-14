@@ -98,6 +98,10 @@ export default function BillingPage() {
           </CardContent>
         </Card>
       </div>
+
+      {subscription?.status === "past_due" && <div className="rounded-lg border border-amber-800 bg-amber-950/40 p-4 text-amber-300">Pagamento pendente. Atualize seu cartão no portal para evitar suspensão.</div>}
+      {subscription?.status === "suspended" && <div className="rounded-lg border border-red-800 bg-red-950/40 p-4 text-red-300">Conta suspensa por inadimplência. Regularize o pagamento para retomar o acesso.</div>}
+      {subscription?.entitlements && <Card className="p-6 bg-neutral-900 border-neutral-800 shadow-xl"><CardHeader><CardTitle className="text-xl font-semibold text-white">Uso e limites</CardTitle></CardHeader><CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">{Object.entries(subscription.entitlements.quotas || {}).map(([resource, limit]: [string, any]) => { const used = subscription.usage?.[resource] || 0; const pct = limit === -1 ? 0 : Math.min(100, Math.round((used / Math.max(1, limit)) * 100)); const soft = subscription.entitlements.limits?.[resource] === "soft"; return <div key={resource} className="space-y-1"><div className="flex justify-between text-sm text-neutral-300"><span>{resource}</span><span>{used} / {limit === -1 ? "∞" : limit}</span></div><div className="h-2 rounded bg-neutral-800"><div className={`h-2 rounded ${pct >= 100 ? "bg-red-500" : pct >= 80 ? (soft ? "bg-amber-400" : "bg-red-400") : "bg-indigo-500"}`} style={{ width: `${limit === -1 ? 0 : pct}%` }} /></div></div> })}</CardContent></Card>}
     </div>
   );
 }
