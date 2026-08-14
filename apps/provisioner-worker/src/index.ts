@@ -24,7 +24,7 @@ const worker = new Worker('provisioner', async (job: Job) => {
       const dep = await prisma.deployment.upsert({
         where: { idempotencyKey: key },
         update: { status: 'RUNNING' },
-        create: { microserviceId: job.data.serviceId || null, tenantId: job.data.tenantId || null, status: 'RUNNING', phase: 'DB', idempotencyKey: key, logs: `[${new Date().toISOString()}] Job de deploy iniciado...\n` },
+        create: { microserviceId: job.data.serviceId || null, tenantId: job.data.tenantId || null, status: 'RUNNING', phase: 'DB', environment: job.data.environment || 'production', idempotencyKey: key, logs: `[${new Date().toISOString()}] Job de deploy iniciado...\n` },
       });
       deploymentId = dep.id;
     } catch (e: any) {
