@@ -70,4 +70,14 @@ export class ProvidersController {
   async testConnection(@Param('id') id: string) {
     return this.providersService.testConnection(id);
   }
+
+  @Post('profiles')
+  async createProfile(@Req() req: any, @Body() body: any) {
+    return this.providersService.createProfile({ name: body.name, type: body.type, credentialId: body.credentialId, tenantId: body.tenantId ?? null, config: body.config ?? {}, isDefault: body.isDefault }, req.user?.userId ?? null);
+  }
+
+  @Get('profiles/list')
+  async listProfiles(@Req() req: any) {
+    return this.providersService.listProfiles(req.user?.tenantId ?? null);
+  }
 }
