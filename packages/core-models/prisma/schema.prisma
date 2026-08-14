@@ -31,6 +31,7 @@ model Tenant {
   securityPolicy TenantSecurityPolicy?
   placementPolicy TenantPlacementPolicy?
   placementMigrations TenantPlacementMigration[]
+  providerProfiles ProviderProfile[]
 }
 
 model RegionCatalog {
@@ -271,6 +272,24 @@ model ProviderCredential {
 
   @@unique([type, name])
   @@map("provider_credentials")
+}
+
+model ProviderProfile {
+  id           String             @id @default(uuid())
+  name         String
+  type         String             // AWS | VERCEL | VPS
+  tenantId     String?
+  tenant       Tenant?            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  credentialId String
+  credential   ProviderCredential @relation(fields: [credentialId], references: [id])
+  config       Json               @default("{}")
+  isDefault    Boolean            @default(false)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@unique([tenantId, name])
+  @@index([tenantId, type, isDefault])
+  @@map("provider_profiles")
 }
 
 // Overrides de entitlements por tenant (ex.: crédito de cortesia) sem alterar o plano.
