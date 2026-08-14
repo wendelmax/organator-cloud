@@ -269,6 +269,7 @@ model ProviderCredential {
   createdBy     String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  profiles      ProviderProfile[]
 
   @@unique([type, name])
   @@map("provider_credentials")
