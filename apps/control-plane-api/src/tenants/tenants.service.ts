@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
@@ -15,6 +16,8 @@ import {
 } from './tenant-lifecycle.types';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 
 export type TenantStatus = 'active' | 'suspended' | 'archived';
 
@@ -37,6 +40,7 @@ export class TenantsService {
     private readonly entitlementsService: EntitlementsService,
     private readonly auditService: AuditService,
     private readonly lifecycleService: TenantLifecycleService,
+    @Optional() @InjectQueue('provisioner') private readonly provisionerQueue?: Queue,
   ) {}
 
   async createTenant(
@@ -165,8 +169,8 @@ export class TenantsService {
     });
   }
 
-  async changePlan(tenantId: string, plan: string) {
-    await this.ensureTenantExists(tenantId);
+  async changePlan(tenantId: string, plan: string, actorId?: string) {
+    const current = await this.ensureTenantExists(tenantId);
 
     const normalizedPlan = plan.toLowerCase();
     if (!VALID_PLANS.includes(normalizedPlan)) {
@@ -191,7 +195,19 @@ export class TenantsService {
 
     this.entitlementsService.bust(tenantId);
 
-    return result;
+    const idempotencyKey = `plan-migration:${tenantId}:${normalizedPlan}`;
+    const job = this.provisionerQueue ? await this.provisionerQueue.add('migrate-tenant-plan', {
+      tenantId,
+      fromPlan: current.plan,
+      toPlan: normalizedPlan,
+      action: 'RECONCILE_INFRA',
+      idempotencyKey,
+      gracePeriod: normalizedPlan === 'free' && current.plan !== 'free',
+      actorId,
+    }, { jobId: idempotencyKey, removeOnComplete: false }) : { id: undefined };
+    await this.auditService.record({ actorId, action: 'TENANT_PLAN_CHANGED', resourceType: 'TENANT', resourceId: tenantId, changes: { from: current.plan, to: normalizedPlan, jobId: job.id, idempotencyKey } });
+
+    return { ...result, migration: { jobId: job.id, status: 'QUEUED', idempotencyKey } };
   }
 
   async setTenantStatus(tenantId: string, status: TenantStatus) {

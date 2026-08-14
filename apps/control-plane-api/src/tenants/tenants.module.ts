@@ -10,12 +10,14 @@ import { EntitlementsModule } from '../entitlements/entitlements.module';
 import { AuditModule } from '../audit/audit.module';
 import { ApiKeysModule } from '../api-keys/api-keys.module';
 import { jwtConstants } from '../auth/auth.module';
+import { BullModule } from '@nestjs/bullmq';
 
 @Module({
   imports: [
     EntitlementsModule,
     AuditModule,
     ApiKeysModule,
+    BullModule.registerQueue({ name: 'provisioner' }),
     JwtModule.register({
       secret: jwtConstants.secret,
       signOptions: { expiresIn: '1d' },
