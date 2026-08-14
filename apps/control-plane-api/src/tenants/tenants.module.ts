@@ -11,6 +11,8 @@ import { AuditModule } from '../audit/audit.module';
 import { ApiKeysModule } from '../api-keys/api-keys.module';
 import { jwtConstants } from '../auth/auth.module';
 import { BullModule } from '@nestjs/bullmq';
+import { InvitationsService } from './invitations.service';
+import { InvitationsController } from './invitations.controller';
 
 @Module({
   imports: [
@@ -23,9 +25,10 @@ import { BullModule } from '@nestjs/bullmq';
       signOptions: { expiresIn: '1d' },
     }),
   ],
-  controllers: [TenantsController],
+  controllers: [TenantsController, InvitationsController],
   providers: [
     TenantsService,
+    InvitationsService,
     TenantLifecycleService,
     PrismaService,
     {
