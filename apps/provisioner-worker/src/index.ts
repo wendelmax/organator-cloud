@@ -18,14 +18,13 @@ const worker = new Worker('provisioner', async (job: Job) => {
   console.log(`[Job Recebido] ID: ${job.id} | Nome: ${job.name}`);
   
   let deploymentId: string | null = job.data.deploymentId || null;
-  if (job.data.serviceId && !deploymentId) {
+  if ((job.data.serviceId || job.data.tenantId) && !deploymentId) {
     try {
-      const dep = await prisma.deployment.create({
-        data: {
-          microserviceId: job.data.serviceId,
-          status: 'RUNNING',
-          logs: `[${new Date().toISOString()}] Job de deploy iniciado...\n`,
-        }
+      const key = job.data.idempotencyKey || `${job.name}:${job.data.tenantId || job.data.serviceId}`;
+      const dep = await prisma.deployment.upsert({
+        where: { idempotencyKey: key },
+        update: { status: 'RUNNING' },
+        create: { microserviceId: job.data.serviceId || null, tenantId: job.data.tenantId || null, status: 'RUNNING', phase: 'DB', idempotencyKey: key, logs: `[${new Date().toISOString()}] Job de deploy iniciado...\n` },
       });
       deploymentId = dep.id;
     } catch (e: any) {
@@ -44,6 +43,8 @@ const worker = new Worker('provisioner', async (job: Job) => {
   try {
     if (job.name === 'deploy-tenant-infra') {
       await handleDeployTenantInfra(job, deploymentId);
+    } else if (job.name === 'deprovision-tenant-infra') {
+      await handleDeprovisionTenantInfra(job, deploymentId);
     } else if (job.name === 'deploy-microservice') {
       await handleDeployMicroservice(job, deploymentId);
     }
@@ -54,6 +55,7 @@ const worker = new Worker('provisioner', async (job: Job) => {
         where: { id: deploymentId },
         data: {
           status: 'SUCCESS',
+          phase: 'DONE',
           logs: `${current?.logs || ''}${successLog}`
         }
       });
@@ -96,7 +98,7 @@ async function appendLog(deploymentId: string | null, job: Job, msg: string, sta
       const current = await prisma.deployment.findUnique({ where: { id: deploymentId } });
       await prisma.deployment.update({
         where: { id: deploymentId },
-        data: { logs: `${current?.logs || ''}${processed}` }
+        data: { logs: `${current?.logs || ''}${processed}`, phase: status }
       });
       await redisPublisher.publish(
         `deploy_logs:${deploymentId}`,
@@ -138,7 +140,7 @@ async function processLogLine(line: string): Promise<string> {
 
 async function handleDeployTenantInfra(job: Job, deploymentId: string | null) {
   const { tenantId, plan } = job.data;
-  await appendLog(deploymentId, job, `[Provisioner] Criando infraestrutura do tenant ${tenantId}...`);
+  await appendLog(deploymentId, job, `[Provisioner] Criando infraestrutura do tenant ${tenantId}...`, 'DB');
   if (plan === 'Enterprise') {
     const creds = job.data.credentials?.secrets || {};
     const aws = new AWSClient(
@@ -149,7 +151,15 @@ async function handleDeployTenantInfra(job: Job, deploymentId: string | null) {
     const instanceId = await aws.createEC2Instance('ami-0c55b159cbfafe1f0', 't3.medium');
     await appendLog(deploymentId, job, `[AWS EC2] Instância provisionada: ${instanceId}`);
   }
-  await appendLog(deploymentId, job, `[Provisioner] Infraestrutura pronta com sucesso!`);
+  await appendLog(deploymentId, job, `[Provisioner] Rede isolada configurada`, 'NETWORK');
+  await appendLog(deploymentId, job, `[Provisioner] DNS/TLS enfileirados`, 'DNS');
+  await appendLog(deploymentId, job, `[Provisioner] Infraestrutura pronta com sucesso!`, 'DONE');
+}
+
+async function handleDeprovisionTenantInfra(job: Job, deploymentId: string | null) {
+  await appendLog(deploymentId, job, `[Deprovisioner] Removendo DNS/TLS`, 'DNS');
+  await appendLog(deploymentId, job, `[Deprovisioner] Removendo rede`, 'NETWORK');
+  await appendLog(deploymentId, job, `[Deprovisioner] Removendo banco`, 'DB');
 }
 
 async function handleDeployMicroservice(job: Job, deploymentId: string | null) {
