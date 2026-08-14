@@ -33,6 +33,7 @@ model Tenant {
   placementMigrations TenantPlacementMigration[]
   providerProfiles ProviderProfile[]
   domains Domain[]
+  deployments Deployment[]
 }
 
 model RegionCatalog {
@@ -238,8 +239,10 @@ model Domain {
 
 model ApiDoc {
   id             String   @id @default(uuid())
-  microserviceId String
-  microservice   Microservice @relation(fields: [microserviceId], references: [id])
+  microserviceId String?
+  microservice   Microservice? @relation(fields: [microserviceId], references: [id])
+  tenantId       String?
+  tenant         Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   title          String
   version        String
   openApiSpec    String   @db.Text // JSON stringificado da spec OpenAPI
@@ -247,6 +250,7 @@ model ApiDoc {
   
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  @@index([tenantId, status])
 }
 
 model Deployment {
@@ -254,7 +258,10 @@ model Deployment {
   microserviceId String
   microservice   Microservice @relation(fields: [microserviceId], references: [id])
   status         String   @default("PENDING") // PENDING, RUNNING, SUCCESS, FAILED
+  phase          String   @default("DB") // DB, NETWORK, DNS, DONE, DEPROVISION
   logs           String?
+  resourceState  Json     @default("{}")
+  idempotencyKey String?  @unique
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
