@@ -12,6 +12,7 @@ import {
   ValidatedApiKey,
   normalizeScopes,
 } from './api-keys.types';
+import { ForbiddenException } from '@nestjs/common';
 
 /** Estados do tenant que invalidam a API key imediatamente (#46). */
 const BLOCKED_TENANT_STATES = ['suspended', 'offboarding', 'deleted'];
@@ -87,15 +88,16 @@ export class ApiKeysService {
     };
   }
 
-  async list() {
+  async list(tenantId?: string) {
     const keys = await this.prisma.apiKey.findMany({
+      where: tenantId ? { tenantId } : undefined,
       orderBy: { createdAt: 'desc' },
     });
     return keys.map((key: ApiKeyRecord) => this.sanitize(key));
   }
 
-  async get(id: string) {
-    const key = await this.prisma.apiKey.findUnique({ where: { id } });
+  async get(id: string, tenantId?: string) {
+    const key = await this.prisma.apiKey.findFirst({ where: { id, ...(tenantId ? { tenantId } : {}) } });
     if (!key) {
       throw new NotFoundException('API key not found');
     }
@@ -111,11 +113,13 @@ export class ApiKeysService {
       tenantId?: string | null;
     },
     actorId?: string | null,
+    tenantId?: string,
   ) {
     const existing = await this.prisma.apiKey.findUnique({ where: { id } });
     if (!existing) {
       throw new NotFoundException('API key not found');
     }
+    if (tenantId && existing.tenantId !== tenantId) throw new ForbiddenException('API key belongs to another tenant');
 
     const updated = await this.prisma.apiKey.update({
       where: { id },
@@ -143,11 +147,12 @@ export class ApiKeysService {
   }
 
   /** Revogação imediata: remove o registro, matando o token na hora. */
-  async delete(id: string, actorId?: string | null) {
+  async delete(id: string, actorId?: string | null, tenantId?: string) {
     const existing = await this.prisma.apiKey.findUnique({ where: { id } });
     if (!existing) {
       throw new NotFoundException('API key not found');
     }
+    if (tenantId && existing.tenantId !== tenantId) throw new ForbiddenException('API key belongs to another tenant');
     await this.prisma.apiKey.delete({ where: { id } });
 
     await this.auditService.record({
