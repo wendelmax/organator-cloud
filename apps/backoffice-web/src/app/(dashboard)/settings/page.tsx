@@ -11,6 +11,8 @@ const sections = [
   { href: "/tenants", title: "Organização e membros", description: "Dados da organização, usuários, papéis e convites." },
   { href: "/billing", title: "Billing e plano", description: "Plano atual, consumo, limites e pagamentos." },
   { href: "/api-keys", title: "API Keys", description: "Credenciais de integração, escopos e revogação." },
+  { href: "/invitations", title: "Convites", description: "Convide membros e acompanhe aceite, expiração ou revogação." },
+  { href: "/invitations", title: "Convites", description: "Convide membros e acompanhe aceite, expiração ou revogação." },
   { href: "/sessions", title: "Segurança e sessões", description: "Dispositivos conectados e revogação de acessos." },
   { href: "/providers", title: "Provedores", description: "Credenciais e configurações de infraestrutura." },
   { href: "/audit", title: "Auditoria", description: "Histórico de alterações e ações administrativas." },

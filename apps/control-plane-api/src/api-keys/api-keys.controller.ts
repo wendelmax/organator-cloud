@@ -16,7 +16,7 @@ import { Roles } from '../auth/roles.decorator';
 import { ApiKeysService } from './api-keys.service';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('PLATFORM_ADMIN', 'OWNER', 'ADMIN', 'DEVELOPER')
+@Roles('PLATFORM_ADMIN', 'OWNER')
 @Controller('v1/api-keys')
 export class ApiKeysController {
   constructor(private readonly apiKeysService: ApiKeysService) {}
@@ -53,7 +53,7 @@ export class ApiKeysController {
         name: body.name,
         scopes: body.scopes,
         expiresAt: body.expiresAt,
-        tenantId: body.tenantId,
+        tenantId: req.user?.role === 'PLATFORM_ADMIN' ? body.tenantId : undefined,
       },
       req.user?.userId ?? null,
       req.user?.role === 'PLATFORM_ADMIN' ? undefined : req.user?.tenantId,
