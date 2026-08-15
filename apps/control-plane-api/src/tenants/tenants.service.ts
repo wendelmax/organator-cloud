@@ -233,6 +233,12 @@ export class TenantsService {
     return this.prisma.tenantMembership.findMany({ where: { userId, status: 'active' }, include: { tenant: { select: { id: true, name: true, slug: true, plan: true, status: true } } }, orderBy: { createdAt: 'asc' } });
   }
 
+  async resolveMembership(userId: string, slug: string) {
+    const membership = await this.prisma.tenantMembership.findFirst({ where: { userId, status: 'active', tenant: { slug } }, include: { tenant: { select: { id: true, name: true, slug: true, plan: true, status: true, state: true } } } });
+    if (!membership) throw new NotFoundException('Organization not found');
+    return { tenant: membership.tenant, role: membership.role };
+  }
+
   async suspendTenant(tenantId: string, opts: Record<string, unknown> = {}) {
     await this.ensureTenantExists(tenantId);
     return this.lifecycleService.markSuspended(tenantId, {
