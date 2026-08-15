@@ -20,6 +20,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       include: { tenant: { select: { status: true, state: true } } },
     });
     if (!user) return null;
+    if (payload.sessionId) {
+      const session = await this.prisma.userSession.findFirst({ where: { id: payload.sessionId, userId: user.id, revokedAt: null, expiresAt: { gt: new Date() } } });
+      if (!session) return null;
+      await this.prisma.userSession.update({ where: { id: session.id }, data: { lastSeenAt: new Date() } }).catch(() => {});
+    }
     // Tenants em offboarding/deleted não podem usar a API (#46).
     // past_due/suspended passam para o TenantStateGuard decidir
     // (read-only vs paywall).
@@ -35,6 +40,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       tenantId: user.tenantId,
       mustChangePassword: user.mustChangePassword,
       authProvider: user.authProvider,
+      sessionId: payload.sessionId,
     };
   }
 }

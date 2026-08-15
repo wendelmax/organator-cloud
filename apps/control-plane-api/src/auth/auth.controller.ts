@@ -7,6 +7,7 @@ import {
   UseGuards,
   UnauthorizedException,
   Put,
+  Param,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -38,7 +39,7 @@ export class AuthController {
       });
       throw new UnauthorizedException('Invalid credentials');
     }
-    const result = await this.authService.login(user);
+    const result = await this.authService.login(user, { ip: req.ip, userAgent: req.headers['user-agent'] });
     if ('mfa_required' in result && result.mfa_required) {
       return result;
     }
@@ -53,6 +54,14 @@ export class AuthController {
     });
     return result;
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('sessions')
+  sessions(@Req() req: any) { return this.authService.listSessions(req.user.userId); }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('sessions/:id/revoke')
+  revokeSession(@Req() req: any, @Param('id') id: string) { return this.authService.revokeSession(req.user.userId, id); }
 
   @Post('mfa/verify')
   async mfaVerify(@Req() req: any, @Body() body: { challenge_token: string; code?: string; recovery_code?: string }) {
