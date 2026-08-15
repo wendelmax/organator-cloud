@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { MfaService } from './mfa.service';
 import { MfaPolicyService } from './mfa-policy.service';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -55,7 +56,7 @@ export class AuthService {
     }
   }
 
-  async login(user: any) {
+  async login(user: any, context: { ip?: string; userAgent?: string } = {}) {
     if (!user.mfaBypass && await this.mfaPolicy.requiresMfa(user.tenantId, user.role, user.idpMfa)) {
       return {
         mfa_required: true,
@@ -63,12 +64,14 @@ export class AuthService {
         user: { id: user.id, email: user.email, role: user.role, tenantId: user.tenantId },
       };
     }
+    const session = await this.prisma.userSession.create({ data: { userId: user.id, tokenHash: crypto.createHash('sha256').update(crypto.randomBytes(32)).digest('hex'), ip: context.ip, userAgent: context.userAgent, expiresAt: new Date(Date.now() + 30 * 86400000) } });
     const payload = {
       email: user.email,
       sub: user.id,
       role: user.role,
       tenantId: user.tenantId,
       mustChangePassword: user.mustChangePassword,
+      sessionId: session.id,
     };
     return {
       access_token: this.jwtService.sign(payload),
@@ -82,6 +85,10 @@ export class AuthService {
       },
     };
   }
+
+  listSessions(userId: string) { return this.prisma.userSession.findMany({ where: { userId, revokedAt: null, expiresAt: { gt: new Date() } }, orderBy: { lastSeenAt: 'desc' }, select: { id: true, ip: true, userAgent: true, createdAt: true, lastSeenAt: true, expiresAt: true } }); }
+
+  async revokeSession(userId: string, sessionId: string) { const session = await this.prisma.userSession.findFirst({ where: { id: sessionId, userId, revokedAt: null } }); if (!session) throw new NotFoundException('Session not found'); await this.prisma.userSession.update({ where: { id: sessionId }, data: { revokedAt: new Date() } }); return { revoked: true }; }
 
   async me(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
