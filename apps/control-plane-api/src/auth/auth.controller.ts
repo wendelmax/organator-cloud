@@ -8,6 +8,7 @@ import {
   UnauthorizedException,
   Put,
   Param,
+  Delete,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -39,7 +40,7 @@ export class AuthController {
       });
       throw new UnauthorizedException('Invalid credentials');
     }
-    const result = await this.authService.login(user, { ip: req.ip, userAgent: req.headers['user-agent'] });
+    const result = await this.authService.login(user, { ip: req.ip, userAgent: req.headers?.['user-agent'] });
     if ('mfa_required' in result && result.mfa_required) {
       return result;
     }
@@ -55,13 +56,19 @@ export class AuthController {
     return result;
   }
 
+  @Post('refresh')
+  refresh(@Body() body: { refresh_token: string }) { return this.authService.refresh(body.refresh_token); }
+
   @UseGuards(JwtAuthGuard)
   @Get('sessions')
   sessions(@Req() req: any) { return this.authService.listSessions(req.user.userId); }
 
   @UseGuards(JwtAuthGuard)
-  @Post('sessions/:id/revoke')
-  revokeSession(@Req() req: any, @Param('id') id: string) { return this.authService.revokeSession(req.user.userId, id); }
+  @Delete('sessions/:id')
+  async revokeSession(@Req() req: any, @Param('id') id: string) { const result = await this.authService.revokeSession(req.user.userId, id); await this.auditService.record({ actorId: req.user.userId, action: 'auth.session_revoked', resourceType: 'UserSession', resourceId: id }); return result; }
+
+  @Delete('sessions')
+  async revokeOtherSessions(@Req() req: any) { const result = await this.authService.revokeOtherSessions(req.user.userId, req.user.sessionId); await this.auditService.record({ actorId: req.user.userId, action: 'auth.sessions_revoked', resourceType: 'UserSession', changes: result }); return result; }
 
   @UseGuards(JwtAuthGuard)
   @Post('switch-tenant')
@@ -92,6 +99,7 @@ export class AuthController {
       req.user.userId,
       body.currentPassword,
       body.newPassword,
+      req.user.sessionId,
     );
     await this.auditService.record({
       actorId: req.user?.sub,
@@ -126,6 +134,7 @@ export class AuthController {
   @Post('mfa/enable')
   async mfaEnable(@Req() req: any, @Body() body: { code: string }) {
     const result = await this.mfaService.enable(req.user.userId, body.code);
+    await this.authService.revokeOtherSessions(req.user.userId, req.user.sessionId);
     await this.auditService.record({
       actorId: req.user?.sub,
       actorEmail: req.user?.email,

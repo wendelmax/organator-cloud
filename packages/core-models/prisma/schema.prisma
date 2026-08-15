@@ -178,6 +178,8 @@ model UserSession {
   userId       String
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   tokenHash    String   @unique
+  tenantId     String?
+  role         String?
   userAgent    String?
   ip           String?
   expiresAt    DateTime

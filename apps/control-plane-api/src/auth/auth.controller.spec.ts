@@ -15,6 +15,7 @@ describe('AuthController', () => {
     login: jest.fn(),
     me: jest.fn(),
     changePassword: jest.fn(),
+    revokeOtherSessions: jest.fn(),
   };
 
   const mockMfaService = {
@@ -96,5 +97,12 @@ describe('AuthController', () => {
         changes: { role: 'PLATFORM_ADMIN', tenantId: 'tenant-1' },
       });
     });
+  });
+
+  it('revokes other sessions after MFA is enabled', async () => {
+    mockMfaService.enable.mockResolvedValue({ enabled: true });
+    mockAuthService.revokeOtherSessions.mockResolvedValue({ revoked: 2 });
+    await controller.mfaEnable({ user: { userId: 'u1', sessionId: 'current' } }, { code: '123456' });
+    expect(mockAuthService.revokeOtherSessions).toHaveBeenCalledWith('u1', 'current');
   });
 });
