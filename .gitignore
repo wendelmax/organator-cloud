@@ -45,3 +45,6 @@ e2e/playwright-report/
 
 # embedded wiki checkout
 scratch/organator-cloud.wiki/
+
+# Isolated development worktrees
+.worktrees/
