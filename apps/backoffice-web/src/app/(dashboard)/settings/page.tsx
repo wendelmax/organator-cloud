@@ -5,6 +5,8 @@ import { useSession } from "next-auth/react";
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from "@organator/ui";
 import { useEffect, useState } from "react";
 
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/v1$/, "");
+
 const sections = [
   { href: "/tenants", title: "Organização e membros", description: "Dados da organização, usuários, papéis e convites." },
   { href: "/billing", title: "Billing e plano", description: "Plano atual, consumo, limites e pagamentos." },
