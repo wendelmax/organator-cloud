@@ -229,6 +229,10 @@ export class TenantsService {
     });
   }
 
+  async listMemberships(userId: string) {
+    return this.prisma.tenantMembership.findMany({ where: { userId, status: 'active' }, include: { tenant: { select: { id: true, name: true, slug: true, plan: true, status: true } } }, orderBy: { createdAt: 'asc' } });
+  }
+
   async suspendTenant(tenantId: string, opts: Record<string, unknown> = {}) {
     await this.ensureTenantExists(tenantId);
     return this.lifecycleService.markSuspended(tenantId, {
