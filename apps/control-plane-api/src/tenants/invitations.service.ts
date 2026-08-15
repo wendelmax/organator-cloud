@@ -30,6 +30,7 @@ export class InvitationsService {
     if (!invitation || invitation.acceptedAt || invitation.expiresAt < new Date()) throw new NotFoundException('Invitation is invalid or expired');
     const temporaryPassword = crypto.randomBytes(24).toString('base64url');
     const user = await this.prisma.user.create({ data: { email: invitation.email, name: name?.trim() || null, tenantId: invitation.tenantId, role: invitation.role, password: await bcrypt.hash(temporaryPassword, 12), mustChangePassword: true } });
+    await this.prisma.tenantMembership.create({ data: { tenantId: invitation.tenantId, userId: user.id, role: invitation.role, status: 'active' } });
     await this.prisma.tenantInvitation.update({ where: { id: invitation.id }, data: { acceptedAt: new Date() } });
     await this.audit.record({ actorId: user.id, action: 'tenant.invitation_accepted', resourceType: 'TenantInvitation', resourceId: invitation.id, changes: { tenantId: invitation.tenantId, userId: user.id } });
     return { userId: user.id, email: user.email, temporaryPassword, mustChangePassword: true };
