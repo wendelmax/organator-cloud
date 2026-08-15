@@ -40,7 +40,10 @@ export class AuthController {
       });
       throw new UnauthorizedException('Invalid credentials');
     }
-    const result = await this.authService.login(user, { ip: req.ip, userAgent: req.headers?.['user-agent'] });
+    const result = await this.authService.login(user, {
+      ip: req.ip,
+      userAgent: req.headers?.['user-agent'],
+    });
     if ('mfa_required' in result && result.mfa_required) {
       return result;
     }
@@ -57,26 +60,62 @@ export class AuthController {
   }
 
   @Post('refresh')
-  refresh(@Body() body: { refresh_token: string }) { return this.authService.refresh(body.refresh_token); }
+  refresh(@Body() body: { refresh_token: string }) {
+    return this.authService.refresh(body.refresh_token);
+  }
 
   @UseGuards(JwtAuthGuard)
   @Get('sessions')
-  sessions(@Req() req: any) { return this.authService.listSessions(req.user.userId); }
+  sessions(@Req() req: any) {
+    return this.authService.listSessions(req.user.userId);
+  }
 
   @UseGuards(JwtAuthGuard)
   @Delete('sessions/:id')
-  async revokeSession(@Req() req: any, @Param('id') id: string) { const result = await this.authService.revokeSession(req.user.userId, id); await this.auditService.record({ actorId: req.user.userId, action: 'auth.session_revoked', resourceType: 'UserSession', resourceId: id }); return result; }
+  async revokeSession(@Req() req: any, @Param('id') id: string) {
+    const result = await this.authService.revokeSession(req.user.userId, id);
+    await this.auditService.record({
+      actorId: req.user.userId,
+      action: 'auth.session_revoked',
+      resourceType: 'UserSession',
+      resourceId: id,
+    });
+    return result;
+  }
 
+  @UseGuards(JwtAuthGuard)
   @Delete('sessions')
-  async revokeOtherSessions(@Req() req: any) { const result = await this.authService.revokeOtherSessions(req.user.userId, req.user.sessionId); await this.auditService.record({ actorId: req.user.userId, action: 'auth.sessions_revoked', resourceType: 'UserSession', changes: result }); return result; }
+  async revokeOtherSessions(@Req() req: any) {
+    const result = await this.authService.revokeOtherSessions(
+      req.user.userId,
+      req.user.sessionId,
+    );
+    await this.auditService.record({
+      actorId: req.user.userId,
+      action: 'auth.sessions_revoked',
+      resourceType: 'UserSession',
+      changes: result,
+    });
+    return result;
+  }
 
   @UseGuards(JwtAuthGuard)
   @Post('switch-tenant')
-  switchTenant(@Req() req: any, @Body() body: { tenantId: string }) { return this.authService.switchTenant(req.user.userId, body.tenantId); }
+  switchTenant(@Req() req: any, @Body() body: { tenantId: string }) {
+    return this.authService.switchTenant(req.user.userId, body.tenantId);
+  }
 
   @Post('mfa/verify')
-  async mfaVerify(@Req() req: any, @Body() body: { challenge_token: string; code?: string; recovery_code?: string }) {
-    const user = await this.mfaService.verifyChallenge(body.challenge_token, body.code, body.recovery_code);
+  async mfaVerify(
+    @Req() req: any,
+    @Body()
+    body: { challenge_token: string; code?: string; recovery_code?: string },
+  ) {
+    const user = await this.mfaService.verifyChallenge(
+      body.challenge_token,
+      body.code,
+      body.recovery_code,
+    );
     const result = await this.authService.login({ ...user, mfaBypass: true });
     return result;
   }
@@ -134,7 +173,10 @@ export class AuthController {
   @Post('mfa/enable')
   async mfaEnable(@Req() req: any, @Body() body: { code: string }) {
     const result = await this.mfaService.enable(req.user.userId, body.code);
-    await this.authService.revokeOtherSessions(req.user.userId, req.user.sessionId);
+    await this.authService.revokeOtherSessions(
+      req.user.userId,
+      req.user.sessionId,
+    );
     await this.auditService.record({
       actorId: req.user?.sub,
       actorEmail: req.user?.email,
@@ -178,7 +220,10 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Put('mfa/policy')
-  async updateMfaPolicy(@Req() req: any, @Body() body: { mfaMode: string; requiredRoles?: string[] }) {
+  async updateMfaPolicy(
+    @Req() req: any,
+    @Body() body: { mfaMode: string; requiredRoles?: string[] },
+  ) {
     return this.mfaPolicyService.update(req.user.tenantId, req.user, body);
   }
 }

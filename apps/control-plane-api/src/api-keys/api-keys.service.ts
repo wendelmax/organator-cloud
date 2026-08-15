@@ -97,7 +97,9 @@ export class ApiKeysService {
   }
 
   async get(id: string, tenantId?: string) {
-    const key = await this.prisma.apiKey.findFirst({ where: { id, ...(tenantId ? { tenantId } : {}) } });
+    const key = await this.prisma.apiKey.findFirst({
+      where: { id, ...(tenantId ? { tenantId } : {}) },
+    });
     if (!key) {
       throw new NotFoundException('API key not found');
     }
@@ -119,7 +121,13 @@ export class ApiKeysService {
     if (!existing) {
       throw new NotFoundException('API key not found');
     }
-    if (tenantId && existing.tenantId !== tenantId) throw new ForbiddenException('API key belongs to another tenant');
+    if (tenantId && existing.tenantId !== tenantId)
+      throw new ForbiddenException('API key belongs to another tenant');
+
+    const expiresAt = data.expiresAt ? new Date(data.expiresAt) : null;
+    if (expiresAt && Number.isNaN(expiresAt.getTime())) {
+      throw new BadRequestException('Expiration date is invalid');
+    }
 
     const updated = await this.prisma.apiKey.update({
       where: { id },
@@ -129,7 +137,7 @@ export class ApiKeysService {
           scopes: normalizeScopes(data.scopes),
         }),
         ...(data.expiresAt !== undefined && {
-          expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
+          expiresAt,
         }),
         ...(data.tenantId !== undefined && { tenantId: data.tenantId }),
       },
@@ -152,7 +160,8 @@ export class ApiKeysService {
     if (!existing) {
       throw new NotFoundException('API key not found');
     }
-    if (tenantId && existing.tenantId !== tenantId) throw new ForbiddenException('API key belongs to another tenant');
+    if (tenantId && existing.tenantId !== tenantId)
+      throw new ForbiddenException('API key belongs to another tenant');
     await this.prisma.apiKey.delete({ where: { id } });
 
     await this.auditService.record({

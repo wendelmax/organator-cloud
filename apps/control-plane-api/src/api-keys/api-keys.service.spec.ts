@@ -161,6 +161,25 @@ describe('ApiKeysService', () => {
     });
   });
 
+  describe('update', () => {
+    it('rejects an invalid expiration date before writing', async () => {
+      prisma.apiKey.findUnique.mockResolvedValue({
+        id: 'key-1',
+        tenantId: 'tenant-1',
+      });
+
+      await expect(
+        service.update(
+          'key-1',
+          { expiresAt: 'not-a-date' },
+          'owner-1',
+          'tenant-1',
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.apiKey.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe('delete (immediate revocation)', () => {
     it('throws NotFound when key does not exist', async () => {
       prisma.apiKey.findUnique.mockResolvedValue(null);

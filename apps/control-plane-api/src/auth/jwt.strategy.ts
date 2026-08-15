@@ -20,10 +20,24 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       include: { tenant: { select: { status: true, state: true } } },
     });
     if (!user) return null;
+    let session: {
+      id: string;
+      tenantId: string | null;
+      role: string | null;
+    } | null = null;
     if (payload.sessionId) {
-      const session = await this.prisma.userSession.findFirst({ where: { id: payload.sessionId, userId: user.id, revokedAt: null, expiresAt: { gt: new Date() } } });
+      session = await this.prisma.userSession.findFirst({
+        where: {
+          id: payload.sessionId,
+          userId: user.id,
+          revokedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+      });
       if (!session) return null;
-      await this.prisma.userSession.update({ where: { id: session.id }, data: { lastSeenAt: new Date() } }).catch(() => {});
+      await this.prisma.userSession
+        .update({ where: { id: session.id }, data: { lastSeenAt: new Date() } })
+        .catch(() => {});
     }
     // Tenants em offboarding/deleted não podem usar a API (#46).
     // past_due/suspended passam para o TenantStateGuard decidir
@@ -36,8 +50,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     return {
       userId: user.id,
       email: user.email,
-      role: user.role,
-      tenantId: user.tenantId,
+      role: session?.role || user.role,
+      tenantId: session?.tenantId || user.tenantId,
       mustChangePassword: user.mustChangePassword,
       authProvider: user.authProvider,
       sessionId: payload.sessionId,

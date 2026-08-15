@@ -104,9 +104,17 @@ describe('TenantsController', () => {
         id: 't1',
         plan: 'pro',
       });
-      const result = await controller.changePlan('t1', { plan: 'pro' });
+      const result = await controller.changePlan(
+        't1',
+        { plan: 'pro' },
+        { user: { userId: 'admin-1' } },
+      );
       expect(result).toEqual({ id: 't1', plan: 'pro' });
-      expect(mockTenantsService.changePlan).toHaveBeenCalledWith('t1', 'pro');
+      expect(mockTenantsService.changePlan).toHaveBeenCalledWith(
+        't1',
+        'pro',
+        'admin-1',
+      );
     });
 
     it('should throw BadRequestException when plan missing', async () => {

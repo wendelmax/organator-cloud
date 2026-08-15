@@ -156,6 +156,9 @@ export class EntitlementsService {
     }
 
     const limitType = entitlements.limits[resource] || DEFAULT_LIMIT_TYPE;
+    if (limitType === 'soft') {
+      return;
+    }
     throw new HttpException(
       {
         statusCode: HttpStatus.PAYMENT_REQUIRED,

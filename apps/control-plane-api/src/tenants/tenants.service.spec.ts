@@ -150,7 +150,15 @@ describe('TenantsService', () => {
 
       const result = await service.changePlan('tenant-1', 'Pro');
 
-      expect(result).toEqual({ id: 'tenant-1', plan: 'pro' });
+      expect(result).toEqual({
+        id: 'tenant-1',
+        plan: 'pro',
+        migration: {
+          jobId: undefined,
+          status: 'QUEUED',
+          idempotencyKey: 'plan-migration:tenant-1:pro',
+        },
+      });
       expect(mockPrisma.tenant.update).toHaveBeenCalledWith({
         where: { id: 'tenant-1' },
         data: { plan: 'pro' },
