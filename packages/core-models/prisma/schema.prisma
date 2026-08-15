@@ -190,6 +190,24 @@ model TenantInvitation {
   @@map("tenant_invitations")
 }
 
+model TenantInvitation {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email       String
+  role        String   @default("MEMBER")
+  tokenHash   String   @unique
+  invitedBy   String?
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId, email, acceptedAt])
+  @@index([expiresAt])
+  @@map("tenant_invitations")
+}
+
 model TenantSecurityPolicy {
   id           String   @id @default(uuid())
   tenantId     String   @unique
