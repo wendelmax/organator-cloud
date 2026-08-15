@@ -42,6 +42,9 @@ export class TenantsController {
   @Get('available')
   async availableTenants(@Req() req: any) { return this.tenantsService.listMemberships(req.user.userId); }
 
+  @Get('context/:slug')
+  async resolveContext(@Req() req: any, @Param('slug') slug: string) { return this.tenantsService.resolveMembership(req.user.userId, slug); }
+
   @Get('current/settings')
   @Roles('OWNER', 'ADMIN')
   async currentSettings(@Req() req: any) { return this.tenantsService.getTenant(req.user.tenantId); }
