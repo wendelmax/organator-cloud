@@ -74,13 +74,18 @@ export const authOptions: NextAuthOptions = {
     signIn: '/login',
   },
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, session }) {
       if (user) {
         token.role = (user as any).role;
         token.tenantId = (user as any).tenantId;
         token.mustChangePassword = (user as any).mustChangePassword;
         token.mfaEnabled = (user as any).mfaEnabled;
         token.accessToken = (user as any).token;
+      }
+      if ((session as any)?.accessToken) {
+        token.accessToken = (session as any).accessToken;
+        token.tenantId = (session as any).tenantId;
+        token.role = (session as any).role;
       }
       return token;
     },
