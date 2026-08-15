@@ -39,6 +39,16 @@ export class TenantsController {
     return this.tenantsService.getMembers(tenantId);
   }
 
+  @Get('current/settings')
+  @Roles('OWNER', 'ADMIN')
+  async currentSettings(@Req() req: any) { return this.tenantsService.getTenant(req.user.tenantId); }
+
+  @Patch('current/settings')
+  @Roles('OWNER', 'ADMIN')
+  async updateCurrentSettings(@Req() req: any, @Body() body: { name?: string; slug?: string }) {
+    return this.tenantsService.updateTenant(req.user.tenantId, body);
+  }
+
   @Get(':id/metrics')
   @Roles('PLATFORM_ADMIN')
   async getTenantMetrics(@Param('id') id: string) {
