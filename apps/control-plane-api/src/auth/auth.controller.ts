@@ -63,6 +63,10 @@ export class AuthController {
   @Post('sessions/:id/revoke')
   revokeSession(@Req() req: any, @Param('id') id: string) { return this.authService.revokeSession(req.user.userId, id); }
 
+  @UseGuards(JwtAuthGuard)
+  @Post('switch-tenant')
+  switchTenant(@Req() req: any, @Body() body: { tenantId: string }) { return this.authService.switchTenant(req.user.userId, body.tenantId); }
+
   @Post('mfa/verify')
   async mfaVerify(@Req() req: any, @Body() body: { challenge_token: string; code?: string; recovery_code?: string }) {
     const user = await this.mfaService.verifyChallenge(body.challenge_token, body.code, body.recovery_code);
