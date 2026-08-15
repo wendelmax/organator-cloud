@@ -99,6 +99,13 @@ export class AuthService {
     return safe;
   }
 
+  async switchTenant(userId: string, tenantId: string) {
+    const membership = await this.prisma.tenantMembership.findFirst({ where: { userId, tenantId, status: 'active' }, include: { tenant: { select: { state: true } } } });
+    if (!membership || ['suspended', 'offboarding', 'deleted'].includes(membership.tenant.state)) throw new ForbiddenException('Tenant context is not available');
+    const session = await this.prisma.userSession.create({ data: { userId, tokenHash: crypto.createHash('sha256').update(crypto.randomBytes(32)).digest('hex'), expiresAt: new Date(Date.now() + 30 * 86400000) } });
+    return { access_token: this.jwtService.sign({ email: (await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { email: true } })).email, sub: userId, role: membership.role, tenantId, sessionId: session.id }) };
+  }
+
   async changePassword(
     userId: string,
     currentPassword: string,
