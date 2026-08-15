@@ -2,10 +2,26 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Button, Card, CardContent, CardHeader, CardTitle, Input } from "@organator/ui";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Input,
+} from "@organator/ui";
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/v1$/, "");
-const SCOPES = ["services:read", "services:write", "services:deploy", "docs:read", "docs:write", "tenants:read"];
+const API_URL = (
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
+).replace(/\/v1$/, "");
+const SCOPES = [
+  "services:read",
+  "services:write",
+  "services:deploy",
+  "docs:read",
+  "docs:write",
+  "tenants:read",
+];
 
 export default function ApiKeysPage() {
   const { data: session } = useSession();
@@ -13,15 +29,217 @@ export default function ApiKeysPage() {
   const [keys, setKeys] = useState<any[]>([]);
   const [name, setName] = useState("");
   const [scopes, setScopes] = useState<string[]>(["services:read"]);
+  const [expiresAt, setExpiresAt] = useState("");
   const [createdToken, setCreatedToken] = useState<string | null>(null);
-  const headers = { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) };
-  const load = useCallback(async () => { const res = await fetch(`${API_URL}/v1/api-keys`, { headers }); if (res.ok) setKeys(await res.json()); }, [token]);
-  useEffect(() => { if (token) load(); }, [token, load]);
-  async function create() { if (!name.trim()) return; const res = await fetch(`${API_URL}/v1/api-keys`, { method: "POST", headers, body: JSON.stringify({ name, scopes }) }); if (!res.ok) { alert("Não foi possível criar a chave"); return; } const data = await res.json(); setCreatedToken(data.token); setName(""); await load(); }
-  async function revoke(id: string) { if (!confirm("Revogar esta chave? Esta ação é imediata.")) return; await fetch(`${API_URL}/v1/api-keys/${id}`, { method: "DELETE", headers }); await load(); }
-  return <div className="space-y-6"><div><h1 className="text-3xl font-bold text-white">API Keys</h1><p className="text-neutral-400 mt-1">Crie credenciais para integrações e revogue-as quando necessário.</p></div>
-    {createdToken && <Card className="border-amber-700 bg-amber-950/30"><CardContent className="p-5 space-y-2"><p className="text-amber-300 font-semibold">Copie esta chave agora. Ela não será exibida novamente.</p><code className="block break-all rounded bg-neutral-950 p-3 text-emerald-300">{createdToken}</code><Button variant="outline" onClick={() => navigator.clipboard.writeText(createdToken)}>Copiar</Button></CardContent></Card>}
-    <Card className="bg-neutral-900 border-neutral-800"><CardHeader><CardTitle>Nova chave</CardTitle></CardHeader><CardContent className="space-y-4"><Input value={name} onChange={(e: any) => setName(e.target.value)} placeholder="Nome da integração" /><div className="grid grid-cols-1 md:grid-cols-2 gap-2">{SCOPES.map(scope => <label key={scope} className="text-sm text-neutral-300"><input type="checkbox" className="mr-2" checked={scopes.includes(scope)} onChange={() => setScopes(scopes.includes(scope) ? scopes.filter(s => s !== scope) : [...scopes, scope])} />{scope}</label>)}</div><Button onClick={create}>Criar API Key</Button></CardContent></Card>
-    <Card className="bg-neutral-900 border-neutral-800"><CardHeader><CardTitle>Chaves existentes</CardTitle></CardHeader><CardContent className="space-y-2">{keys.length === 0 ? <p className="text-neutral-500">Nenhuma chave cadastrada.</p> : keys.map(key => <div key={key.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded border border-neutral-800 p-3"><div><p className="text-white font-medium">{key.name}</p><p className="text-xs text-neutral-500">{key.prefix} · {(key.scopes || []).join(", ")}</p></div><Button variant="outline" onClick={() => revoke(key.id)}>Revogar</Button></div>)}</CardContent></Card>
-  </div>;
+  const headers = {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+  const load = useCallback(async () => {
+    const res = await fetch(`${API_URL}/v1/api-keys`, { headers });
+    if (res.ok) setKeys(await res.json());
+  }, [token]);
+  useEffect(() => {
+    if (token) load();
+  }, [token, load]);
+  async function create() {
+    if (!name.trim()) return;
+    const res = await fetch(`${API_URL}/v1/api-keys`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name, scopes, expiresAt: expiresAt || null }),
+    });
+    if (!res.ok) {
+      alert("Não foi possível criar a chave");
+      return;
+    }
+    const data = await res.json();
+    setCreatedToken(data.token);
+    setName("");
+    setExpiresAt("");
+    await load();
+  }
+  async function edit(key: any) {
+    const nextName = prompt("Nome da chave", key.name);
+    if (!nextName) return;
+    const nextScopes = prompt(
+      "Escopos separados por vírgula",
+      (key.scopes || []).join(","),
+    );
+    if (nextScopes === null) return;
+    const nextExpiry = prompt(
+      "Expiração ISO (vazio para nunca expirar)",
+      key.expiresAt ? new Date(key.expiresAt).toISOString() : "",
+    );
+    if (nextExpiry === null) return;
+    const res = await fetch(`${API_URL}/v1/api-keys/${key.id}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({
+        name: nextName,
+        scopes: nextScopes
+          .split(",")
+          .map((s: string) => s.trim())
+          .filter(Boolean),
+        expiresAt: nextExpiry.trim() || null,
+      }),
+    });
+    if (!res.ok) return alert("Não foi possível editar a chave");
+    await load();
+  }
+  async function regenerate(key: any) {
+    if (!confirm(`Regenerar "${key.name}"? A chave atual será revogada.`))
+      return;
+    const created = await fetch(`${API_URL}/v1/api-keys`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        name: key.name,
+        scopes: key.scopes,
+        expiresAt: key.expiresAt,
+      }),
+    });
+    if (!created.ok) return alert("Não foi possível gerar a nova chave");
+    const data = await created.json();
+    const revoked = await fetch(`${API_URL}/v1/api-keys/${key.id}`, {
+      method: "DELETE",
+      headers,
+    });
+    if (!revoked.ok)
+      return alert("Nova chave criada, mas a antiga não pôde ser revogada");
+    setCreatedToken(data.token);
+    await load();
+  }
+  async function revoke(id: string) {
+    if (!confirm("Revogar esta chave? Esta ação é imediata.")) return;
+    await fetch(`${API_URL}/v1/api-keys/${id}`, { method: "DELETE", headers });
+    await load();
+  }
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-white">API Keys</h1>
+        <p className="text-neutral-400 mt-1">
+          Crie credenciais para integrações e revogue-as quando necessário.
+        </p>
+      </div>
+      {createdToken && (
+        <Card className="border-amber-700 bg-amber-950/30">
+          <CardContent className="p-5 space-y-2">
+            <p className="text-amber-300 font-semibold">
+              Copie esta chave agora. Ela não será exibida novamente.
+            </p>
+            <code className="block break-all rounded bg-neutral-950 p-3 text-emerald-300">
+              {createdToken}
+            </code>
+            <Button
+              variant="outline"
+              onClick={() => navigator.clipboard.writeText(createdToken)}
+            >
+              Copiar
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+      <Card className="bg-neutral-900 border-neutral-800">
+        <CardHeader>
+          <CardTitle>Nova chave</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Input
+            value={name}
+            onChange={(e: any) => setName(e.target.value)}
+            placeholder="Nome da integração"
+          />
+          <Input
+            type="datetime-local"
+            value={expiresAt}
+            onChange={(e: any) => setExpiresAt(e.target.value)}
+          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {SCOPES.map((scope) => (
+              <label key={scope} className="text-sm text-neutral-300">
+                <input
+                  type="checkbox"
+                  className="mr-2"
+                  checked={scopes.includes(scope)}
+                  onChange={() =>
+                    setScopes(
+                      scopes.includes(scope)
+                        ? scopes.filter((s) => s !== scope)
+                        : [...scopes, scope],
+                    )
+                  }
+                />
+                {scope}
+              </label>
+            ))}
+          </div>
+          <Button onClick={create}>Criar API Key</Button>
+        </CardContent>
+      </Card>
+      <Card className="bg-neutral-900 border-neutral-800">
+        <CardHeader>
+          <CardTitle>Chaves existentes</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {keys.length === 0 ? (
+            <p className="text-neutral-500">Nenhuma chave cadastrada.</p>
+          ) : (
+            keys.map((key) => {
+              const expired =
+                key.expiresAt && new Date(key.expiresAt) < new Date();
+              return (
+                <div
+                  key={key.id}
+                  className={`flex flex-col gap-3 rounded border p-3 ${expired ? "border-red-800" : "border-neutral-800"}`}
+                >
+                  <div>
+                    <p className="text-white font-medium">
+                      {key.name}{" "}
+                      {expired && (
+                        <span className="text-xs text-red-400">EXPIRADA</span>
+                      )}
+                    </p>
+                    <p className="text-xs text-neutral-500">
+                      {key.prefix} · criado por: {key.createdBy || "sistema"} ·
+                      último uso:{" "}
+                      {key.lastUsedAt
+                        ? new Date(key.lastUsedAt).toLocaleString()
+                        : "nunca"}{" "}
+                      · expira:{" "}
+                      {key.expiresAt
+                        ? new Date(key.expiresAt).toLocaleString()
+                        : "nunca"}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {(key.scopes || []).map((scope: string) => (
+                        <span
+                          key={scope}
+                          className="rounded bg-indigo-950 px-2 py-1 text-xs text-indigo-300"
+                        >
+                          {scope}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => edit(key)}>
+                      Editar
+                    </Button>
+                    <Button variant="outline" onClick={() => regenerate(key)}>
+                      Regenerar
+                    </Button>
+                    <Button variant="outline" onClick={() => revoke(key.id)}>
+                      Revogar
+                    </Button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
 }

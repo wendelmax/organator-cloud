@@ -83,4 +83,24 @@ describe('RolesGuard', () => {
     const contextAdmin = createMockContext('ADMIN');
     expect(guard.canActivate(contextAdmin)).toBe(true);
   });
+
+  it('should grant BILLING only billing and read-only permissions', () => {
+    const contextBilling = createMockContext('BILLING');
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['BILLING']);
+    expect(guard.canActivate(contextBilling)).toBe(true);
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['VIEWER']);
+    expect(guard.canActivate(contextBilling)).toBe(true);
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['ADMIN']);
+    expect(guard.canActivate(contextBilling)).toBe(false);
+  });
+
+  it('should grant MEMBER member and read-only permissions', () => {
+    const contextMember = createMockContext('MEMBER');
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['MEMBER']);
+    expect(guard.canActivate(contextMember)).toBe(true);
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['VIEWER']);
+    expect(guard.canActivate(contextMember)).toBe(true);
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['BILLING']);
+    expect(guard.canActivate(contextMember)).toBe(false);
+  });
 });

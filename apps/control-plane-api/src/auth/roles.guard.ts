@@ -3,9 +3,19 @@ import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from './roles.decorator';
 
 const ROLE_PERMISSIONS: Record<string, string[]> = {
-  PLATFORM_ADMIN: ['PLATFORM_ADMIN', 'OWNER', 'ADMIN', 'DEVELOPER', 'VIEWER'],
-  OWNER: ['OWNER', 'ADMIN', 'DEVELOPER', 'VIEWER'],
-  ADMIN: ['ADMIN', 'DEVELOPER', 'VIEWER'],
+  PLATFORM_ADMIN: [
+    'PLATFORM_ADMIN',
+    'OWNER',
+    'ADMIN',
+    'BILLING',
+    'MEMBER',
+    'DEVELOPER',
+    'VIEWER',
+  ],
+  OWNER: ['OWNER', 'ADMIN', 'BILLING', 'MEMBER', 'DEVELOPER', 'VIEWER'],
+  ADMIN: ['ADMIN', 'MEMBER', 'DEVELOPER', 'VIEWER'],
+  BILLING: ['BILLING', 'VIEWER'],
+  MEMBER: ['MEMBER', 'VIEWER'],
   DEVELOPER: ['DEVELOPER', 'VIEWER'],
   VIEWER: ['VIEWER'],
 };

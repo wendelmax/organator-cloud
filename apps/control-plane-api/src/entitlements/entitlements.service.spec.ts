@@ -189,6 +189,22 @@ describe('EntitlementsService', () => {
       ).resolves.toBeUndefined();
     });
 
+    it('allows usage above a soft limit without interrupting the service', async () => {
+      mockPrisma.tenant.findUnique.mockResolvedValue({
+        id: 'tenant-1',
+        plan: 'free',
+      });
+      mockPrisma.billingPlan.findUnique.mockResolvedValue(
+        mockPlanData({ limitTypes: { MICROSERVICE: 'soft' } }),
+      );
+      mockPrisma.tenantEntitlementOverride.findUnique.mockResolvedValue(null);
+      mockPrisma.microservice.count.mockResolvedValue(3);
+
+      await expect(
+        service.checkQuota('tenant-1', 'MICROSERVICE'),
+      ).resolves.toBeUndefined();
+    });
+
     it('allows unlimited (-1) resources', async () => {
       mockPrisma.tenant.findUnique.mockResolvedValue({
         id: 'tenant-1',
