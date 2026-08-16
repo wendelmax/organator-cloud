@@ -518,6 +518,33 @@ export class TenantsService {
 
     return removed;
   }
+  async triggerBackup(tenantId: string) {
+    if (!this.provisionerQueue) throw new BadRequestException('Provisioner queue not configured');
+    const job = await this.provisionerQueue.add('backup-tenant-infra', { tenantId });
+    return { jobId: job.id, status: 'QUEUED' };
+  }
+
+  async getBackups(tenantId: string) {
+    return this.prisma.tenantBackup.findMany({ where: { tenantId } });
+  }
+
+  async triggerRestore(tenantId: string, backupId: string) {
+    if (!this.provisionerQueue) throw new BadRequestException('Provisioner queue not configured');
+    const job = await this.provisionerQueue.add('restore-tenant-infra', { tenantId, backupId });
+    return { jobId: job.id, status: 'QUEUED' };
+  }
+
+  async triggerClone(tenantId: string, targetSlug: string, targetName: string) {
+    if (!this.provisionerQueue) throw new BadRequestException('Provisioner queue not configured');
+    const job = await this.provisionerQueue.add('clone-tenant-environment', { tenantId, targetSlug, targetName });
+    return { jobId: job.id, status: 'QUEUED' };
+  }
+
+  async triggerOffboard(tenantId: string) {
+    if (!this.provisionerQueue) throw new BadRequestException('Provisioner queue not configured');
+    const job = await this.provisionerQueue.add('offboard-tenant-infra', { tenantId });
+    return { jobId: job.id, status: 'QUEUED' };
+  }
 
   async getTenantQuotaUsage(tenantId: string) {
     await this.ensureTenantExists(tenantId);
