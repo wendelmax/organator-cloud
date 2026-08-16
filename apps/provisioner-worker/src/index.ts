@@ -6,6 +6,7 @@ import Tasklets from '@wendelmax/tasklets';
 import { createProvisionerWorker } from './worker.js';
 import { startMetricsServer } from './data-isolation/metrics-server.js';
 import { handleDeployTenantInfra, handleDeprovisionTenantInfra } from './infrastructure/infra-handler.js';
+import { handleReconcilePlanMigration, handleApplyDowngradeReconciliation } from './data-isolation/plan-migration-handler.js';
 
 const prisma = new PrismaClient();
 const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
@@ -23,7 +24,8 @@ const worker = createProvisionerWorker({
   handlers: {
     'deploy-tenant-infra': (job: Job) => handleDeployTenantInfra(job, prisma),
     'deprovision-tenant-infra': (job: Job) => handleDeprovisionTenantInfra(job, prisma),
-    'migrate-tenant-plan': (job: Job) => handleMigrateTenantPlan(job, job.data.deploymentId || null),
+    'reconcile-plan-migration': (job: Job) => handleReconcilePlanMigration(job, prisma),
+    'apply-downgrade-reconciliation': (job: Job) => handleApplyDowngradeReconciliation(job, prisma),
     'deploy-microservice': (job: Job) => handleDeployMicroservice(job, job.data.deploymentId || null),
   }
 });
@@ -74,13 +76,6 @@ async function processLogLine(line: string): Promise<string> {
   }, line, MAX_LINE_BYTES, SECRET_PATTERNS).catch(() => line);
 }
 
-
-
-async function handleMigrateTenantPlan(job: Job, deploymentId: string | null) {
-  await appendLog(deploymentId, job, `[PlanMigration] Reconciliando ${job.data.fromPlan} -> ${job.data.toPlan}`, 'NETWORK');
-  if (job.data.gracePeriod) await appendLog(deploymentId, job, '[PlanMigration] Downgrade em período de graça; dados preservados');
-  await appendLog(deploymentId, job, '[PlanMigration] Infraestrutura reconciliada', 'DONE');
-}
 
 async function handleDeployMicroservice(job: Job, deploymentId: string | null) {
   const { serviceId, provider, repo, vpsHost } = job.data;
