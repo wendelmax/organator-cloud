@@ -14,6 +14,7 @@ import {
   reactivateTenant,
   archiveTenant,
   transferOwnership,
+  provisionInfra,
 } from "./actions";
 import { DataIsolationModal } from "./data-isolation";
 
@@ -290,6 +291,24 @@ export function TenantsClient({
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={isPending}
+                              onClick={() => {
+                                startTransition(async () => {
+                                  try {
+                                    await provisionInfra(tenant.id);
+                                    await refreshTenants();
+                                  } catch (e) {
+                                    console.error(e);
+                                    alert("Falha ao provisionar infraestrutura");
+                                  }
+                                });
+                              }}
+                            >
+                              Provisionar Infra
+                            </Button>
                             <Button
                               variant="outline"
                               size="sm"
