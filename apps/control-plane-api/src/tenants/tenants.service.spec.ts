@@ -166,7 +166,7 @@ describe('TenantsService', () => {
       });
       expect(mockPrisma.tenant.update).toHaveBeenCalledWith({
         where: { id: 'tenant-1' },
-        data: { plan: 'pro' },
+        data: { plan: 'pro', graceEndsAt: null },
       });
     });
 

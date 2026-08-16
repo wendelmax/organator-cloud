@@ -204,24 +204,45 @@ export class TenantsService {
       );
     }
 
+    if (this.provisionerQueue) {
+      const redisClient = await (this.provisionerQueue as any).client;
+      if (redisClient) {
+        await redisClient.del(`quota_cache:${tenantId}`);
+      }
+    }
+
+    const planRanks: Record<string, number> = { 'free': 1, 'pro': 2, 'enterprise': 3 };
+    const currentRank = planRanks[current.plan] || 1;
+    const targetRank = planRanks[normalizedPlan] || 1;
+    const isDowngrade = targetRank < currentRank;
+
+    let graceEndsAt = null;
+    let jobName = 'reconcile-plan-migration';
+    let jobDelay = 0;
+
+    if (isDowngrade) {
+      graceEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // +7 days
+      jobName = 'apply-downgrade-reconciliation';
+      jobDelay = 7 * 24 * 60 * 60 * 1000;
+    }
+
     const result = await this.prisma.tenant.update({
       where: { id: tenantId },
-      data: { plan: normalizedPlan },
+      data: { plan: normalizedPlan, graceEndsAt },
     });
 
     this.entitlementsService.bust(tenantId);
 
     const idempotencyKey = `plan-migration:${tenantId}:${normalizedPlan}`;
-    const job = this.provisionerQueue ? await this.provisionerQueue.add('migrate-tenant-plan', {
+    const job = this.provisionerQueue ? await this.provisionerQueue.add(jobName, {
       tenantId,
-      fromPlan: current.plan,
-      toPlan: normalizedPlan,
-      action: 'RECONCILE_INFRA',
+      currentPlan: current.plan,
+      targetPlan: normalizedPlan,
+      action: 'RECONCILING_PLAN',
       idempotencyKey,
-      gracePeriod: normalizedPlan === 'free' && current.plan !== 'free',
       actorId,
-    }, { jobId: idempotencyKey, removeOnComplete: false }) : { id: undefined };
-    await this.auditService.record({ actorId, action: 'TENANT_PLAN_CHANGED', resourceType: 'TENANT', resourceId: tenantId, changes: { from: current.plan, to: normalizedPlan, jobId: job.id, idempotencyKey } });
+    }, { jobId: idempotencyKey, delay: jobDelay, removeOnComplete: false }) : { id: undefined };
+    await this.auditService.record({ actorId, action: 'TENANT_PLAN_CHANGED', resourceType: 'TENANT', resourceId: tenantId, changes: { from: current.plan, to: normalizedPlan, jobId: job?.id, idempotencyKey } });
 
     // Reconcile data isolation when not overridden
     const tenantForIsolation = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
@@ -250,7 +271,7 @@ export class TenantsService {
       }
     }
 
-    return { ...result, migration: { jobId: job.id, status: 'QUEUED', idempotencyKey } };
+    return { ...result, migration: { jobId: job?.id, status: 'QUEUED', idempotencyKey } };
   }
 
   async setTenantStatus(tenantId: string, status: TenantStatus) {
