@@ -1,16 +1,13 @@
-FROM node:24-alpine AS base
+FROM node:24-slim AS base
 
 FROM base AS builder
-RUN apk add --no-cache libc6-compat
-RUN apk update
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 WORKDIR /app
 RUN npm install -g turbo
 COPY . .
 RUN turbo prune backoffice-web --docker
 
 FROM base AS installer
-RUN apk add --no-cache libc6-compat
-RUN apk update
 WORKDIR /app
 COPY --from=builder /app/out/json/ .
 COPY --from=builder /app/out/package-lock.json ./package-lock.json
@@ -22,4 +19,5 @@ FROM base AS runner
 WORKDIR /app
 COPY --from=installer /app .
 WORKDIR /app/apps/backoffice-web
+ENV NODE_ENV=production
 CMD ["npm", "run", "start"]
