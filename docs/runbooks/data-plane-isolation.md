@@ -103,4 +103,19 @@ If a tenant's infrastructure needs to be torn down:
 1. Dispatch the `deprovision-tenant-infra` BullMQ job for the target `tenantId`.
 2. The worker will call the provider's `deprovision` method and reset the tenant's data plane status to `PENDING` (`PREPARE` phase).
 
-To manually retry a stuck provisioning process, Platform Admins can call `POST /v1/platform/tenants/:id/provision-infra` or click "Provisionar Infra" in the Backoffice UI.
+## Plan Migration Reconciliation (Issue #92)
+
+When a tenant changes their active plan, the platform automatically determines the resource discrepancy and attempts to gracefully reconcile the differences.
+
+### Reconciliation Rules
+The `PlanReconciler` engine calculates a strict set of actions during a plan change:
+- `CHANGE_DATA_ISOLATION`: Updates the data plane isolation boundary based on the new plan's default (`DATABASE`, `SCHEMA`, `SHARED`).
+- `SCALE_REPLICAS`: Updates the allocated number of database read replicas.
+- `ADJUST_BACKUP_RETENTION`: Adjusts the number of days automated backups are stored.
+
+### Redis Quota Cache Invalidation
+Billing changes must immediately reflect in rate limits. When a plan change is initiated via the Control Plane API, the `quota_cache:<tenantId>` key in Redis is forcefully deleted, prompting an authoritative DB query on the next request.
+
+### Downgrade Grace Periods
+If a tenant downgrades their plan, the platform grants a **7-day grace period** (`Tenant.graceEndsAt`). During this time, they retain their previous dedicated infrastructure and limits to allow them to extract data or adjust usage.
+After 7 days, the `apply-downgrade-reconciliation` job executes and forcefully reverts the infrastructure limits and isolation mode. If the tenant upgrades back to their original plan before the 7 days expire, the grace period is cleared and the scheduled job is safely ignored.
