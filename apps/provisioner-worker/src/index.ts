@@ -5,6 +5,7 @@ import Redis from 'ioredis';
 import Tasklets from '@wendelmax/tasklets';
 import { createProvisionerWorker } from './worker.js';
 import { startMetricsServer } from './data-isolation/metrics-server.js';
+import { handleDeployTenantInfra, handleDeprovisionTenantInfra } from './infrastructure/infra-handler.js';
 
 const prisma = new PrismaClient();
 const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
@@ -20,8 +21,8 @@ const worker = createProvisionerWorker({
   prisma, 
   redisPublisher,
   handlers: {
-    'deploy-tenant-infra': (job: Job) => handleDeployTenantInfra(job, job.data.deploymentId || null),
-    'deprovision-tenant-infra': (job: Job) => handleDeprovisionTenantInfra(job, job.data.deploymentId || null),
+    'deploy-tenant-infra': (job: Job) => handleDeployTenantInfra(job, prisma),
+    'deprovision-tenant-infra': (job: Job) => handleDeprovisionTenantInfra(job, prisma),
     'migrate-tenant-plan': (job: Job) => handleMigrateTenantPlan(job, job.data.deploymentId || null),
     'deploy-microservice': (job: Job) => handleDeployMicroservice(job, job.data.deploymentId || null),
   }
@@ -73,29 +74,7 @@ async function processLogLine(line: string): Promise<string> {
   }, line, MAX_LINE_BYTES, SECRET_PATTERNS).catch(() => line);
 }
 
-async function handleDeployTenantInfra(job: Job, deploymentId: string | null) {
-  const { tenantId, plan } = job.data;
-  await appendLog(deploymentId, job, `[Provisioner] Criando infraestrutura do tenant ${tenantId}...`, 'DB');
-  if (plan === 'Enterprise') {
-    const creds = job.data.credentials?.secrets || {};
-    const aws = new AWSClient(
-      job.data.credentials?.config?.region || 'us-east-1',
-      creds.accessKeyId || process.env.AWS_ACCESS_KEY_ID || '',
-      creds.secretAccessKey || process.env.AWS_SECRET_ACCESS_KEY || '',
-    );
-    const instanceId = await aws.createEC2Instance('ami-0c55b159cbfafe1f0', 't3.medium');
-    await appendLog(deploymentId, job, `[AWS EC2] Instância provisionada: ${instanceId}`);
-  }
-  await appendLog(deploymentId, job, `[Provisioner] Rede isolada configurada`, 'NETWORK');
-  await appendLog(deploymentId, job, `[Provisioner] DNS/TLS enfileirados`, 'DNS');
-  await appendLog(deploymentId, job, `[Provisioner] Infraestrutura pronta com sucesso!`, 'DONE');
-}
 
-async function handleDeprovisionTenantInfra(job: Job, deploymentId: string | null) {
-  await appendLog(deploymentId, job, `[Deprovisioner] Removendo DNS/TLS`, 'DNS');
-  await appendLog(deploymentId, job, `[Deprovisioner] Removendo rede`, 'NETWORK');
-  await appendLog(deploymentId, job, `[Deprovisioner] Removendo banco`, 'DB');
-}
 
 async function handleMigrateTenantPlan(job: Job, deploymentId: string | null) {
   await appendLog(deploymentId, job, `[PlanMigration] Reconciliando ${job.data.fromPlan} -> ${job.data.toPlan}`, 'NETWORK');
