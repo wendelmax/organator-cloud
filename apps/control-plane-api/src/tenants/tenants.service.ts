@@ -582,6 +582,24 @@ export class TenantsService {
     return summary;
   }
 
+  async getProvisionerTelemetry() {
+    const circuits = await this.prisma.providerCircuitBreaker.findMany();
+    return {
+      activeJobs: 0,
+      completedJobs: 0,
+      failedJobs: 0,
+      circuitBreakers: circuits,
+    };
+  }
+
+  async resetCircuitBreaker(provider: string) {
+    return this.prisma.providerCircuitBreaker.upsert({
+      where: { provider },
+      create: { provider, state: 'CLOSED', failureCount: 0 },
+      update: { state: 'CLOSED', failureCount: 0, lastFailureAt: null, nextAttemptAt: null },
+    });
+  }
+
   async getTenantQuotaUsage(tenantId: string) {
     await this.ensureTenantExists(tenantId);
     const tenant = await this.prisma.tenant.findUnique({

@@ -60,6 +60,18 @@ export class TenantsController {
   async getHealthSummary() {
     return this.tenantsService.getHealthSummary();
   }
+  @Get('provisioner/telemetry')
+  @Roles('PLATFORM_ADMIN')
+  async getProvisionerTelemetry() {
+    return this.tenantsService.getProvisionerTelemetry();
+  }
+
+  @Post('provisioner/circuit-breaker/reset')
+  @Roles('PLATFORM_ADMIN')
+  async resetCircuitBreaker(@Body() body: { provider: string }) {
+    if (!body.provider) throw new BadRequestException('provider is required');
+    return this.tenantsService.resetCircuitBreaker(body.provider);
+  }
 
   @Get(':id/metrics')
   @Roles('PLATFORM_ADMIN')

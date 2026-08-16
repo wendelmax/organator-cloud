@@ -147,3 +147,21 @@ A scheduled global job periodically fires `collect-tenant-metrics` payloads per 
 2. Form a composite state evaluation (`HEALTHY`, `DEGRADED`, `DOWN`).
 3. Flush memory, CPU, and topological constraints into `TenantHealth`.
 4. Export Prometheus-compatible telemetry uniquely labeled with `tenant_id` and `tenant_slug` for Grafana alerting hooks.
+
+## Deployment Strategies & Telemetry (Issues #38, #39, #40)
+
+Organator Cloud utilizes advanced rollout deployment strategies and native circuit breakers for resilient distributed execution.
+
+### Rollout Strategies (Issue #38)
+The orchestration engine maps distinct rollout patterns onto worker execution pipelines:
+- **REBUILD**: Hard destructive re-deployment, tearing down existing containers before bootstrapping new ones.
+- **BLUE_GREEN**: Non-destructive shadow deployments routing traffic over only after health probes succeed.
+- **CANARY**: Fractional traffic splitting (e.g. 10%, 25%) scaling iteratively.
+- **ROLLBACK**: Instant reversion to a previously known healthy architectural boundary.
+
+### Auto-Healing & Circuit Breakers (Issue #39)
+To prevent systemic cascaded failures across underlying providers (Docker, AWS, Terraform Cloud), `provisioner-worker` records operational error rates dynamically via `@organator/data-isolation`.
+The circuit safely trips from `CLOSED` to `OPEN` when the provider degradation thresholds are met.
+
+### Telemetry Dashboard & Recovery (Issue #40)
+Platform Administrators utilize the Backoffice Telemetry Dashboard to monitor global active job queues, evaluate infrastructure circuit limits, and manually dispatch `resetCircuitBreaker` interventions to restore execution limits to degraded networks.

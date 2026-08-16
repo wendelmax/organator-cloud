@@ -8,3 +8,4 @@ export type { PostgresAdapterOptions } from './postgres/adapter.js';
 export * from './plan-reconciler.js';
 export * from './spec-engine.js';
 export * from './health-evaluator.js';
+export * from './circuit-breaker.js';
