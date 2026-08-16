@@ -1,10 +1,12 @@
 import { Test } from '@nestjs/testing';
 import { DataIsolationController } from './data-isolation.controller';
 import { DataIsolationService } from './data-isolation.service';
+import { DataIsolationEventsService } from './data-isolation-events.service';
 
 describe('DataIsolationController', () => {
   let controller: DataIsolationController;
   let service: any;
+  let eventsService: any;
 
   beforeEach(async () => {
     service = {
@@ -12,10 +14,16 @@ describe('DataIsolationController', () => {
       setOverride: jest.fn(),
       reconcile: jest.fn(),
     };
+    eventsService = {
+      stream: jest.fn(),
+    };
 
     const module = await Test.createTestingModule({
       controllers: [DataIsolationController],
-      providers: [{ provide: DataIsolationService, useValue: service }],
+      providers: [
+        { provide: DataIsolationService, useValue: service },
+        { provide: DataIsolationEventsService, useValue: eventsService },
+      ],
     }).compile();
 
     controller = module.get(DataIsolationController);

@@ -4,6 +4,7 @@ import { PrismaClient } from '@organator/core-models';
 import Redis from 'ioredis';
 import Tasklets from '@wendelmax/tasklets';
 import { createProvisionerWorker } from './worker.js';
+import { startMetricsServer } from './data-isolation/metrics-server.js';
 
 const prisma = new PrismaClient();
 const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
@@ -128,3 +129,26 @@ worker.on('completed', job => {
 worker.on('failed', (job, err) => {
   console.log(`[Erro] Job ${job?.id} falhou com a mensagem: ${err.message}`);
 });
+
+const metricsPort = Number(process.env.METRICS_PORT) || 9464;
+const metricsHost = process.env.METRICS_HOST || '127.0.0.1';
+const server = startMetricsServer(metricsPort, metricsHost);
+console.log(`[Metrics] Servidor rodando em http://${metricsHost}:${metricsPort}/metrics`);
+
+async function shutdown(signal: string) {
+  console.log(`\n[${signal}] Desligando graciosamente...`);
+  try {
+    await worker.close();
+    server.close();
+    await redisPublisher.quit();
+    await prisma.$disconnect();
+    console.log('[Shutdown] Concluído.');
+    process.exit(0);
+  } catch (err) {
+    console.error('[Shutdown Erro]', err);
+    process.exit(1);
+  }
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
