@@ -9,6 +9,7 @@ import { handleDeployTenantInfra, handleDeprovisionTenantInfra } from './infrast
 import { handleReconcilePlanMigration, handleApplyDowngradeReconciliation } from './data-isolation/plan-migration-handler.js';
 import { handleBackupTenantInfra, handleRestoreTenantInfra, handleCloneTenantEnvironment, handleOffboardTenantInfra } from './data-isolation/lifecycle-handlers.js';
 import { handleCollectTenantMetrics, handlePromoteTenantEnvironment } from './data-isolation/health-metrics-handler.js';
+import { handleDeployRollout } from './infrastructure/rollout-handler.js';
 
 const prisma = new PrismaClient();
 const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
@@ -34,6 +35,7 @@ const worker = createProvisionerWorker({
     'offboard-tenant-infra': (job: Job) => handleOffboardTenantInfra(job, prisma),
     'collect-tenant-metrics': (job: Job) => handleCollectTenantMetrics(job, prisma),
     'promote-tenant-environment': (job: Job) => handlePromoteTenantEnvironment(job, prisma),
+    'deploy-rollout': (job: Job) => handleDeployRollout(job, prisma),
     'deploy-microservice': (job: Job) => handleDeployMicroservice(job, job.data.deploymentId || null),
   }
 });
