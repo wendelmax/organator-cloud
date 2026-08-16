@@ -41,6 +41,8 @@ model Tenant {
   dataPlane               TenantDataPlane?
   infraSpec               TenantInfraSpec?
   backups                 TenantBackup[]
+  environments            TenantEnvironment[]
+  healthSnapshots         TenantHealth[]
 }
 
 enum DataIsolationMode {
@@ -479,4 +481,47 @@ model TenantBackup {
   createdAt       DateTime     @default(now())
 
   @@index([tenantId, status])
+}
+
+enum EnvironmentType {
+  PRODUCTION
+  STAGING
+  SANDBOX
+}
+
+enum HealthStatus {
+  HEALTHY
+  DEGRADED
+  DOWN
+}
+
+model TenantEnvironment {
+  id              String          @id @default(uuid())
+  tenantId        String
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name            String
+  type            EnvironmentType @default(PRODUCTION)
+  envVars         Json
+  isPromoted      Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@unique([tenantId, type])
+}
+
+model TenantHealth {
+  id              String       @id @default(uuid())
+  tenantId        String
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  status          HealthStatus @default(HEALTHY)
+  dbStatus        HealthStatus @default(HEALTHY)
+  networkStatus   HealthStatus @default(HEALTHY)
+  dnsStatus       HealthStatus @default(HEALTHY)
+  cpuUsagePct     Float        @default(0.0)
+  memoryUsageMb   Float        @default(0.0)
+  storageUsageMb  Float        @default(0.0)
+  activeRequests  Int          @default(0)
+  checkedAt       DateTime     @default(now())
+
+  @@index([tenantId, checkedAt])
 }
