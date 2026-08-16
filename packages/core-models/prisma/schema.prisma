@@ -39,6 +39,8 @@ model Tenant {
   invitations TenantInvitation[]
   memberships TenantMembership[]
   dataPlane               TenantDataPlane?
+  infraSpec               TenantInfraSpec?
+  backups                 TenantBackup[]
 }
 
 enum DataIsolationMode {
@@ -422,6 +424,7 @@ model ProviderProfile {
 
 // Overrides de entitlements por tenant (ex.: crédito de cortesia) sem alterar o plano.
 model TenantEntitlementOverride {
+
   id        String   @id @default(uuid())
   tenantId  String   @unique
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
@@ -432,4 +435,48 @@ model TenantEntitlementOverride {
   updatedAt DateTime @updatedAt
 
   @@map("tenant_entitlement_overrides")
+}
+
+enum BackupType {
+  MANUAL
+  SCHEDULED
+  PRE_OFFBOARDING
+  PRE_MIGRATION
+}
+
+enum BackupStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  EXPIRED
+}
+
+model TenantInfraSpec {
+  id                  String   @id @default(uuid())
+  tenantId            String   @unique
+  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  specVersion         String   @default("v1alpha1")
+  databaseConfig      Json
+  networkConfig       Json
+  replicas            Int      @default(1)
+  allowCustomDomains  Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model TenantBackup {
+  id              String       @id @default(uuid())
+  tenantId        String
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  type            BackupType   @default(MANUAL)
+  status          BackupStatus @default(PENDING)
+  storagePath     String
+  checksum        String?
+  sizeBytes       BigInt?
+  retentionDays   Int          @default(7)
+  expiresAt       DateTime?
+  metadata        Json?
+  createdAt       DateTime     @default(now())
+
+  @@index([tenantId, status])
 }
