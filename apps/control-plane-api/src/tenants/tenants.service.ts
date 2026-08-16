@@ -102,7 +102,23 @@ export class TenantsService {
       changes: { name, plan: plan || 'free', state },
     });
 
+    await this.triggerInfraProvisioning(tenant.id, opts.actorId);
+
     return tenant;
+  }
+
+  async triggerInfraProvisioning(tenantId: string, actorId?: string) {
+    const tenant = await this.ensureTenantExists(tenantId);
+    if (this.provisionerQueue) {
+      const jobId = `deploy-tenant-infra:${tenantId}:${Date.now()}`;
+      await this.provisionerQueue.add('deploy-tenant-infra', {
+        tenantId,
+        slug: tenant.slug,
+        plan: tenant.plan,
+        actorId,
+      }, { jobId });
+    }
+    return { status: 'QUEUED', tenantId };
   }
 
   async getTenants() {
