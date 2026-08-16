@@ -32,6 +32,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: ./apps/${{ matrix.app }}/Dockerfile
           build-args: |
             APP_NAME=${{ matrix.app }}
           push: true
