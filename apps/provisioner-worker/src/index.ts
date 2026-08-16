@@ -7,6 +7,7 @@ import { createProvisionerWorker } from './worker.js';
 import { startMetricsServer } from './data-isolation/metrics-server.js';
 import { handleDeployTenantInfra, handleDeprovisionTenantInfra } from './infrastructure/infra-handler.js';
 import { handleReconcilePlanMigration, handleApplyDowngradeReconciliation } from './data-isolation/plan-migration-handler.js';
+import { handleBackupTenantInfra, handleRestoreTenantInfra, handleCloneTenantEnvironment, handleOffboardTenantInfra } from './data-isolation/lifecycle-handlers.js';
 
 const prisma = new PrismaClient();
 const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
@@ -26,6 +27,10 @@ const worker = createProvisionerWorker({
     'deprovision-tenant-infra': (job: Job) => handleDeprovisionTenantInfra(job, prisma),
     'reconcile-plan-migration': (job: Job) => handleReconcilePlanMigration(job, prisma),
     'apply-downgrade-reconciliation': (job: Job) => handleApplyDowngradeReconciliation(job, prisma),
+    'backup-tenant-infra': (job: Job) => handleBackupTenantInfra(job, prisma),
+    'restore-tenant-infra': (job: Job) => handleRestoreTenantInfra(job, prisma),
+    'clone-tenant-environment': (job: Job) => handleCloneTenantEnvironment(job, prisma),
+    'offboard-tenant-infra': (job: Job) => handleOffboardTenantInfra(job, prisma),
     'deploy-microservice': (job: Job) => handleDeployMicroservice(job, job.data.deploymentId || null),
   }
 });
