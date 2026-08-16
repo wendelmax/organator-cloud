@@ -15,6 +15,7 @@ import { useParams } from "next/navigation";
 import { DataIsolationCard } from "./data-isolation-card";
 import { GracePeriodBanner } from "./grace-period-banner";
 import { BackupsTab } from "./backups-tab";
+import { HealthDashboard } from "./health-dashboard";
 
 const API_URL = (
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
@@ -111,6 +112,7 @@ export default function SettingsPage() {
         </p>
       </div>
 
+      <HealthDashboard />
       <GracePeriodBanner graceEndsAt={tenant?.graceEndsAt} />
 
       <Card className="bg-neutral-900 border-neutral-800">

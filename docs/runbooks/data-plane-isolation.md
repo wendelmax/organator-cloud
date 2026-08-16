@@ -134,4 +134,16 @@ When a tenant requests account termination (e.g. for GDPR/LGPD compliance), a st
 1. `PRE_OFFBOARDING` backup snapshot is immediately captured.
 2. The infrastructure driver invokes a hard `deprovision` clearing sensitive boundaries (secrets, connection URIs).
 3. The underlying compute layers are scrubbed.
-4. The tenant is forcefully set to a `deleted` state, ensuring zero further access is possible.
+## Tenant Environments & Health Monitoring (Issues #52, #93)
+
+Organator Cloud continuously maps the operational health and lifecycle scope of all data plane implementations.
+
+### Environment Management (Issue #93)
+Tenants can operate multiple logically isolated boundaries (`PRODUCTION`, `STAGING`, `SANDBOX`). A `promote-tenant-environment` job allows for the unified, atomic promotion of configuration values (`envVars`) directly from lower-tier environments up into `PRODUCTION`.
+
+### Health Metrics & Prometheus Export (Issue #52)
+A scheduled global job periodically fires `collect-tenant-metrics` payloads per active organization. These snapshot events:
+1. Probe the `DockerDriver` and underlying connectivity engines.
+2. Form a composite state evaluation (`HEALTHY`, `DEGRADED`, `DOWN`).
+3. Flush memory, CPU, and topological constraints into `TenantHealth`.
+4. Export Prometheus-compatible telemetry uniquely labeled with `tenant_id` and `tenant_slug` for Grafana alerting hooks.

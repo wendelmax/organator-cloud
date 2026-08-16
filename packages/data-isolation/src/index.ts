@@ -7,3 +7,4 @@ export { PostgresIsolationAdapter } from './postgres/adapter.js';
 export type { PostgresAdapterOptions } from './postgres/adapter.js';
 export * from './plan-reconciler.js';
 export * from './spec-engine.js';
+export * from './health-evaluator.js';
