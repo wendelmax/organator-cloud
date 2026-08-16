@@ -1,8 +1,9 @@
-import { Worker, Job } from 'bullmq';
+import { Job } from 'bullmq';
 import { VPSClient, VercelClient, AWSClient } from '@organator/cloud-providers';
 import { PrismaClient } from '@organator/core-models';
 import Redis from 'ioredis';
 import Tasklets from '@wendelmax/tasklets';
+import { createProvisionerWorker } from './worker.js';
 
 const prisma = new PrismaClient();
 const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
@@ -13,88 +14,23 @@ const redisPublisher = new Redis({ host: REDIS_HOST, port: REDIS_PORT });
 
 console.log(`[Provisioner Worker] Inicializando e conectando ao Redis em ${REDIS_HOST}:${REDIS_PORT}...`);
 
-const worker = new Worker('provisioner', async (job: Job) => {
-  console.log(`\n======================================================`);
-  console.log(`[Job Recebido] ID: ${job.id} | Nome: ${job.name}`);
-  
-  let deploymentId: string | null = job.data.deploymentId || null;
-  if ((job.data.serviceId || job.data.tenantId) && !deploymentId) {
-    try {
-      const key = job.data.idempotencyKey || `${job.name}:${job.data.tenantId || job.data.serviceId}`;
-      const dep = await prisma.deployment.upsert({
-        where: { idempotencyKey: key },
-        update: { status: 'RUNNING' },
-        create: { microserviceId: job.data.serviceId || null, tenantId: job.data.tenantId || null, status: 'RUNNING', phase: 'DB', environment: job.data.environment || 'production', idempotencyKey: key, logs: `[${new Date().toISOString()}] Job de deploy iniciado...\n` },
-      });
-      deploymentId = dep.id;
-    } catch (e: any) {
-      console.warn(`[Prisma Warning] Não foi possível criar registro de Deployment: ${e.message}`);
-    }
+const worker = createProvisionerWorker({ 
+  connection, 
+  prisma, 
+  redisPublisher,
+  handlers: {
+    'deploy-tenant-infra': (job: Job) => handleDeployTenantInfra(job, job.data.deploymentId || null),
+    'deprovision-tenant-infra': (job: Job) => handleDeprovisionTenantInfra(job, job.data.deploymentId || null),
+    'migrate-tenant-plan': (job: Job) => handleMigrateTenantPlan(job, job.data.deploymentId || null),
+    'deploy-microservice': (job: Job) => handleDeployMicroservice(job, job.data.deploymentId || null),
   }
-
-  if (deploymentId) {
-    const initialLog = `[${new Date().toISOString()}] Job de deploy iniciado...\n`;
-    redisPublisher.publish(
-      `deploy_logs:${deploymentId}`,
-      JSON.stringify({ deploymentId, logLine: initialLog, status: 'RUNNING' })
-    ).catch((e: any) => console.warn(`[Redis Pub Warning] ${e.message}`));
-  }
-
-  try {
-    if (job.name === 'deploy-tenant-infra') {
-      await handleDeployTenantInfra(job, deploymentId);
-    } else if (job.name === 'deprovision-tenant-infra') {
-      await handleDeprovisionTenantInfra(job, deploymentId);
-    } else if (job.name === 'migrate-tenant-plan') {
-      await handleMigrateTenantPlan(job, deploymentId);
-    } else if (job.name === 'deploy-microservice') {
-      await handleDeployMicroservice(job, deploymentId);
-    }
-    if (deploymentId) {
-      const successLog = `[${new Date().toISOString()}] Deploy concluído com sucesso!\n`;
-      const current = await prisma.deployment.findUnique({ where: { id: deploymentId } });
-      await prisma.deployment.update({
-        where: { id: deploymentId },
-        data: {
-          status: 'SUCCESS',
-          phase: 'DONE',
-          logs: `${current?.logs || ''}${successLog}`
-        }
-      });
-      await redisPublisher.publish(
-        `deploy_logs:${deploymentId}`,
-        JSON.stringify({ deploymentId, logLine: successLog, status: 'SUCCESS' })
-      );
-    }
-    console.log(`======================================================\n`);
-    return { success: true, finishedAt: new Date().toISOString() };
-  } catch (err: any) {
-    if (deploymentId) {
-      const current = await prisma.deployment.findUnique({ where: { id: deploymentId } });
-      const errLog = `[${new Date().toISOString()}] [ERRO] ${err.message}\n`;
-      await prisma.deployment.update({
-        where: { id: deploymentId },
-        data: { 
-          status: 'FAILED',
-          logs: `${current?.logs || ''}${errLog}`
-        }
-      });
-      await redisPublisher.publish(
-        `deploy_logs:${deploymentId}`,
-        JSON.stringify({ deploymentId, logLine: errLog, status: 'FAILED' })
-      );
-    }
-    console.log(`======================================================\n`);
-    throw err;
-  }
-}, { connection });
+});
 
 async function appendLog(deploymentId: string | null, job: Job, msg: string, status: string = 'RUNNING') {
   console.log(msg);
   await job.log(msg);
   if (deploymentId) {
     const logLine = `[${new Date().toISOString()}] ${msg}\n`;
-    // Processamento de log (sanitização de segredos + truncamento) offloadado p/ worker thread
     const processed = await processLogLine(logLine);
     try {
       const current = await prisma.deployment.findUnique({ where: { id: deploymentId } });
@@ -112,10 +48,6 @@ async function appendLog(deploymentId: string | null, job: Job, msg: string, sta
   }
 }
 
-/**
- * Sanitiza e limita o tamanho de uma linha de log em worker thread (Tasklets),
- * evitando bloquear o event loop do worker do BullMQ com payloads grandes.
- */
 async function processLogLine(line: string): Promise<string> {
   const MAX_LINE_BYTES = 16 * 1024;
   const SECRET_PATTERNS = [
