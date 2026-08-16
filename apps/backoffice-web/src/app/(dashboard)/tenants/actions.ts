@@ -340,3 +340,42 @@ export async function provisionInfra(tenantId: string) {
   revalidatePath("/tenants");
   return res.json();
 }
+
+export async function cloneTenantEnvironment(tenantId: string, targetSlug: string, targetName: string) {
+  const session = await getServerSession(authOptions);
+  const token = (session as any)?.accessToken;
+  if (!token) throw new Error("Unauthorized");
+
+  const res = await fetch(`${API_URL}/v1/platform/tenants/${tenantId}/clone`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ targetSlug, targetName })
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to trigger clone");
+  }
+
+  revalidatePath("/tenants");
+  return res.json();
+}
+
+export async function offboardTenantEnvironment(tenantId: string) {
+  const session = await getServerSession(authOptions);
+  const token = (session as any)?.accessToken;
+  if (!token) throw new Error("Unauthorized");
+
+  const res = await fetch(`${API_URL}/v1/platform/tenants/${tenantId}/offboard`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to trigger offboard");
+  }
+
+  revalidatePath("/tenants");
+  return res.json();
+}
