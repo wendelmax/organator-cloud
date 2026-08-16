@@ -79,6 +79,12 @@ export class TenantsController {
     return this.tenantsService.getTenant(id);
   }
 
+  @Post(':id/provision-infra')
+  @Roles('PLATFORM_ADMIN')
+  async triggerInfraProvisioning(@Param('id') id: string, @Req() req: any) {
+    return this.tenantsService.triggerInfraProvisioning(id, req.user?.userId);
+  }
+
   @Post()
   @Roles('PLATFORM_ADMIN')
   async create(

@@ -77,3 +77,30 @@ If a tenant experiences data plane issues after cutover:
 
 Issue #36 will introduce managed PostgreSQL servers (RDS, VPS instances) and inject connection references directly into microservice product deployments.
 This implementation exposes sanitized state and opaque connection reference IDs (`dataPlaneConnectionRef`), providing the exact boundary required by Issue #36.
+
+## Multi-Provider Infrastructure Provisioning (Issue #36)
+
+This runbook also covers the multi-provider infrastructure provisioning flow implemented in Issue #36.
+
+### Drivers
+
+Organator supports dynamic resolution of infrastructure providers:
+- `DOCKER`: Generates connection strings for local containers/VPS deployments.
+- `AWS`: Generates RDS database URLs and Route53 DNS configurations.
+- `TERRAFORM`: Generates configurations corresponding to Terraform state outputs.
+
+### Phase Transitions
+
+The provisioning state machine executes in the following sequence:
+1. `DB`: The database is allocated and the encrypted connection URL is stored securely.
+2. `NETWORK`: The security groups and network boundaries are established.
+3. `DNS`: The custom subdomains and DNS records are mapped.
+4. `DONE`: Provisioning completes successfully.
+
+### Emergency Deprovisioning & Troubleshooting
+
+If a tenant's infrastructure needs to be torn down:
+1. Dispatch the `deprovision-tenant-infra` BullMQ job for the target `tenantId`.
+2. The worker will call the provider's `deprovision` method and reset the tenant's data plane status to `PENDING` (`PREPARE` phase).
+
+To manually retry a stuck provisioning process, Platform Admins can call `POST /v1/platform/tenants/:id/provision-infra` or click "Provisionar Infra" in the Backoffice UI.

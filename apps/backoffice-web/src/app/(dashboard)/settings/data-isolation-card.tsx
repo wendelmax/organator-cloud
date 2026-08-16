@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@organator/ui";
+import { TenantInfraStepper } from "../tenants/infra-stepper";
 
 interface DataIsolationView {
   tenantId: string;
@@ -76,29 +77,11 @@ export function DataIsolationCard({ token }: { token?: string }) {
           </div>
         </div>
 
-        {/* Phase Stepper */}
-        <div className="space-y-1.5">
-          <div className="text-xs text-neutral-400 font-medium">Progresso da Reconciliação</div>
-          <div className="flex items-center gap-1">
-            {PHASES.map((p, idx) => {
-              const isCompleted = currentPhaseIndex > idx || data.status === 'READY';
-              const isCurrent = currentPhaseIndex === idx && data.status !== 'READY';
-
-              return (
-                <div
-                  key={p}
-                  title={p}
-                  className={`h-2 flex-1 rounded-full transition-colors ${
-                    isCompleted ? 'bg-green-500' :
-                    isCurrent ? 'bg-amber-400 animate-pulse' :
-                    'bg-neutral-800'
-                  }`}
-                />
-              );
-            })}
-          </div>
-          <div className="text-xs text-neutral-500 text-right font-mono">{data.phase}</div>
-        </div>
+        {/* Infra Provisioning Stepper */}
+        <TenantInfraStepper 
+          currentPhase={data.phase} 
+          status={data.status} 
+        />
 
         {data.status === 'FAILED' && (
           <div className="p-3 rounded bg-red-500/10 border border-red-500/20 text-red-400 text-xs space-y-1">

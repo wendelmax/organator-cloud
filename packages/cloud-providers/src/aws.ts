@@ -2,7 +2,7 @@ import { EC2Client, RunInstancesCommand } from '@aws-sdk/client-ec2';
 import { decryptSecret } from './crypto';
 
 export class AWSClient {
-  private ec2: EC2Client;
+  private ec2: any;
 
   constructor(region: string, accessKeyId: string, secretAccessKey: string) {
     const decryptedAccessKeyId = decryptSecret(accessKeyId);

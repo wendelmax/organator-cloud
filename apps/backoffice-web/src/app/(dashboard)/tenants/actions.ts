@@ -321,3 +321,22 @@ export async function getDataIsolation(tenantId: string) {
 
   return res.json();
 }
+
+export async function provisionInfra(tenantId: string) {
+  const session = await getServerSession(authOptions);
+  const token = (session as any)?.accessToken;
+  if (!token) throw new Error("Unauthorized");
+
+  const res = await fetch(`${API_URL}/v1/platform/tenants/${tenantId}/provision-infra`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to trigger infra provisioning");
+  }
+
+  revalidatePath("/tenants");
+  return res.json();
+}
