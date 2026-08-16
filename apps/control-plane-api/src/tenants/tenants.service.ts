@@ -207,6 +207,33 @@ export class TenantsService {
     }, { jobId: idempotencyKey, removeOnComplete: false }) : { id: undefined };
     await this.auditService.record({ actorId, action: 'TENANT_PLAN_CHANGED', resourceType: 'TENANT', resourceId: tenantId, changes: { from: current.plan, to: normalizedPlan, jobId: job.id, idempotencyKey } });
 
+    // Reconcile data isolation when not overridden
+    const tenantForIsolation = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (tenantForIsolation && !tenantForIsolation.dataIsolationOverridden) {
+      const defaultMode = billingPlan.defaultDataIsolation || 'SHARED';
+      if (defaultMode !== tenantForIsolation.dataIsolation) {
+        await this.prisma.tenant.update({
+          where: { id: tenantId },
+          data: { dataIsolation: defaultMode as any },
+        });
+        const dp = await this.prisma.tenantDataPlane.upsert({
+          where: { tenantId },
+          create: { tenantId, status: 'PENDING', phase: 'PREPARE', generation: 1 },
+          update: { generation: { increment: 1 }, status: 'PENDING', phase: 'PREPARE', lastError: null },
+        });
+        if (this.provisionerQueue) {
+          const isoJobId = `data-isolation:${tenantId}:generation:${dp.generation}`;
+          await this.provisionerQueue.add('reconcile-data-isolation', {
+            apiVersion: 'organator.io/v1alpha1',
+            tenantId,
+            generation: dp.generation,
+            desiredMode: defaultMode,
+            actorId,
+          }, { jobId: isoJobId, attempts: 5, backoff: { type: 'exponential', delay: 1000 } });
+        }
+      }
+    }
+
     return { ...result, migration: { jobId: job.id, status: 'QUEUED', idempotencyKey } };
   }
 

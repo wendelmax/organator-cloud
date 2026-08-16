@@ -16,6 +16,7 @@ import { ApiKeysModule } from './api-keys/api-keys.module';
 import { ProvidersModule } from './providers/providers.module';
 import { PlacementModule } from './placement/placement.module';
 import { DomainsModule } from './domains/domains.module';
+import { DataIsolationModule } from './data-isolation/data-isolation.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { DomainsModule } from './domains/domains.module';
     ProvidersModule,
     PlacementModule,
     DomainsModule,
+    DataIsolationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
