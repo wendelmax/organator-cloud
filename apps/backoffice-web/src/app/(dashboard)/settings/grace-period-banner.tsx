@@ -1,11 +1,19 @@
 "use client";
 
+import { useState, useEffect } from "react";
+
 export function GracePeriodBanner({ graceEndsAt }: { graceEndsAt?: string | null }) {
-  if (!graceEndsAt) return null;
+  const [now, setNow] = useState<number | null>(null);
+
+  useEffect(() => {
+    setNow(Date.now());
+  }, []);
+
+  if (!graceEndsAt || now === null) return null;
 
   const daysLeft = Math.max(
     0,
-    Math.ceil((new Date(graceEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    Math.ceil((new Date(graceEndsAt).getTime() - now) / (1000 * 60 * 60 * 24))
   );
 
   return (

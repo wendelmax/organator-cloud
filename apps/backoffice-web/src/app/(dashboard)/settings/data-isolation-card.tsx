@@ -42,11 +42,9 @@ export function DataIsolationCard({ token }: { token?: string }) {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [token]);
+  }, [token, API_URL]);
 
   if (loading || !data) return null;
-
-  const currentPhaseIndex = PHASES.indexOf(data.phase);
 
   return (
     <Card className="bg-neutral-900 border-neutral-800">
