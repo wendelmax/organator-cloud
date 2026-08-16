@@ -15,6 +15,7 @@ import {
   archiveTenant,
   transferOwnership,
 } from "./actions";
+import { DataIsolationModal } from "./data-isolation";
 
 interface TenantMetrics {
   microservices: number;
@@ -58,6 +59,7 @@ export function TenantsClient({
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [planTenant, setPlanTenant] = useState<Tenant | null>(null);
   const [ownerTenant, setOwnerTenant] = useState<Tenant | null>(null);
+  const [isolationTenant, setIsolationTenant] = useState<Tenant | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const refreshMembers = async () => {
@@ -288,6 +290,14 @@ export function TenantsClient({
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={isPending}
+                              onClick={() => setIsolationTenant(tenant)}
+                            >
+                              Isolamento
+                            </Button>
                             <Button
                               variant="outline"
                               size="sm"
@@ -612,6 +622,18 @@ export function TenantsClient({
           </div>
         </form>
       </Modal>
+
+      {isolationTenant && (
+        <DataIsolationModal
+          tenantId={isolationTenant.id}
+          tenantName={isolationTenant.name}
+          currentMode={(isolationTenant as any).dataIsolation || 'SHARED'}
+          overridden={(isolationTenant as any).dataIsolationOverridden}
+          status={(isolationTenant as any).dataPlane?.status}
+          phase={(isolationTenant as any).dataPlane?.phase}
+          onClose={() => setIsolationTenant(null)}
+        />
+      )}
     </div>
   );
 }
