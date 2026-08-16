@@ -178,6 +178,7 @@ interface IsolationManifest {
     schema: string;
     table: string;
     tenantColumn: 'tenant_id';
+    primaryKey: string;
   }>;
   validate(connection: ConnectionReference, tenantId: string): Promise<ValidationEvidence>;
 }
@@ -185,7 +186,7 @@ interface IsolationManifest {
 
 The v1alpha1 manifest is deliberately smaller than issue #50's future declarative environment spec. Issue #50 may embed or reference it without changing the adapter lifecycle.
 
-An empty tenant table declaration is allowed only for products that explicitly declare they contain no tenant-owned relational data. A declared table missing `tenant_id` fails reconciliation before cutover.
+An empty tenant table declaration is allowed only for products that explicitly declare they contain no tenant-owned relational data. A declared table missing `tenant_id` or its declared stable primary key fails reconciliation before cutover.
 
 ## PostgreSQL behavior
 
@@ -410,4 +411,3 @@ Rollout starts disabled. Operators configure the administrative PostgreSQL endpo
 | Authorization and isolation | Platform-only mutations, tenant-scoped reads/SSE, cross-tenant negative tests |
 | Idempotency and recoverable failure | Generation keys, advisory locks, checkpoints, retries, compensation |
 | Audit and observability | Named audit events, phase metrics, alerts, sanitized structured logs |
-
