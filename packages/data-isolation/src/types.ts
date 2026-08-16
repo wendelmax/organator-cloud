@@ -68,6 +68,8 @@ export interface IsolationContext {
   source: TargetResources | null;
   sourceConnection: ConnectionReference | null;
   manifest: IsolationManifest;
+  resolveConnection: (reference: ConnectionReference) => Promise<string>;
+  storeConnection: (input: { tenantId: string; mode: DataIsolationMode; url: string }) => Promise<StoredConnection>;
 }
 
 export interface IsolationAdapter {

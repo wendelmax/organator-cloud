@@ -92,6 +92,11 @@ describe('PostgresIsolationAdapter', { skip: !TEST_URL ? 'TEST_DATABASE_URL not 
       source: null,
       sourceConnection: null,
       manifest: mockManifest,
+      resolveConnection: async () => '',
+      storeConnection: async () => ({
+        reference: { id: 'ref', mode: 'SCHEMA' as any },
+        encryptedPayload: {},
+      }),
     };
 
     const resources1 = await adapter.prepareTarget(context);
@@ -114,6 +119,11 @@ describe('PostgresIsolationAdapter', { skip: !TEST_URL ? 'TEST_DATABASE_URL not 
       source: null,
       sourceConnection: null,
       manifest: mockManifest,
+      resolveConnection: async () => '',
+      storeConnection: async () => ({
+        reference: { id: 'ref', mode: 'DATABASE' as any },
+        encryptedPayload: {},
+      }),
     };
 
     const resources1 = await adapter.prepareTarget(context);
