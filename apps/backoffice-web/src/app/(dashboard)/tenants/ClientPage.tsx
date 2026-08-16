@@ -21,6 +21,7 @@ import {
 import { DataIsolationModal } from "./data-isolation";
 import { CloneModal } from "./clone-modal";
 import { OffboardModal } from "./offboard-modal";
+import { EnvironmentsCard } from "./environments-card";
 
 interface TenantMetrics {
   microservices: number;
@@ -67,6 +68,7 @@ export function TenantsClient({
   const [isolationTenant, setIsolationTenant] = useState<Tenant | null>(null);
   const [cloningTenant, setCloningTenant] = useState<Tenant | null>(null);
   const [offboardingTenant, setOffboardingTenant] = useState<Tenant | null>(null);
+  const [environmentsTenant, setEnvironmentsTenant] = useState<Tenant | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const refreshMembers = async () => {
@@ -379,6 +381,14 @@ export function TenantsClient({
                               onClick={() => setOwnerTenant(tenant)}
                             >
                               Transferir
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={isPending}
+                              onClick={() => setEnvironmentsTenant(tenant)}
+                            >
+                              Ambientes
                             </Button>
                             <Button
                               variant="ghost"
@@ -717,6 +727,17 @@ export function TenantsClient({
             });
           }}
         />
+      )}
+
+      {environmentsTenant && (
+        <Modal
+          isOpen={true}
+          onClose={() => setEnvironmentsTenant(null)}
+          title={`Ambientes: ${environmentsTenant.name}`}
+          description="Gerencie os ciclos de vida e promova variáveis de ambiente"
+        >
+          <EnvironmentsCard tenantId={environmentsTenant.id} />
+        </Modal>
       )}
     </div>
   );
