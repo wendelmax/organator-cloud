@@ -258,3 +258,66 @@ export async function transferOwnership(tenantId: string, newOwnerId: string) {
   revalidatePath("/tenants");
   return { success: true };
 }
+
+export async function updateDataIsolation(
+  tenantId: string,
+  mode: 'SHARED' | 'SCHEMA' | 'DATABASE' | null,
+  confirmDestructive = false,
+) {
+  const session = await getServerSession(authOptions);
+  const token = (session as any)?.accessToken;
+  if (!token) throw new Error("Unauthorized");
+
+  const res = await fetch(`${API_URL}/v1/platform/tenants/${tenantId}/data-isolation`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ mode, confirmDestructive })
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to update data isolation");
+  }
+
+  revalidatePath("/tenants");
+  return res.json();
+}
+
+export async function reconcileDataIsolation(tenantId: string) {
+  const session = await getServerSession(authOptions);
+  const token = (session as any)?.accessToken;
+  if (!token) throw new Error("Unauthorized");
+
+  const res = await fetch(`${API_URL}/v1/platform/tenants/${tenantId}/data-isolation/reconcile`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to trigger reconciliation");
+  }
+
+  revalidatePath("/tenants");
+  return res.json();
+}
+
+export async function getDataIsolation(tenantId: string) {
+  const session = await getServerSession(authOptions);
+  const token = (session as any)?.accessToken;
+  if (!token) throw new Error("Unauthorized");
+
+  const res = await fetch(`${API_URL}/v1/tenants/data-isolation`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    return null;
+  }
+
+  return res.json();
+}

@@ -53,6 +53,9 @@ describe('TenantsService', () => {
     deployment: {
       count: jest.fn(),
     },
+    tenantDataPlane: {
+      upsert: jest.fn().mockResolvedValue({ generation: 1 }),
+    },
     apiDoc: {
       count: jest.fn(),
     },
@@ -141,8 +144,10 @@ describe('TenantsService', () => {
       mockPrisma.tenant.findUnique.mockResolvedValue({
         id: 'tenant-1',
         plan: 'free',
+        dataIsolation: 'SHARED',
+        dataIsolationOverridden: false,
       });
-      mockPrisma.billingPlan.findUnique.mockResolvedValue({ slug: 'pro' });
+      mockPrisma.billingPlan.findUnique.mockResolvedValue({ slug: 'pro', defaultDataIsolation: 'SCHEMA' });
       mockPrisma.tenant.update.mockResolvedValue({
         id: 'tenant-1',
         plan: 'pro',

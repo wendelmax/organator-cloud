@@ -12,6 +12,7 @@ import {
 } from "@organator/ui";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { DataIsolationCard } from "./data-isolation-card";
 
 const API_URL = (
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
@@ -128,6 +129,7 @@ export default function SettingsPage() {
           )}
         </CardContent>
       </Card>
+      <DataIsolationCard token={token} />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {sections.map((section) => (
           <Link key={section.href} href={contextualHref(section.href)}>

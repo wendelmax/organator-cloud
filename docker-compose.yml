@@ -32,6 +32,9 @@ services:
       - DATABASE_URL=postgresql://organator:password@postgres:5432/organator_db?schema=public
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - DATA_ISOLATION_ENABLED=${DATA_ISOLATION_ENABLED:-false}
+      - DATA_ISOLATION_ADMIN_URL=${DATA_ISOLATION_ADMIN_URL:-postgresql://organator:password@postgres:5432/organator_db}
+      - DATA_ISOLATION_ROLLBACK_HOURS=${DATA_ISOLATION_ROLLBACK_HOURS:-24}
     ports:
       - "3000:3000"
     depends_on:
@@ -48,6 +51,9 @@ services:
       - DATABASE_URL=postgresql://organator:password@postgres:5432/organator_db?schema=public
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - DATA_ISOLATION_ENABLED=${DATA_ISOLATION_ENABLED:-false}
+      - DATA_ISOLATION_ADMIN_URL=${DATA_ISOLATION_ADMIN_URL:-postgresql://organator:password@postgres:5432/organator_db}
+      - DATA_ISOLATION_ROLLBACK_HOURS=${DATA_ISOLATION_ROLLBACK_HOURS:-24}
     depends_on:
       postgres:
         condition: service_healthy
