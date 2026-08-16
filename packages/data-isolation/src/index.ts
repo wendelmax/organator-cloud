@@ -5,3 +5,4 @@ export type { SanitizedError } from './sanitize.js';
 export { PostgresAdmin, quoteIdentifier } from './postgres/admin.js';
 export { PostgresIsolationAdapter } from './postgres/adapter.js';
 export type { PostgresAdapterOptions } from './postgres/adapter.js';
+export * from './plan-reconciler.js';
