@@ -546,6 +546,42 @@ export class TenantsService {
     return { jobId: job.id, status: 'QUEUED' };
   }
 
+  async getEnvironments(tenantId: string) {
+    return this.prisma.tenantEnvironment.findMany({ where: { tenantId } });
+  }
+
+  async upsertEnvironment(tenantId: string, data: any) {
+    return this.prisma.tenantEnvironment.upsert({
+      where: { tenantId_type: { tenantId, type: data.type || 'PRODUCTION' } },
+      create: { tenantId, name: data.name || 'Production', type: data.type || 'PRODUCTION', envVars: data.envVars || {} },
+      update: { envVars: data.envVars || {} },
+    });
+  }
+
+  async promoteEnvironment(tenantId: string, sourceEnvId: string) {
+    if (!this.provisionerQueue) throw new BadRequestException('Provisioner queue not configured');
+    const job = await this.provisionerQueue.add('promote-tenant-environment', { tenantId, sourceEnvId });
+    return { jobId: job.id, status: 'QUEUED' };
+  }
+
+  async getTenantHealth(tenantId: string) {
+    return this.prisma.tenantHealth.findFirst({
+      where: { tenantId },
+      orderBy: { checkedAt: 'desc' },
+    });
+  }
+
+  async getHealthSummary() {
+    const tenants = await this.prisma.tenant.findMany({ select: { id: true, name: true, slug: true } });
+    const summary = await Promise.all(
+      tenants.map(async (t) => {
+        const health = await this.getTenantHealth(t.id);
+        return { tenant: t, health };
+      })
+    );
+    return summary;
+  }
+
   async getTenantQuotaUsage(tenantId: string) {
     await this.ensureTenantExists(tenantId);
     const tenant = await this.prisma.tenant.findUnique({

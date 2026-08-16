@@ -55,6 +55,12 @@ export class TenantsController {
     return this.tenantsService.updateTenant(req.user.tenantId, body);
   }
 
+  @Get('health-summary')
+  @Roles('PLATFORM_ADMIN')
+  async getHealthSummary() {
+    return this.tenantsService.getHealthSummary();
+  }
+
   @Get(':id/metrics')
   @Roles('PLATFORM_ADMIN')
   async getTenantMetrics(@Param('id') id: string) {
@@ -115,6 +121,31 @@ export class TenantsController {
   @Roles('PLATFORM_ADMIN')
   async triggerOffboard(@Param('id') id: string) {
     return this.tenantsService.triggerOffboard(id);
+  }
+
+  @Get(':id/environments')
+  @Roles('PLATFORM_ADMIN')
+  async getEnvironments(@Param('id') id: string) {
+    return this.tenantsService.getEnvironments(id);
+  }
+
+  @Post(':id/environments')
+  @Roles('PLATFORM_ADMIN')
+  async upsertEnvironment(@Param('id') id: string, @Body() body: any) {
+    return this.tenantsService.upsertEnvironment(id, body);
+  }
+
+  @Post(':id/environments/promote')
+  @Roles('PLATFORM_ADMIN')
+  async promoteEnvironment(@Param('id') id: string, @Body() body: { sourceEnvId: string }) {
+    if (!body.sourceEnvId) throw new BadRequestException('sourceEnvId is required');
+    return this.tenantsService.promoteEnvironment(id, body.sourceEnvId);
+  }
+
+  @Get(':id/health')
+  @Roles('PLATFORM_ADMIN')
+  async getTenantHealth(@Param('id') id: string) {
+    return this.tenantsService.getTenantHealth(id);
   }
 
   @Post()
