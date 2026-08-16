@@ -15,8 +15,12 @@ import {
   archiveTenant,
   transferOwnership,
   provisionInfra,
+  cloneTenantEnvironment,
+  offboardTenantEnvironment,
 } from "./actions";
 import { DataIsolationModal } from "./data-isolation";
+import { CloneModal } from "./clone-modal";
+import { OffboardModal } from "./offboard-modal";
 
 interface TenantMetrics {
   microservices: number;
@@ -61,6 +65,8 @@ export function TenantsClient({
   const [planTenant, setPlanTenant] = useState<Tenant | null>(null);
   const [ownerTenant, setOwnerTenant] = useState<Tenant | null>(null);
   const [isolationTenant, setIsolationTenant] = useState<Tenant | null>(null);
+  const [cloningTenant, setCloningTenant] = useState<Tenant | null>(null);
+  const [offboardingTenant, setOffboardingTenant] = useState<Tenant | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const refreshMembers = async () => {
@@ -374,6 +380,23 @@ export function TenantsClient({
                             >
                               Transferir
                             </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={isPending}
+                              onClick={() => setCloningTenant(tenant)}
+                            >
+                              Clonar
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-400 hover:text-red-300"
+                              disabled={isPending}
+                              onClick={() => setOffboardingTenant(tenant)}
+                            >
+                              Offboard
+                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -651,6 +674,48 @@ export function TenantsClient({
           status={(isolationTenant as any).dataPlane?.status}
           phase={(isolationTenant as any).dataPlane?.phase}
           onClose={() => setIsolationTenant(null)}
+        />
+      )}
+
+      {cloningTenant && (
+        <CloneModal
+          isOpen={true}
+          tenantName={cloningTenant.name}
+          isPending={isPending}
+          onClose={() => setCloningTenant(null)}
+          onConfirm={(targetName, targetSlug) => {
+            startTransition(async () => {
+              try {
+                await cloneTenantEnvironment(cloningTenant.id, targetSlug, targetName);
+                setCloningTenant(null);
+                await refreshTenants();
+              } catch (e) {
+                console.error(e);
+                alert("Falha ao clonar tenant");
+              }
+            });
+          }}
+        />
+      )}
+
+      {offboardingTenant && (
+        <OffboardModal
+          isOpen={true}
+          tenantName={offboardingTenant.name}
+          isPending={isPending}
+          onClose={() => setOffboardingTenant(null)}
+          onConfirm={() => {
+            startTransition(async () => {
+              try {
+                await offboardTenantEnvironment(offboardingTenant.id);
+                setOffboardingTenant(null);
+                await refreshTenants();
+              } catch (e) {
+                console.error(e);
+                alert("Falha ao fazer offboard do tenant");
+              }
+            });
+          }}
         />
       )}
     </div>

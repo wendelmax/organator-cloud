@@ -116,6 +116,22 @@ The `PlanReconciler` engine calculates a strict set of actions during a plan cha
 ### Redis Quota Cache Invalidation
 Billing changes must immediately reflect in rate limits. When a plan change is initiated via the Control Plane API, the `quota_cache:<tenantId>` key in Redis is forcefully deleted, prompting an authoritative DB query on the next request.
 
-### Downgrade Grace Periods
-If a tenant downgrades their plan, the platform grants a **7-day grace period** (`Tenant.graceEndsAt`). During this time, they retain their previous dedicated infrastructure and limits to allow them to extract data or adjust usage.
-After 7 days, the `apply-downgrade-reconciliation` job executes and forcefully reverts the infrastructure limits and isolation mode. If the tenant upgrades back to their original plan before the 7 days expire, the grace period is cleared and the scheduled job is safely ignored.
+## Tenant Lifecycle Management (Issues #50, #51, #90, #91)
+
+Organator Cloud handles complex operational lifecycle actions around tenant environments in a standard, predictable, and auditable format.
+
+### Declarative Infrastructure Spec (Issue #50)
+A tenant's ideal infrastructure constraints (VPC identifiers, replica counts, isolation constraints) are bound declaratively within `TenantInfraSpec`. `provisioner-worker` consumes these specifications and converges real-world infrastructure parameters into standard topologies across cloud providers (AWS, VPS, Docker).
+
+### Automated & Manual Backups (Issue #90)
+Tenants can trigger manual backups or opt-in to scheduled backup policies. When backups are created, a verified payload checksum (`SHA-256`) is stored inside `TenantBackup`. These snapshots can be targeted for data restoration pipelines.
+
+### Tenant Environment Cloning (Issue #91)
+For testing, scaling out environments, or performing localized bug reproductions, platform admins can clone a tenant. The system safely replicates the schema, initial states, and infrastructure specifications into an entirely new, isolated tenant namespace.
+
+### Safe Offboarding & Data Purge (Issue #51)
+When a tenant requests account termination (e.g. for GDPR/LGPD compliance), a strict sequence of events executes:
+1. `PRE_OFFBOARDING` backup snapshot is immediately captured.
+2. The infrastructure driver invokes a hard `deprovision` clearing sensitive boundaries (secrets, connection URIs).
+3. The underlying compute layers are scrubbed.
+4. The tenant is forcefully set to a `deleted` state, ensuring zero further access is possible.

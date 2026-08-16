@@ -85,6 +85,38 @@ export class TenantsController {
     return this.tenantsService.triggerInfraProvisioning(id, req.user?.userId);
   }
 
+  @Post(':id/backups')
+  @Roles('PLATFORM_ADMIN')
+  async triggerBackup(@Param('id') id: string) {
+    return this.tenantsService.triggerBackup(id);
+  }
+
+  @Get(':id/backups')
+  @Roles('PLATFORM_ADMIN')
+  async getBackups(@Param('id') id: string) {
+    return this.tenantsService.getBackups(id);
+  }
+
+  @Post(':id/restore')
+  @Roles('PLATFORM_ADMIN')
+  async triggerRestore(@Param('id') id: string, @Body() body: { backupId: string }) {
+    if (!body.backupId) throw new BadRequestException('backupId is required');
+    return this.tenantsService.triggerRestore(id, body.backupId);
+  }
+
+  @Post(':id/clone')
+  @Roles('PLATFORM_ADMIN')
+  async triggerClone(@Param('id') id: string, @Body() body: { targetSlug: string; targetName: string }) {
+    if (!body.targetSlug || !body.targetName) throw new BadRequestException('targetSlug and targetName are required');
+    return this.tenantsService.triggerClone(id, body.targetSlug, body.targetName);
+  }
+
+  @Delete(':id/offboard')
+  @Roles('PLATFORM_ADMIN')
+  async triggerOffboard(@Param('id') id: string) {
+    return this.tenantsService.triggerOffboard(id);
+  }
+
   @Post()
   @Roles('PLATFORM_ADMIN')
   async create(

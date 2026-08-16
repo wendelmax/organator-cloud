@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { DataIsolationCard } from "./data-isolation-card";
 import { GracePeriodBanner } from "./grace-period-banner";
+import { BackupsTab } from "./backups-tab";
 
 const API_URL = (
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
@@ -150,6 +151,7 @@ export default function SettingsPage() {
           </Link>
         ))}
       </div>
+      {tenant?.id && <BackupsTab tenantId={tenant.id} />}
     </div>
   );
 }
