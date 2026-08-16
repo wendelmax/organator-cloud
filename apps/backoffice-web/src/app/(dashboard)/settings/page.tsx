@@ -13,6 +13,7 @@ import {
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { DataIsolationCard } from "./data-isolation-card";
+import { GracePeriodBanner } from "./grace-period-banner";
 
 const API_URL = (
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
@@ -108,6 +109,9 @@ export default function SettingsPage() {
           Gerencie sua organização e os recursos da plataforma em um só lugar.
         </p>
       </div>
+
+      <GracePeriodBanner graceEndsAt={tenant?.graceEndsAt} />
+
       <Card className="bg-neutral-900 border-neutral-800">
         <CardHeader>
           <CardTitle>Organização</CardTitle>
