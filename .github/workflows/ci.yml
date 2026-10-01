@@ -42,3 +42,140 @@ jobs:
 
       - name: Build
         run: npx turbo build
+
+      - name: API E2E Tests
+        run: npm run test:e2e --workspace=control-plane-api
+
+  database:
+    # Migrações e testes de integração contra um PostgreSQL real.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: organator_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/organator_db?schema=public
+      SHADOW_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/organator_shadow
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/organator_it
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Create shadow and integration databases
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -c "CREATE DATABASE organator_shadow"
+          PGPASSWORD=postgres psql -h localhost -U postgres -c "CREATE DATABASE organator_it"
+
+      - name: Migrations match schema.prisma
+        run: npm run migrate:check --workspace=@organator/core-models
+
+      - name: Apply migrations to an empty database
+        run: npm run migrate:deploy --workspace=@organator/core-models
+
+      - name: Data isolation integration tests
+        run: |
+          npm run generate --workspace=@organator/core-models
+          npx turbo build --filter=@organator/data-isolation
+          npm test --workspace=@organator/data-isolation
+
+  docker:
+    # Builda as imagens de produção e faz um smoke test real da API.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: organator_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/organator_db?schema=public
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build images
+        run: |
+          for app in control-plane-api provisioner-worker backoffice-web; do
+            docker build -t "organator/$app:ci" -f "apps/$app/Dockerfile" .
+          done
+
+      - name: Images run as non-root
+        run: |
+          for app in control-plane-api provisioner-worker backoffice-web; do
+            uid=$(docker run --rm --entrypoint id "organator/$app:ci" -u)
+            echo "$app uid=$uid"
+            test "$uid" != "0"
+          done
+
+      - name: Migrations run from the API image
+        run: |
+          docker run --rm --network host -w /app -e DATABASE_URL \
+            organator/control-plane-api:ci \
+            npm run migrate:deploy --workspace=@organator/core-models
+
+      - name: API boots in production mode and becomes ready
+        run: |
+          docker run -d --name api --network host \
+            -e DATABASE_URL -e REDIS_HOST=localhost \
+            -e JWT_SECRET="$(openssl rand -hex 32)" \
+            -e ENCRYPTION_KEY="$(openssl rand -hex 32)" \
+            -e CORS_ORIGINS=https://admin.example.com \
+            organator/control-plane-api:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3001/health/ready; then exit 0; fi
+            sleep 2
+          done
+          docker logs api
+          exit 1
+
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: Lint and render
+        run: |
+          helm dependency build helm/organator-cloud
+          helm lint helm/organator-cloud
+          helm template ci helm/organator-cloud > embedded.yaml
+          helm template ci helm/organator-cloud \
+            --set postgresql.enabled=false --set redis.enabled=false \
+            --set externalDatabase.existingSecret=db --set externalRedis.host=redis > external.yaml
+
+      - name: Validate manifests against Kubernetes schemas
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz
+          ./kubeconform -strict -summary -kubernetes-version 1.30.0 embedded.yaml external.yaml
