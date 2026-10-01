@@ -520,6 +520,15 @@ export function TenantsClient({
             <label className="text-sm font-medium text-neutral-200">Subdomínio</label>
             <Input name="slug" required placeholder="Ex: acme" />
           </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-neutral-200">
+              E-mail do responsável (owner)
+            </label>
+            <Input name="ownerEmail" type="email" placeholder="Ex: ceo@acme.com" />
+            <p className="text-xs text-neutral-500">
+              Opcional. Se vazio, você será o owner do novo tenant.
+            </p>
+          </div>
           {createTenantError && (
             <p role="alert" className="text-sm text-red-400">
               {createTenantError}

@@ -155,6 +155,12 @@ describe('tenant actions', () => {
     assert.deepEqual(revalidated, ['/tenants']);
   });
 
+  test('createTenant sends the owner e-mail from the form when provided', async () => {
+    const f = mockFetch();
+    await tenants.createTenant(form({ name: 'Acme', ownerEmail: '  ceo@acme.com ' }));
+    assert.equal(lastCall(f).body.adminEmail, 'ceo@acme.com');
+  });
+
   test('addMember defaults to the least privileged role', async () => {
     const f = mockFetch();
     await tenants.addMember(form({ email: 'new@acme.com' }));

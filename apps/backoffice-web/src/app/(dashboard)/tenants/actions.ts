@@ -21,7 +21,9 @@ export async function createTenant(
   const payload = {
     name: formData.get("name"),
     plan: (formData.get("plan") as string) || "free",
-    adminEmail: (session as any)?.user?.email,
+    // Owner informado no formulário; sem ele, quem cria vira owner (membership).
+    adminEmail:
+      (formData.get("ownerEmail") as string)?.trim() || (session as any)?.user?.email,
   };
 
   const res = await fetch(`${API_URL}/v1/tenants`, {
