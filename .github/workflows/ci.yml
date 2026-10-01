@@ -168,6 +168,7 @@ jobs:
 
       - name: Lint and render
         run: |
+          helm repo add bitnami https://charts.bitnami.com/bitnami
           helm dependency build helm/organator-cloud
           helm lint helm/organator-cloud
           helm template ci helm/organator-cloud > embedded.yaml
