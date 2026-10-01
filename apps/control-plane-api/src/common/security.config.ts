@@ -2,6 +2,7 @@ import { isIP } from 'node:net';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import { ValidationPipe } from '@nestjs/common';
+import { fastifyLoggingOptions, LoggingConfig } from './logging.config';
 import * as classTransformer from 'class-transformer';
 import * as classValidator from 'class-validator';
 import {
@@ -72,10 +73,14 @@ export function readSecurityConfig(
   };
 }
 
-export function createFastifyAdapter(config: SecurityConfig): FastifyAdapter {
+export function createFastifyAdapter(
+  config: SecurityConfig,
+  logging: LoggingConfig = { format: 'pretty', level: 'info' },
+): FastifyAdapter {
   return new FastifyAdapter({
     bodyLimit: config.bodyLimit,
     trustProxy: config.trustProxy,
+    ...fastifyLoggingOptions(logging),
   });
 }
 
