@@ -23,7 +23,7 @@ export async function provisionSchemaIsolation(
   if (!(await admin.roleExists(roleName))) {
     const password = randomBytes(32).toString('base64url');
     const formatted = await admin.query<{ stmt: string }>(
-      `SELECT format('CREATE ROLE %I WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', $1, $2) AS stmt`,
+      `SELECT format('CREATE ROLE %I WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', $1::text, $2::text) AS stmt`,
       [roleName, password],
     );
     await admin.query(formatted.rows[0].stmt);
@@ -62,7 +62,7 @@ export async function provisionDatabaseIsolation(
   if (!(await admin.roleExists(roleName))) {
     const password = randomBytes(32).toString('base64url');
     const formatted = await admin.query<{ stmt: string }>(
-      `SELECT format('CREATE ROLE %I WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', $1, $2) AS stmt`,
+      `SELECT format('CREATE ROLE %I WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', $1::text, $2::text) AS stmt`,
       [roleName, password],
     );
     await admin.query(formatted.rows[0].stmt);
@@ -78,7 +78,7 @@ export async function provisionDatabaseIsolation(
   // Create database if not exists, owned by admin
   if (!(await admin.databaseExists(dbName))) {
     const formatted = await admin.query<{ stmt: string }>(
-      `SELECT format('CREATE DATABASE %I', $1) AS stmt`,
+      `SELECT format('CREATE DATABASE %I', $1::text) AS stmt`,
       [dbName],
     );
     await admin.query(formatted.rows[0].stmt);
@@ -86,13 +86,13 @@ export async function provisionDatabaseIsolation(
 
   // Revoke public connect, grant only to tenant role and admin
   const fmtRevoke = await admin.query<{ stmt: string }>(
-    `SELECT format('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', $1) AS stmt`,
+    `SELECT format('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', $1::text) AS stmt`,
     [dbName],
   );
   await admin.query(fmtRevoke.rows[0].stmt);
 
   const fmtGrant = await admin.query<{ stmt: string }>(
-    `SELECT format('GRANT CONNECT ON DATABASE %I TO %I', $1, $2) AS stmt`,
+    `SELECT format('GRANT CONNECT ON DATABASE %I TO %I', $1::text, $2::text) AS stmt`,
     [dbName, roleName],
   );
   await admin.query(fmtGrant.rows[0].stmt);

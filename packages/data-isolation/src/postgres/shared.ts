@@ -45,7 +45,7 @@ export async function provisionSharedIsolation(
     const { randomBytes } = await import('node:crypto');
     const password = randomBytes(32).toString('base64url');
     const formatted = await admin.query<{ stmt: string }>(
-      `SELECT format('CREATE ROLE %I WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', $1, $2) AS stmt`,
+      `SELECT format('CREATE ROLE %I WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', $1::text, $2::text) AS stmt`,
       [role, password],
     );
     await admin.query(formatted.rows[0].stmt);
