@@ -17,10 +17,9 @@ import { GracePeriodBanner } from "./grace-period-banner";
 import { BackupsTab } from "./backups-tab";
 import { HealthDashboard } from "./health-dashboard";
 import { TelemetryDashboard } from "./telemetry-dashboard";
+import { publicApiUrl } from "../../../lib/public-env";
 
-const API_URL = (
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
-).replace(/\/v1$/, "");
+const API_URL = publicApiUrl();
 
 const sections = [
   {

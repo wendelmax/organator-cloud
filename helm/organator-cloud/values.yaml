@@ -108,6 +108,8 @@ backofficeWeb:
   service:
     type: ClusterIP
     port: 3000
+  # URL da API usada pelo navegador. Vazio = https://<ingress.hosts.api>.
+  publicApiUrl: ""
   resources:
     requests:
       cpu: 100m

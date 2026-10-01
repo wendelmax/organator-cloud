@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { publicApiUrl } from "../../../lib/public-env";
 import {
   Button,
   Card,
@@ -11,9 +12,7 @@ import {
   Input,
 } from "@organator/ui";
 
-const API_URL = (
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
-).replace(/\/v1$/, "");
+const API_URL = publicApiUrl();
 const SCOPES = [
   "services:read",
   "services:write",

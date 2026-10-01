@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { publicApiUrl } from "../../lib/public-env";
 
 export default function DashboardLayout({
   children,
@@ -17,9 +18,7 @@ export default function DashboardLayout({
   const [tenants, setTenants] = useState<any[]>([]);
   const [switching, setSwitching] = useState(false);
   const [tenantSearch, setTenantSearch] = useState("");
-  const apiUrl = (
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
-  ).replace(/\/v1$/, "");
+  const apiUrl = publicApiUrl();
   const activeTenant = tenants.find(
     (item) => item.tenant.id === (session?.user as any)?.tenantId,
   )?.tenant;

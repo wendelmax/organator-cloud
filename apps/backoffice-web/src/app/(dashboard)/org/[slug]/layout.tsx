@@ -3,10 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { publicApiUrl } from "../../../../lib/public-env";
 
-const API_URL = (
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
-).replace(/\/v1$/, "");
+const API_URL = publicApiUrl();
 
 export default function OrganizationLayout({
   children,

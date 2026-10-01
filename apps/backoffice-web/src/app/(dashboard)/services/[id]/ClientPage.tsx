@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Button, Card } from "@organator/ui";
+import { publicApiUrl } from "../../../../lib/public-env";
 
 interface Deployment {
   id: string;
@@ -10,7 +11,7 @@ interface Deployment {
   createdAt: string;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = publicApiUrl();
 
 export function ServiceDetailsClient({ serviceId, initialDeployments }: { serviceId: string; initialDeployments: Deployment[] }) {
   const [deployments, setDeployments] = useState<Deployment[]>(initialDeployments);

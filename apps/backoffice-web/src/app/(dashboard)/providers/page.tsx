@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { Button, Card, CardHeader, CardTitle, CardContent, Input } from "@organator/ui";
+import { publicApiUrl } from "../../../lib/public-env";
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/v1$/, "");
+const API_URL = publicApiUrl();
 
 const TYPE_LABELS: Record<string, string> = {
   AWS: "AWS",
