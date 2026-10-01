@@ -34,6 +34,8 @@ export class DataIsolationService {
     tenantId: string,
     input: IsolationOverrideInput,
     actorId: string,
+    // 'plan' = mudança derivada do plano; não deve marcar o tenant como override manual.
+    source: 'override' | 'plan' = 'override',
   ): Promise<DataIsolationView> {
     return this.prisma.$transaction(async (tx) => {
       const tenant = await tx.tenant.findUnique({
@@ -69,7 +71,7 @@ export class DataIsolationService {
           }
         }
         desiredMode = input.mode;
-        overridden = true;
+        overridden = source === 'override';
       }
 
       // If mode unchanged, return current state
@@ -211,6 +213,6 @@ export class DataIsolationService {
       return toDataIsolationView(tenant);
     }
 
-    return this.setOverride(tenantId, { mode: desiredMode, confirmDestructive: true }, actorId);
+    return this.setOverride(tenantId, { mode: desiredMode, confirmDestructive: true }, actorId, 'plan');
   }
 }
