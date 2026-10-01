@@ -200,3 +200,52 @@ jobs:
         run: |
           curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz
           ./kubeconform -strict -summary -kubernetes-version 1.30.0 embedded.yaml external.yaml
+
+  e2e:
+    # Fluxos reais do painel (Playwright) contra a stack do docker compose.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Start the stack
+        run: docker compose up -d --build postgres redis migrate control-plane-api backoffice-web
+
+      - name: Wait for API and panel
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:3000/health/ready >/dev/null && curl -fsS http://localhost:3001/login >/dev/null; then
+              echo ready; exit 0
+            fi
+            sleep 3
+          done
+          docker compose ps
+          docker compose logs control-plane-api backoffice-web --tail 100
+          exit 1
+
+      - name: Seed E2E data
+        run: docker compose exec -T control-plane-api node --input-type=module < e2e/seed.mjs
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: npx playwright test
+
+      - name: Stack logs on failure
+        if: failure()
+        run: docker compose logs control-plane-api backoffice-web --tail 200
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: e2e/playwright-report

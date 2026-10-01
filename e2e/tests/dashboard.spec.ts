@@ -1,9 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { loginAs } from "../helpers";
 
-test.beforeEach(async ({ page }) => {
-  await loginAs(page, "owner@organator.app");
-});
+// Sessão do owner vem do projeto "setup" (playwright.config.ts).
 
 test.describe("Dashboard", () => {
   test("página inicial mostra cards de visão geral", async ({ page }) => {
