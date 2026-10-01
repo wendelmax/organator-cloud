@@ -1,7 +1,7 @@
 import test, { describe, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { authOptions } from './auth';
+import { authOptions, verifiedTokenContext } from './auth';
 
 const credentials = authOptions.providers.find((p: any) => p.id === 'credentials') as any;
 // next-auth guarda a implementação do usuário em `options.authorize`.
@@ -72,12 +72,53 @@ describe('authOptions — callbacks', () => {
     assert.deepEqual(token, { sub: 'u1', role: 'OWNER', tenantId: 't1', mustChangePassword: false, mfaEnabled: true, accessToken: 'jwt-1' });
   });
 
-  test('replaces the access token after a tenant switch', async () => {
+  const fakeJwt = (claims: Record<string, unknown>) =>
+    `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.sig`;
+
+  test('after a tenant switch, takes role/tenant from the verified token claims, not from the client', async () => {
+    const newToken = fakeJwt({ sub: 'u1', role: 'MEMBER', tenantId: 't2' });
+    const fetchMock = mock.method(globalThis, 'fetch', async () => ({ ok: true, status: 200 }) as any);
+
     const token = await jwt({
       token: { accessToken: 'old', tenantId: 't1', role: 'OWNER' },
-      session: { accessToken: 'new', tenantId: 't2', role: 'MEMBER' },
+      session: { accessToken: newToken, tenantId: 't9', role: 'PLATFORM_ADMIN' },
+      trigger: 'update',
     });
-    assert.deepEqual(token, { accessToken: 'new', tenantId: 't2', role: 'MEMBER' });
+
+    assert.deepEqual(token, { accessToken: newToken, tenantId: 't2', role: 'MEMBER' });
+    const [url, init] = fetchMock.mock.calls[0].arguments as any[];
+    assert.match(url, /\/v1\/auth\/me$/);
+    assert.equal(init.headers.Authorization, `Bearer ${newToken}`);
+    mock.restoreAll();
+  });
+
+  test('ignores a forged token rejected by the API', async () => {
+    mock.method(globalThis, 'fetch', async () => ({ ok: false, status: 401 }) as any);
+    const original = { accessToken: 'old', tenantId: 't1', role: 'OWNER' };
+    const token = await jwt({
+      token: { ...original },
+      session: { accessToken: fakeJwt({ role: 'PLATFORM_ADMIN', tenantId: 'x' }) },
+      trigger: 'update',
+    });
+    assert.deepEqual(token, original);
+    mock.restoreAll();
+  });
+
+  test('ignores session data outside an explicit update', async () => {
+    const fetchMock = mock.method(globalThis, 'fetch', async () => ({ ok: true }) as any);
+    const original = { accessToken: 'old', role: 'OWNER' };
+    const token = await jwt({ token: { ...original }, session: { accessToken: 'new', role: 'PLATFORM_ADMIN' } });
+    assert.deepEqual(token, original);
+    assert.equal(fetchMock.mock.callCount(), 0);
+    mock.restoreAll();
+  });
+
+  test('verifiedTokenContext returns null when the API is unreachable', async () => {
+    mock.method(globalThis, 'fetch', async () => {
+      throw new Error('ECONNREFUSED');
+    });
+    assert.equal(await verifiedTokenContext('a.b.c'), null);
+    mock.restoreAll();
   });
 
   test('keeps the token untouched on regular requests', async () => {

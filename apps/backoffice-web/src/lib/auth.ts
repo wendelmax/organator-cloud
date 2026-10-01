@@ -3,6 +3,28 @@ import CredentialsProvider from "next-auth/providers/credentials";
 
 const API_URL = process.env.API_URL || "http://localhost:3001";
 
+/**
+ * Confirma na API que o access token é válido (assinatura, sessão ativa) e
+ * devolve role/tenant das claims assinadas. Retorna null se a API recusar.
+ */
+export async function verifiedTokenContext(
+  accessToken: string,
+): Promise<{ role?: string; tenantId?: string } | null> {
+  try {
+    const res = await fetch(`${API_URL}/v1/auth/me`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const payload = JSON.parse(
+      Buffer.from(accessToken.split(".")[1] ?? "", "base64url").toString("utf8"),
+    );
+    return { role: payload.role, tenantId: payload.tenantId };
+  } catch {
+    return null;
+  }
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -74,7 +96,7 @@ export const authOptions: NextAuthOptions = {
     signIn: '/login',
   },
   callbacks: {
-    async jwt({ token, user, session }) {
+    async jwt({ token, user, session, trigger }) {
       if (user) {
         token.role = (user as any).role;
         token.tenantId = (user as any).tenantId;
@@ -82,10 +104,16 @@ export const authOptions: NextAuthOptions = {
         token.mfaEnabled = (user as any).mfaEnabled;
         token.accessToken = (user as any).token;
       }
-      if ((session as any)?.accessToken) {
-        token.accessToken = (session as any).accessToken;
-        token.tenantId = (session as any).tenantId;
-        token.role = (session as any).role;
+      // Troca de tenant: o cliente envia o novo access token via update().
+      // Role/tenant nunca vêm do cliente — saem das claims do token, depois
+      // que a API confirma que ele é válido.
+      if (trigger === "update" && typeof (session as any)?.accessToken === "string") {
+        const context = await verifiedTokenContext((session as any).accessToken);
+        if (context) {
+          token.accessToken = (session as any).accessToken;
+          token.tenantId = context.tenantId;
+          token.role = context.role;
+        }
       }
       return token;
     },

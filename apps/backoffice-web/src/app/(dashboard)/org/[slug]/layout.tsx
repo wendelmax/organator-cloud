@@ -39,11 +39,7 @@ export default function OrganizationLayout({
         });
         if (!switchResponse.ok) return router.replace("/settings");
         const switched = await switchResponse.json();
-        await update({
-          accessToken: switched.access_token,
-          tenantId: context.tenant.id,
-          role: context.role,
-        });
+        await update({ accessToken: switched.access_token });
       }
       setReady(true);
     })();

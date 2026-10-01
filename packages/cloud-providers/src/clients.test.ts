@@ -5,7 +5,7 @@ import { EC2Client } from '@aws-sdk/client-ec2';
 import { encryptSecret } from './crypto.js';
 import { VercelClient } from './vercel.js';
 import { AWSClient } from './aws.js';
-import { VPSClient } from './vps.js';
+import { VPSClient, shellQuote } from './vps.js';
 
 beforeEach(() => {
   mock.method(console, 'log', () => {});
@@ -86,9 +86,42 @@ describe('VPSClient', () => {
     await client.deployDockerContainer('ghcr.io/acme/app:1', 'acme-app', { NODE_ENV: 'production', PORT: '3000' }, 'app.acme.com');
     const cmd = (exec.mock.calls[0].arguments as any[])[0] as string;
 
-    assert.match(cmd, /docker pull ghcr\.io\/acme\/app:1/);
-    assert.match(cmd, /docker run -d --name acme-app --restart unless-stopped -e NODE_ENV=production -e PORT=3000/);
-    assert.match(cmd, /traefik\.http\.routers\.acme-app\.rule=Host\(`app\.acme\.com`\)/);
+    assert.equal(
+      cmd,
+      "docker pull 'ghcr.io/acme/app:1' && (docker stop 'acme-app' || true) && (docker rm 'acme-app' || true) && " +
+        "docker run -d --name 'acme-app' --restart unless-stopped -e 'NODE_ENV=production' -e 'PORT=3000' " +
+        "-l 'traefik.enable=true' -l 'traefik.http.routers.acme-app.rule=Host(`app.acme.com`)' 'ghcr.io/acme/app:1'",
+    );
+  });
+
+  test('quotes env values so they cannot inject shell commands', async () => {
+    const client = new VPSClient('h');
+    const exec = mock.method(client, 'execCommand', async (cmd: string) => cmd);
+
+    await client.deployDockerContainer('nginx:alpine', 'c1', { MSG: "x'; rm -rf / #", PATH2: '$(id)' }, 'a.b.com');
+    const cmd = (exec.mock.calls[0].arguments as any[])[0] as string;
+
+    assert.ok(cmd.includes(`-e 'MSG=x'\\''; rm -rf / #'`));
+    assert.ok(cmd.includes(`-e 'PATH2=$(id)'`));
+  });
+
+  for (const [label, args] of [
+    ['image', ['nginx; reboot', 'c1', {}, 'a.b.com']],
+    ['container name', ['nginx', 'c1 && reboot', {}, 'a.b.com']],
+    ['domain', ['nginx', 'c1', {}, 'a.com`) && reboot #']],
+    ['env key', ['nginx', 'c1', { 'A;reboot': '1' }, 'a.b.com']],
+  ] as const) {
+    test(`rejects an invalid ${label} before running anything`, async () => {
+      const client = new VPSClient('h');
+      const exec = mock.method(client, 'execCommand', async (cmd: string) => cmd);
+      await assert.rejects(client.deployDockerContainer(...(args as unknown as [string, string, Record<string, string>, string])), /Invalid/);
+      assert.equal(exec.mock.callCount(), 0);
+    });
+  }
+
+  test('shellQuote escapes single quotes', () => {
+    assert.equal(shellQuote("it's"), `'it'\\''s'`);
+    assert.equal(shellQuote(''), `''`);
   });
 
   test('falls back to a mock result when the deploy command throws', async () => {
