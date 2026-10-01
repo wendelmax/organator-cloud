@@ -15,13 +15,17 @@ describe('JwtAuthGuard', () => {
     }) as any;
 
   const withMetadata = (meta: Record<string, boolean>) =>
-    jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key: any) => meta[key]);
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockImplementation((key: any) => meta[key]);
 
   beforeEach(() => {
     reflector = new Reflector();
     guard = new JwtAuthGuard(reflector);
     const Parent = Object.getPrototypeOf(JwtAuthGuard.prototype);
-    parentCanActivate = jest.spyOn(Parent, 'canActivate').mockResolvedValue(true);
+    parentCanActivate = jest
+      .spyOn(Parent, 'canActivate')
+      .mockResolvedValue(true);
   });
 
   afterEach(() => jest.restoreAllMocks());
@@ -45,15 +49,21 @@ describe('JwtAuthGuard', () => {
 
   it('blocks users that must change their password', async () => {
     withMetadata({});
-    const promise = guard.canActivate(ctx({ userId: 'u1', mustChangePassword: true }));
+    const promise = guard.canActivate(
+      ctx({ userId: 'u1', mustChangePassword: true }),
+    );
     await expect(promise).rejects.toBeInstanceOf(ForbiddenException);
-    await expect(guard.canActivate(ctx({ mustChangePassword: true }))).rejects.toMatchObject({
+    await expect(
+      guard.canActivate(ctx({ mustChangePassword: true })),
+    ).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'MUST_CHANGE_PASSWORD' }),
     });
   });
 
   it('lets them through on @AllowPasswordChange routes', async () => {
     withMetadata({ allowPasswordChange: true });
-    await expect(guard.canActivate(ctx({ mustChangePassword: true }))).resolves.toBe(true);
+    await expect(
+      guard.canActivate(ctx({ mustChangePassword: true })),
+    ).resolves.toBe(true);
   });
 });

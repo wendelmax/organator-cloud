@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException, NotFoundException, Optional } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -18,7 +23,9 @@ export class DataIsolationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
-    @Optional() @InjectQueue('provisioner') private readonly provisionerQueue?: Queue,
+    @Optional()
+    @InjectQueue('provisioner')
+    private readonly provisionerQueue?: Queue,
   ) {}
 
   async getStatus(tenantId: string): Promise<DataIsolationView> {
@@ -52,7 +59,9 @@ export class DataIsolationService {
         const billingPlan = await tx.billingPlan.findUnique({
           where: { slug: tenant.plan.toLowerCase() },
         });
-        desiredMode = billingPlan?.defaultDataIsolation as DataIsolationModeValue ?? planDefaultIsolation(tenant.plan);
+        desiredMode =
+          (billingPlan?.defaultDataIsolation as DataIsolationModeValue) ??
+          planDefaultIsolation(tenant.plan);
         overridden = false;
       } else {
         if (!isValidIsolationMode(input.mode)) {
@@ -63,7 +72,7 @@ export class DataIsolationService {
         // Check if destructive (downgrade)
         const currentMode = tenant.dataIsolation;
         const modeOrder = { SHARED: 0, SCHEMA: 1, DATABASE: 2 };
-        if (modeOrder[input.mode] < modeOrder[currentMode as keyof typeof modeOrder]) {
+        if (modeOrder[input.mode] < modeOrder[currentMode]) {
           if (!input.confirmDestructive) {
             throw new BadRequestException(
               'Destructive isolation change requires confirmDestructive flag',
@@ -75,13 +84,19 @@ export class DataIsolationService {
       }
 
       // If mode unchanged, return current state
-      if (desiredMode === tenant.dataIsolation && overridden === tenant.dataIsolationOverridden) {
+      if (
+        desiredMode === tenant.dataIsolation &&
+        overridden === tenant.dataIsolationOverridden
+      ) {
         return toDataIsolationView(tenant);
       }
 
       await tx.tenant.update({
         where: { id: tenantId },
-        data: { dataIsolation: desiredMode, dataIsolationOverridden: overridden },
+        data: {
+          dataIsolation: desiredMode,
+          dataIsolationOverridden: overridden,
+        },
       });
 
       const dataPlane = await tx.tenantDataPlane.upsert({
@@ -142,7 +157,10 @@ export class DataIsolationService {
     });
   }
 
-  async reconcile(tenantId: string, actorId: string): Promise<{ deploymentId?: string; generation: number }> {
+  async reconcile(
+    tenantId: string,
+    actorId: string,
+  ): Promise<{ deploymentId?: string; generation: number }> {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
       include: { dataPlane: true },
@@ -192,7 +210,11 @@ export class DataIsolationService {
     return { generation };
   }
 
-  async applyPlanDefault(tenantId: string, newPlan: string, actorId: string): Promise<DataIsolationView> {
+  async applyPlanDefault(
+    tenantId: string,
+    newPlan: string,
+    actorId: string,
+  ): Promise<DataIsolationView> {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
       include: { dataPlane: true },
@@ -207,12 +229,19 @@ export class DataIsolationService {
     const billingPlan = await this.prisma.billingPlan.findUnique({
       where: { slug: newPlan.toLowerCase() },
     });
-    const desiredMode = billingPlan?.defaultDataIsolation as DataIsolationModeValue ?? planDefaultIsolation(newPlan);
+    const desiredMode =
+      (billingPlan?.defaultDataIsolation as DataIsolationModeValue) ??
+      planDefaultIsolation(newPlan);
 
     if (desiredMode === tenant.dataIsolation) {
       return toDataIsolationView(tenant);
     }
 
-    return this.setOverride(tenantId, { mode: desiredMode, confirmDestructive: true }, actorId, 'plan');
+    return this.setOverride(
+      tenantId,
+      { mode: desiredMode, confirmDestructive: true },
+      actorId,
+      'plan',
+    );
   }
 }

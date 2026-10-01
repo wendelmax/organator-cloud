@@ -14,7 +14,11 @@ describe('TenantsService Infra Provisioning', () => {
   beforeEach(async () => {
     provisionerQueueMock = { add: jest.fn() };
     prismaMock = {
-      tenant: { findUnique: jest.fn().mockResolvedValue({ id: 't1', slug: 'tenant1', plan: 'pro' }) }
+      tenant: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ id: 't1', slug: 'tenant1', plan: 'pro' }),
+      },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -24,7 +28,10 @@ describe('TenantsService Infra Provisioning', () => {
         { provide: EntitlementsService, useValue: {} },
         { provide: AuditService, useValue: { record: jest.fn() } },
         { provide: TenantLifecycleService, useValue: {} },
-        { provide: getQueueToken('provisioner'), useValue: provisionerQueueMock },
+        {
+          provide: getQueueToken('provisioner'),
+          useValue: provisionerQueueMock,
+        },
       ],
     }).compile();
 

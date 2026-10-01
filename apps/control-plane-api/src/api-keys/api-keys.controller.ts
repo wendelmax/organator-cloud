@@ -29,7 +29,10 @@ export class ApiKeysController {
     return this.apiKeysService.create({
       name: body.name,
       scopes: body.scopes,
-      tenantId: req.user?.role === 'PLATFORM_ADMIN' ? body.tenantId : req.user?.tenantId,
+      tenantId:
+        req.user?.role === 'PLATFORM_ADMIN'
+          ? body.tenantId
+          : req.user?.tenantId,
       expiresAt: body.expiresAt,
       createdBy: req.user?.userId ?? null,
     });
@@ -37,12 +40,17 @@ export class ApiKeysController {
 
   @Get()
   async list(@Req() req: any) {
-    return this.apiKeysService.list(req.user?.role === 'PLATFORM_ADMIN' ? undefined : req.user?.tenantId);
+    return this.apiKeysService.list(
+      req.user?.role === 'PLATFORM_ADMIN' ? undefined : req.user?.tenantId,
+    );
   }
 
   @Get(':id')
   async get(@Param('id') id: string, @Req() req: any) {
-    return this.apiKeysService.get(id, req.user?.role === 'PLATFORM_ADMIN' ? undefined : req.user?.tenantId);
+    return this.apiKeysService.get(
+      id,
+      req.user?.role === 'PLATFORM_ADMIN' ? undefined : req.user?.tenantId,
+    );
   }
 
   @Patch(':id')
@@ -53,7 +61,8 @@ export class ApiKeysController {
         name: body.name,
         scopes: body.scopes,
         expiresAt: body.expiresAt,
-        tenantId: req.user?.role === 'PLATFORM_ADMIN' ? body.tenantId : undefined,
+        tenantId:
+          req.user?.role === 'PLATFORM_ADMIN' ? body.tenantId : undefined,
       },
       req.user?.userId ?? null,
       req.user?.role === 'PLATFORM_ADMIN' ? undefined : req.user?.tenantId,
@@ -62,7 +71,11 @@ export class ApiKeysController {
 
   @Delete(':id')
   async remove(@Req() req: any, @Param('id') id: string) {
-    await this.apiKeysService.delete(id, req.user?.userId ?? null, req.user?.role === 'PLATFORM_ADMIN' ? undefined : req.user?.tenantId);
+    await this.apiKeysService.delete(
+      id,
+      req.user?.userId ?? null,
+      req.user?.role === 'PLATFORM_ADMIN' ? undefined : req.user?.tenantId,
+    );
     return { deleted: true };
   }
 }

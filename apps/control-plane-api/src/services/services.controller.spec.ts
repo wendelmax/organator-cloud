@@ -38,20 +38,45 @@ describe('ServicesController', () => {
     });
 
     it('a tenant-bound API key cannot create services in another tenant', async () => {
-      await controller.create(tenantKey, { tenantId: 't-other', name: 'api', cloudProvider: 'AWS', repository: 'r' } as any);
-      expect(svc.createService).toHaveBeenCalledWith('t-key', 'api', 'AWS', 'r');
+      await controller.create(tenantKey, {
+        tenantId: 't-other',
+        name: 'api',
+        cloudProvider: 'AWS',
+        repository: 'r',
+      } as any);
+      expect(svc.createService).toHaveBeenCalledWith(
+        't-key',
+        'api',
+        'AWS',
+        'r',
+      );
     });
   });
 
   describe('create', () => {
     it('prefers repositoryUrl over repository', async () => {
-      await controller.create(human, { tenantId: 't1', name: 'a', cloudProvider: 'VERCEL', repositoryUrl: 'url', repository: 'legacy' } as any);
-      expect(svc.createService).toHaveBeenCalledWith('t1', 'a', 'VERCEL', 'url');
+      await controller.create(human, {
+        tenantId: 't1',
+        name: 'a',
+        cloudProvider: 'VERCEL',
+        repositoryUrl: 'url',
+        repository: 'legacy',
+      } as any);
+      expect(svc.createService).toHaveBeenCalledWith(
+        't1',
+        'a',
+        'VERCEL',
+        'url',
+      );
     });
 
     it('requires a repository', async () => {
       await expect(
-        controller.create(human, { tenantId: 't1', name: 'a', cloudProvider: 'VERCEL' } as any),
+        controller.create(human, {
+          tenantId: 't1',
+          name: 'a',
+          cloudProvider: 'VERCEL',
+        } as any),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
@@ -59,14 +84,23 @@ describe('ServicesController', () => {
   it('passes the requested environment to triggerDeploy', async () => {
     await controller.triggerDeploy('svc-1', { environment: 'staging' });
     await controller.triggerDeploy('svc-1', undefined as any);
-    expect(svc.triggerDeploy.mock.calls).toEqual([['svc-1', 'staging'], ['svc-1', undefined]]);
+    expect(svc.triggerDeploy.mock.calls).toEqual([
+      ['svc-1', 'staging'],
+      ['svc-1', undefined],
+    ]);
   });
 
   describe('authorization metadata', () => {
-    const proto = ServicesController.prototype;
-    const guards = (m: keyof ServicesController) => Reflect.getMetadata(GUARDS_METADATA, proto[m]);
-    const scopes = (m: keyof ServicesController) => Reflect.getMetadata(SCOPES_KEY, proto[m]);
-    const quota = (m: keyof ServicesController) => Reflect.getMetadata(QUOTA_KEY, proto[m]);
+    const proto = ServicesController.prototype as unknown as Record<
+      string,
+      object
+    >;
+    const guards = (m: keyof ServicesController) =>
+      Reflect.getMetadata(GUARDS_METADATA, proto[m]);
+    const scopes = (m: keyof ServicesController) =>
+      Reflect.getMetadata(SCOPES_KEY, proto[m]);
+    const quota = (m: keyof ServicesController) =>
+      Reflect.getMetadata(QUOTA_KEY, proto[m]);
 
     it('protects read routes with JWT + scope', () => {
       expect(guards('findByTenant')).toEqual([JwtAuthGuard, ScopeGuard]);
@@ -75,7 +109,11 @@ describe('ServicesController', () => {
     });
 
     it('enforces quotas on deploy and create', () => {
-      expect(guards('triggerDeploy')).toEqual([JwtAuthGuard, ScopeGuard, QuotaGuard]);
+      expect(guards('triggerDeploy')).toEqual([
+        JwtAuthGuard,
+        ScopeGuard,
+        QuotaGuard,
+      ]);
       expect(quota('triggerDeploy')).toBe('DEPLOYMENT');
       expect(scopes('triggerDeploy')).toEqual(['services:deploy']);
       expect(guards('create')).toEqual([JwtAuthGuard, ScopeGuard, QuotaGuard]);

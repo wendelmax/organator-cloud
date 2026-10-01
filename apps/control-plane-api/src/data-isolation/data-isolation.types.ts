@@ -1,5 +1,5 @@
 export const DATA_ISOLATION_MODES = ['SHARED', 'SCHEMA', 'DATABASE'] as const;
-export type DataIsolationModeValue = typeof DATA_ISOLATION_MODES[number];
+export type DataIsolationModeValue = (typeof DATA_ISOLATION_MODES)[number];
 
 export interface IsolationOverrideInput {
   mode: DataIsolationModeValue | null;
@@ -37,12 +37,20 @@ export function toDataIsolationView(tenant: any): DataIsolationView {
 
 export function planDefaultIsolation(plan: string): DataIsolationModeValue {
   switch (plan.toLowerCase()) {
-    case 'enterprise': return 'DATABASE';
-    case 'pro': return 'SCHEMA';
-    default: return 'SHARED';
+    case 'enterprise':
+      return 'DATABASE';
+    case 'pro':
+      return 'SCHEMA';
+    default:
+      return 'SHARED';
   }
 }
 
-export function isValidIsolationMode(mode: unknown): mode is DataIsolationModeValue {
-  return typeof mode === 'string' && DATA_ISOLATION_MODES.includes(mode as DataIsolationModeValue);
+export function isValidIsolationMode(
+  mode: unknown,
+): mode is DataIsolationModeValue {
+  return (
+    typeof mode === 'string' &&
+    DATA_ISOLATION_MODES.includes(mode as DataIsolationModeValue)
+  );
 }

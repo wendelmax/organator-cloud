@@ -18,7 +18,9 @@ describe('OnboardingController', () => {
 
   beforeEach(() => {
     constructEvent.mockReset();
-    createSession.mockReset().mockResolvedValue({ url: 'https://checkout.stripe/s1' });
+    createSession
+      .mockReset()
+      .mockResolvedValue({ url: 'https://checkout.stripe/s1' });
     webhook = { process: jest.fn().mockResolvedValue({ received: true }) };
     plans = { getBySlug: jest.fn().mockResolvedValue(null) };
     controller = new OnboardingController(webhook, plans);
@@ -36,7 +38,9 @@ describe('OnboardingController', () => {
       constructEvent.mockReturnValue(event);
       const raw = Buffer.from('{}');
 
-      await expect(controller.handleStripeWebhook('sig', { rawBody: raw })).resolves.toEqual({ received: true });
+      await expect(
+        controller.handleStripeWebhook('sig', { rawBody: raw }),
+      ).resolves.toEqual({ received: true });
       expect(constructEvent).toHaveBeenCalledWith(raw, 'sig', 'whsec_real');
       expect(webhook.process).toHaveBeenCalledWith(event);
     });
@@ -47,18 +51,18 @@ describe('OnboardingController', () => {
         throw new Error('No signatures found matching the expected signature');
       });
 
-      await expect(controller.handleStripeWebhook('bad', { rawBody: Buffer.from('') })).rejects.toBeInstanceOf(
-        BadRequestException,
-      );
+      await expect(
+        controller.handleStripeWebhook('bad', { rawBody: Buffer.from('') }),
+      ).rejects.toBeInstanceOf(BadRequestException);
       expect(webhook.process).not.toHaveBeenCalled();
     });
 
     it('refuses to run in production without STRIPE_WEBHOOK_SECRET', async () => {
       process.env.NODE_ENV = 'production';
       delete process.env.STRIPE_WEBHOOK_SECRET;
-      await expect(controller.handleStripeWebhook('sig', { rawBody: Buffer.from('') })).rejects.toThrow(
-        /STRIPE_WEBHOOK_SECRET/,
-      );
+      await expect(
+        controller.handleStripeWebhook('sig', { rawBody: Buffer.from('') }),
+      ).rejects.toThrow(/STRIPE_WEBHOOK_SECRET/);
       expect(constructEvent).not.toHaveBeenCalled();
     });
 
@@ -73,15 +77,25 @@ describe('OnboardingController', () => {
     it('still verifies signed requests under NODE_ENV=test', async () => {
       process.env.NODE_ENV = 'test';
       constructEvent.mockReturnValue({ type: 'x' });
-      await controller.handleStripeWebhook('sig', { rawBody: Buffer.from(''), body: { forged: true } });
+      await controller.handleStripeWebhook('sig', {
+        rawBody: Buffer.from(''),
+        body: { forged: true },
+      });
       expect(webhook.process).toHaveBeenCalledWith({ type: 'x' });
     });
   });
 
   describe('checkout', () => {
     it('uses the configured Stripe price of the plan', async () => {
-      plans.getBySlug.mockResolvedValue({ price: 9900, stripePriceId: 'price_pro' });
-      const result = await controller.createCheckoutSession({ plan: 'PRO', tenantName: 'Acme', email: 'o@acme.com' });
+      plans.getBySlug.mockResolvedValue({
+        price: 9900,
+        stripePriceId: 'price_pro',
+      });
+      const result = await controller.createCheckoutSession({
+        plan: 'PRO',
+        tenantName: 'Acme',
+        email: 'o@acme.com',
+      });
 
       expect(plans.getBySlug).toHaveBeenCalledWith('pro');
       expect(createSession).toHaveBeenCalledWith(
@@ -99,16 +113,24 @@ describe('OnboardingController', () => {
       plans.getBySlug.mockResolvedValue({ price: 2500 });
       await controller.createCheckoutSession({ plan: 'starter' });
       const item = createSession.mock.calls[0][0].line_items[0];
-      expect(item.price_data).toMatchObject({ currency: 'usd', unit_amount: 2500 });
+      expect(item.price_data).toMatchObject({
+        currency: 'usd',
+        unit_amount: 2500,
+      });
     });
 
     it.each([
       ['enterprise', 19900],
       ['pro', 4900],
-    ])('falls back to default pricing for unknown plan %s', async (plan, amount) => {
-      await controller.createCheckoutSession({ plan });
-      expect(createSession.mock.calls[0][0].line_items[0].price_data.unit_amount).toBe(amount);
-    });
+    ])(
+      'falls back to default pricing for unknown plan %s',
+      async (plan, amount) => {
+        await controller.createCheckoutSession({ plan });
+        expect(
+          createSession.mock.calls[0][0].line_items[0].price_data.unit_amount,
+        ).toBe(amount);
+      },
+    );
 
     it('defaults to the free plan', async () => {
       await controller.createCheckoutSession({});

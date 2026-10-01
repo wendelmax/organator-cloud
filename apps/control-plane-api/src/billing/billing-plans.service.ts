@@ -94,7 +94,11 @@ export class BillingPlansService {
         limitTypes: (input.limitTypes || {}) as any,
         status: input.status || 'active',
         sortOrder: input.sortOrder ?? 0,
-        defaultDataIsolation: (['SHARED', 'SCHEMA', 'DATABASE'].includes(input.defaultDataIsolation || '') ? input.defaultDataIsolation : undefined) as any,
+        defaultDataIsolation: (['SHARED', 'SCHEMA', 'DATABASE'].includes(
+          input.defaultDataIsolation || '',
+        )
+          ? input.defaultDataIsolation
+          : undefined) as any,
         ...stripeRefs,
       },
     });
@@ -162,7 +166,11 @@ export class BillingPlansService {
         limitTypes: input.limitTypes as any,
         status: input.status,
         sortOrder: input.sortOrder,
-        defaultDataIsolation: (['SHARED', 'SCHEMA', 'DATABASE'].includes(input.defaultDataIsolation || '') ? input.defaultDataIsolation : undefined) as any,
+        defaultDataIsolation: (['SHARED', 'SCHEMA', 'DATABASE'].includes(
+          input.defaultDataIsolation || '',
+        )
+          ? input.defaultDataIsolation
+          : undefined) as any,
         ...stripeRefs,
       },
     });

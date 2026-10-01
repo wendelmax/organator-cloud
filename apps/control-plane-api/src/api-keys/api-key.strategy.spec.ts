@@ -6,10 +6,14 @@ describe('ApiKeyStrategy', () => {
 
   const run = (authorization?: string) =>
     new Promise<{ kind: string; value?: any }>((resolve) => {
-      strategy.fail = (status: number) => resolve({ kind: 'fail', value: status });
-      strategy.success = (user: any) => resolve({ kind: 'success', value: user });
+      strategy.fail = (status: number) =>
+        resolve({ kind: 'fail', value: status });
+      strategy.success = (user: any) =>
+        resolve({ kind: 'success', value: user });
       strategy.error = (err: Error) => resolve({ kind: 'error', value: err });
-      strategy.authenticate({ headers: authorization ? { authorization } : {} });
+      strategy.authenticate({
+        headers: authorization ? { authorization } : {},
+      });
     });
 
   beforeEach(() => {
@@ -27,12 +31,20 @@ describe('ApiKeyStrategy', () => {
 
   it('fails for unknown/revoked keys', async () => {
     apiKeys.validate.mockResolvedValue(null);
-    await expect(run('Bearer sk_live_nope')).resolves.toEqual({ kind: 'fail', value: 401 });
+    await expect(run('Bearer sk_live_nope')).resolves.toEqual({
+      kind: 'fail',
+      value: 401,
+    });
     expect(apiKeys.validate).toHaveBeenCalledWith('sk_live_nope');
   });
 
   it('builds a synthetic automation principal from a valid key', async () => {
-    apiKeys.validate.mockResolvedValue({ id: 'k1', name: 'ci', tenantId: 't1', scopes: ['services:read'] });
+    apiKeys.validate.mockResolvedValue({
+      id: 'k1',
+      name: 'ci',
+      tenantId: 't1',
+      scopes: ['services:read'],
+    });
     await expect(run('Bearer sk_live_ok')).resolves.toEqual({
       kind: 'success',
       value: {
@@ -48,7 +60,12 @@ describe('ApiKeyStrategy', () => {
   });
 
   it('maps platform keys to no tenant and empty scopes', async () => {
-    apiKeys.validate.mockResolvedValue({ id: 'k2', name: 'ops', tenantId: null, scopes: null });
+    apiKeys.validate.mockResolvedValue({
+      id: 'k2',
+      name: 'ops',
+      tenantId: null,
+      scopes: null,
+    });
     const { value } = await run('Bearer sk_platform');
     expect(value).toMatchObject({ tenantId: undefined, keyScopes: [] });
   });

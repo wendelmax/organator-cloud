@@ -5,13 +5,15 @@ describe('AuditCleanupService', () => {
   const originalEnv = process.env.NODE_ENV;
   let audit: any;
   let service: AuditCleanupService;
+  let log: jest.SpyInstance;
+  let warn: jest.SpyInstance;
 
   beforeEach(() => {
     jest.useFakeTimers();
     audit = { cleanup: jest.fn().mockResolvedValue(0) };
     service = new AuditCleanupService(audit);
-    jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
-    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+    log = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
+    warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
     delete process.env.AUDIT_RETENTION_DAYS;
   });
 
@@ -48,7 +50,7 @@ describe('AuditCleanupService', () => {
     await Promise.resolve();
 
     expect(audit.cleanup).toHaveBeenCalledWith(30);
-    expect(Logger.prototype.log).toHaveBeenCalledWith(expect.stringContaining('12 registro(s)'));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('12 registro(s)'));
   });
 
   it('swallows cleanup errors with a warning', async () => {
@@ -57,6 +59,6 @@ describe('AuditCleanupService', () => {
     service.onModuleInit();
     await Promise.resolve();
     await Promise.resolve();
-    expect(Logger.prototype.warn).toHaveBeenCalledWith(expect.stringContaining('db locked'));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('db locked'));
   });
 });

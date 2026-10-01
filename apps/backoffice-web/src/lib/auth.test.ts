@@ -1,5 +1,6 @@
 import test, { describe, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
 import { authOptions } from './auth';
 
 const credentials = authOptions.providers.find((p: any) => p.id === 'credentials') as any;
@@ -109,9 +110,9 @@ describe('authOptions — VoidAuth SSO', () => {
 
   // O provider é decidido no carregamento do módulo; recarrega com o env ajustado.
   const loadFresh = () => {
-    const path = require.resolve('./auth');
-    delete require.cache[path];
-    return require('./auth').authOptions as typeof authOptions;
+    const load = createRequire(__filename);
+    delete load.cache[load.resolve('./auth')];
+    return load('./auth').authOptions as typeof authOptions;
   };
 
   test('is disabled without OIDC client credentials', () => {

@@ -2,7 +2,10 @@ import { Test } from '@nestjs/testing';
 import { DataIsolationService } from './data-isolation.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { planDefaultIsolation, toDataIsolationView } from './data-isolation.types';
+import {
+  planDefaultIsolation,
+  toDataIsolationView,
+} from './data-isolation.types';
 import { getQueueToken } from '@nestjs/bullmq';
 
 describe('DataIsolationService', () => {
@@ -48,7 +51,13 @@ describe('DataIsolationService', () => {
       plan: 'free',
       dataIsolation: 'DATABASE',
       dataIsolationOverridden: true,
-      dataPlane: { generation: 4, observedGeneration: 4, status: 'READY', phase: 'READY', updatedAt: new Date() },
+      dataPlane: {
+        generation: 4,
+        observedGeneration: 4,
+        status: 'READY',
+        phase: 'READY',
+        updatedAt: new Date(),
+      },
     });
 
     const result = await service.applyPlanDefault('tenant-1', 'pro', 'actor-1');
@@ -64,30 +73,54 @@ describe('DataIsolationService', () => {
         plan: 'pro',
         dataIsolation: 'DATABASE',
         dataIsolationOverridden: true,
-        dataPlane: { generation: 4, observedGeneration: 4, status: 'READY', phase: 'READY', updatedAt: new Date() },
+        dataPlane: {
+          generation: 4,
+          observedGeneration: 4,
+          status: 'READY',
+          phase: 'READY',
+          updatedAt: new Date(),
+        },
       })
       .mockResolvedValue({
         id: 'tenant-1',
         plan: 'pro',
         dataIsolation: 'SCHEMA',
         dataIsolationOverridden: false,
-        dataPlane: { generation: 5, observedGeneration: 4, status: 'PENDING', phase: 'PREPARE', updatedAt: new Date() },
+        dataPlane: {
+          generation: 5,
+          observedGeneration: 4,
+          status: 'PENDING',
+          phase: 'PREPARE',
+          updatedAt: new Date(),
+        },
       });
-    prisma.billingPlan.findUnique.mockResolvedValue({ slug: 'pro', defaultDataIsolation: 'SCHEMA' });
+    prisma.billingPlan.findUnique.mockResolvedValue({
+      slug: 'pro',
+      defaultDataIsolation: 'SCHEMA',
+    });
     prisma.tenantDataPlane.upsert.mockResolvedValue({ generation: 5 });
     prisma.tenant.update.mockResolvedValue({});
 
     await service.setOverride('tenant-1', { mode: null }, 'actor-1');
     expect(prisma.tenant.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ dataIsolation: 'SCHEMA', dataIsolationOverridden: false }),
+        data: expect.objectContaining({
+          dataIsolation: 'SCHEMA',
+          dataIsolationOverridden: false,
+        }),
       }),
     );
     expect(queue.add).toHaveBeenCalledTimes(1);
     expect(queue.add).toHaveBeenCalledWith(
       'reconcile-data-isolation',
-      expect.objectContaining({ tenantId: 'tenant-1', generation: 5, desiredMode: 'SCHEMA' }),
-      expect.objectContaining({ jobId: 'data-isolation:tenant-1:generation:5' }),
+      expect.objectContaining({
+        tenantId: 'tenant-1',
+        generation: 5,
+        desiredMode: 'SCHEMA',
+      }),
+      expect.objectContaining({
+        jobId: 'data-isolation:tenant-1:generation:5',
+      }),
     );
   });
 
@@ -126,11 +159,13 @@ describe('DataIsolationService', () => {
         updatedAt: new Date('2026-08-15T00:00:00Z'),
       },
     });
-    expect(view).toEqual(expect.objectContaining({
-      tenantId: 'tenant-1',
-      desiredMode: 'SCHEMA',
-      activeMode: 'SHARED',
-    }));
+    expect(view).toEqual(
+      expect.objectContaining({
+        tenantId: 'tenant-1',
+        desiredMode: 'SCHEMA',
+        activeMode: 'SHARED',
+      }),
+    );
     expect(view).not.toHaveProperty('encryptedConnection');
     expect(view).not.toHaveProperty('resourceState');
   });

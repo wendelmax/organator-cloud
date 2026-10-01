@@ -8,7 +8,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditModule } from '../audit/audit.module';
 
 @Module({
-  imports: [BillingModule, AuditModule, BullModule.registerQueue({ name: 'provisioner' })],
+  imports: [
+    BillingModule,
+    AuditModule,
+    BullModule.registerQueue({ name: 'provisioner' }),
+  ],
   controllers: [OnboardingController, ProvisioningController],
   providers: [ProvisioningService, PrismaService],
 })

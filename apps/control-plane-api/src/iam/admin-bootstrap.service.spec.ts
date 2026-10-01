@@ -46,7 +46,9 @@ describe('AdminBootstrapService', () => {
         mustChangePassword: true,
       }),
     });
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('admin@organator.app'));
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('admin@organator.app'),
+    );
   });
 
   it('reuses an existing platform tenant and honors PLATFORM_ADMIN_EMAIL', async () => {
@@ -58,7 +60,10 @@ describe('AdminBootstrapService', () => {
 
     expect(prisma.tenant.create).not.toHaveBeenCalled();
     expect(prisma.user.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ email: 'root@corp.io', tenantId: 'existing-t' }),
+      data: expect.objectContaining({
+        email: 'root@corp.io',
+        tenantId: 'existing-t',
+      }),
     });
     delete process.env.PLATFORM_ADMIN_EMAIL;
   });

@@ -1,4 +1,9 @@
-import { Injectable, Logger, UnauthorizedException, Optional } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  UnauthorizedException,
+  Optional,
+} from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -102,7 +107,14 @@ export class OidcStrategy extends PassportStrategy(Strategy, 'oidc') {
     if (!user) {
       return null;
     }
-    if (this.mfaPolicy && await this.mfaPolicy.requiresMfa(user.tenantId, user.role, payload?.amr?.includes?.('mfa') || payload?.acr === 'mfa')) {
+    if (
+      this.mfaPolicy &&
+      (await this.mfaPolicy.requiresMfa(
+        user.tenantId,
+        user.role,
+        payload?.amr?.includes?.('mfa') || payload?.acr === 'mfa',
+      ))
+    ) {
       throw new UnauthorizedException('MFA_REQUIRED_FOR_TENANT');
     }
     return {

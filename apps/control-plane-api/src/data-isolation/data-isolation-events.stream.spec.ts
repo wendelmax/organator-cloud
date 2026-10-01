@@ -4,7 +4,9 @@ jest.mock('ioredis', () =>
     const handlers: Record<string, (...args: any[]) => void> = {};
     const instance = {
       subscribeError: undefined as Error | undefined,
-      subscribe: jest.fn((_ch: string, cb: (err?: Error) => void) => cb(instance.subscribeError)),
+      subscribe: jest.fn((_ch: string, cb: (err?: Error) => void) =>
+        cb(instance.subscribeError),
+      ),
       unsubscribe: jest.fn().mockResolvedValue(undefined),
       quit: jest.fn().mockResolvedValue(undefined),
       on: jest.fn((event: string, h: any) => (handlers[event] = h)),
@@ -25,7 +27,9 @@ describe('DataIsolationEventsService — streaming', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     redisInstances.length = 0;
-    prisma = { deployment: { findFirst: jest.fn().mockResolvedValue({ id: 'dep-1' }) } };
+    prisma = {
+      deployment: { findFirst: jest.fn().mockResolvedValue({ id: 'dep-1' }) },
+    };
     service = new DataIsolationEventsService(prisma);
   });
 
@@ -33,7 +37,9 @@ describe('DataIsolationEventsService — streaming', () => {
 
   it('checks ownership using both deployment id and tenant id', async () => {
     await service.stream({ tenantId: 't1', deploymentId: 'dep-1' });
-    expect(prisma.deployment.findFirst).toHaveBeenCalledWith({ where: { id: 'dep-1', tenantId: 't1' } });
+    expect(prisma.deployment.findFirst).toHaveBeenCalledWith({
+      where: { id: 'dep-1', tenantId: 't1' },
+    });
   });
 
   it('emits parsed events for the tenant channel only, skipping malformed payloads', async () => {
@@ -42,9 +48,20 @@ describe('DataIsolationEventsService — streaming', () => {
     const sub = obs.subscribe((e) => events.push(e.data));
     const redis = redisInstances[0];
 
-    expect(redis.subscribe).toHaveBeenCalledWith('data_isolation:t1:dep-1', expect.any(Function));
-    redis.emit('message', 'data_isolation:t1:dep-1', JSON.stringify({ phase: 'MIGRATE', status: 'RUNNING' }));
-    redis.emit('message', 'data_isolation:t2:dep-1', JSON.stringify({ phase: 'LEAK' }));
+    expect(redis.subscribe).toHaveBeenCalledWith(
+      'data_isolation:t1:dep-1',
+      expect.any(Function),
+    );
+    redis.emit(
+      'message',
+      'data_isolation:t1:dep-1',
+      JSON.stringify({ phase: 'MIGRATE', status: 'RUNNING' }),
+    );
+    redis.emit(
+      'message',
+      'data_isolation:t2:dep-1',
+      JSON.stringify({ phase: 'LEAK' }),
+    );
     redis.emit('message', 'data_isolation:t1:dep-1', '{not json');
 
     expect(events).toEqual([{ phase: 'MIGRATE', status: 'RUNNING' }]);
@@ -57,7 +74,13 @@ describe('DataIsolationEventsService — streaming', () => {
     const sub = obs.subscribe((e) => events.push(e.data));
 
     jest.advanceTimersByTime(15000);
-    expect(events).toEqual([expect.objectContaining({ phase: 'HEARTBEAT', status: 'PING', deploymentId: 'dep-1' })]);
+    expect(events).toEqual([
+      expect.objectContaining({
+        phase: 'HEARTBEAT',
+        status: 'PING',
+        deploymentId: 'dep-1',
+      }),
+    ]);
 
     sub.unsubscribe();
     jest.advanceTimersByTime(60000);
@@ -72,7 +95,9 @@ describe('DataIsolationEventsService — streaming', () => {
     const Redis = jest.requireMock('ioredis');
     Redis.mockImplementationOnce(() => {
       const inst: any = {
-        subscribe: jest.fn((_c: string, cb: (e?: Error) => void) => cb(new Error('NOAUTH'))),
+        subscribe: jest.fn((_c: string, cb: (e?: Error) => void) =>
+          cb(new Error('NOAUTH')),
+        ),
         on: jest.fn(),
         off: jest.fn(),
         unsubscribe: jest.fn().mockResolvedValue(undefined),
@@ -82,6 +107,8 @@ describe('DataIsolationEventsService — streaming', () => {
     });
     const error = jest.fn();
     obs.subscribe({ error });
-    expect(error).toHaveBeenCalledWith(expect.objectContaining({ message: 'NOAUTH' }));
+    expect(error).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'NOAUTH' }),
+    );
   });
 });

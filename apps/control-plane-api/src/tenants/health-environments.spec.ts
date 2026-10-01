@@ -14,11 +14,18 @@ describe('Tenant Environments & Health', () => {
   let prismaMock: any;
 
   beforeEach(async () => {
-    provisionerQueueMock = { add: jest.fn().mockResolvedValue({ id: 'job-1' }) };
-    
+    provisionerQueueMock = {
+      add: jest.fn().mockResolvedValue({ id: 'job-1' }),
+    };
+
     prismaMock = {
-      tenantEnvironment: { findMany: jest.fn().mockResolvedValue([{ id: 'env-1' }]), upsert: jest.fn().mockResolvedValue({ id: 'env-1' }) },
-      tenantHealth: { findFirst: jest.fn().mockResolvedValue({ status: 'HEALTHY' }) },
+      tenantEnvironment: {
+        findMany: jest.fn().mockResolvedValue([{ id: 'env-1' }]),
+        upsert: jest.fn().mockResolvedValue({ id: 'env-1' }),
+      },
+      tenantHealth: {
+        findFirst: jest.fn().mockResolvedValue({ status: 'HEALTHY' }),
+      },
       tenant: { findMany: jest.fn().mockResolvedValue([{ id: 't-1' }]) },
     };
 
@@ -30,7 +37,10 @@ describe('Tenant Environments & Health', () => {
         { provide: EntitlementsService, useValue: {} },
         { provide: AuditService, useValue: {} },
         { provide: TenantLifecycleService, useValue: {} },
-        { provide: getQueueToken('provisioner'), useValue: provisionerQueueMock },
+        {
+          provide: getQueueToken('provisioner'),
+          useValue: provisionerQueueMock,
+        },
       ],
     }).compile();
 
@@ -41,7 +51,9 @@ describe('Tenant Environments & Health', () => {
   it('lists environments', async () => {
     const res = await controller.getEnvironments('t-1');
     expect(res).toEqual([{ id: 'env-1' }]);
-    expect(prismaMock.tenantEnvironment.findMany).toHaveBeenCalledWith({ where: { tenantId: 't-1' } });
+    expect(prismaMock.tenantEnvironment.findMany).toHaveBeenCalledWith({
+      where: { tenantId: 't-1' },
+    });
   });
 
   it('upserts environment', async () => {
@@ -51,19 +63,29 @@ describe('Tenant Environments & Health', () => {
   });
 
   it('triggers promote environment', async () => {
-    const res = await controller.promoteEnvironment('t-1', { sourceEnvId: 'env-1' });
+    const res = await controller.promoteEnvironment('t-1', {
+      sourceEnvId: 'env-1',
+    });
     expect(res).toEqual({ jobId: 'job-1', status: 'QUEUED' });
-    expect(provisionerQueueMock.add).toHaveBeenCalledWith('promote-tenant-environment', { tenantId: 't-1', sourceEnvId: 'env-1' });
+    expect(provisionerQueueMock.add).toHaveBeenCalledWith(
+      'promote-tenant-environment',
+      { tenantId: 't-1', sourceEnvId: 'env-1' },
+    );
   });
 
   it('gets tenant health', async () => {
     const res = await controller.getTenantHealth('t-1');
     expect(res).toEqual({ status: 'HEALTHY' });
-    expect(prismaMock.tenantHealth.findFirst).toHaveBeenCalledWith({ where: { tenantId: 't-1' }, orderBy: { checkedAt: 'desc' } });
+    expect(prismaMock.tenantHealth.findFirst).toHaveBeenCalledWith({
+      where: { tenantId: 't-1' },
+      orderBy: { checkedAt: 'desc' },
+    });
   });
 
   it('gets health summary', async () => {
     const res = await controller.getHealthSummary();
-    expect(res).toEqual([{ tenant: { id: 't-1' }, health: { status: 'HEALTHY' } }]);
+    expect(res).toEqual([
+      { tenant: { id: 't-1' }, health: { status: 'HEALTHY' } },
+    ]);
   });
 });

@@ -9,6 +9,10 @@ import { ProvisioningService } from './provisioning.service';
 @Controller('v1/tenants/infrastructure')
 export class ProvisioningController {
   constructor(private readonly provisioning: ProvisioningService) {}
-  @Post('provision') provision(@Req() req: any) { return this.provisioning.provision(req.user.tenantId, req.user.userId); }
-  @Post('deprovision') deprovision(@Req() req: any) { return this.provisioning.deprovision(req.user.tenantId, req.user.userId); }
+  @Post('provision') provision(@Req() req: any) {
+    return this.provisioning.provision(req.user.tenantId, req.user.userId);
+  }
+  @Post('deprovision') deprovision(@Req() req: any) {
+    return this.provisioning.deprovision(req.user.tenantId, req.user.userId);
+  }
 }

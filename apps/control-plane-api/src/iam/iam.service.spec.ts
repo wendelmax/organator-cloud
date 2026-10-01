@@ -6,16 +6,19 @@ describe('IamService', () => {
   let prisma: any;
   let service: IamService;
   let fetchMock: jest.Mock;
+  let warn: jest.SpyInstance;
 
   beforeEach(() => {
     prisma = {
-      iamGroup: { upsert: jest.fn((args) => Promise.resolve({ name: args.create.name })) },
+      iamGroup: {
+        upsert: jest.fn((args) => Promise.resolve({ name: args.create.name })),
+      },
     };
     service = new IamService(prisma);
     fetchMock = jest.fn();
     (global as any).fetch = fetchMock;
     jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
-    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+    warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
     delete process.env.VOIDAUTH_URL;
     delete process.env.VOIDAUTH_ADMIN_TOKEN;
   });
@@ -26,7 +29,9 @@ describe('IamService', () => {
   });
 
   it('upserts an idempotent tenant-{slug} group', async () => {
-    await expect(service.ensureTenantGroup('t1', 'acme')).resolves.toBe('tenant-acme');
+    await expect(service.ensureTenantGroup('t1', 'acme')).resolves.toBe(
+      'tenant-acme',
+    );
     expect(prisma.iamGroup.upsert).toHaveBeenCalledWith({
       where: { tenantId_name: { tenantId: 't1', name: 'tenant-acme' } },
       create: { tenantId: 't1', name: 'tenant-acme' },
@@ -35,7 +40,9 @@ describe('IamService', () => {
   });
 
   it('skips the VoidAuth invite when not configured', async () => {
-    await expect(service.linkOwnerAfterCheckout('t1', 'acme', 'o@acme.com')).resolves.toEqual({
+    await expect(
+      service.linkOwnerAfterCheckout('t1', 'acme', 'o@acme.com'),
+    ).resolves.toEqual({
       group: 'tenant-acme',
     });
     expect(fetchMock).not.toHaveBeenCalled();
@@ -48,11 +55,17 @@ describe('IamService', () => {
 
     await service.linkOwnerAfterCheckout('t1', 'acme', 'o@acme.com');
 
-    expect(fetchMock).toHaveBeenCalledWith('https://auth.example.com/api/invitations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer admintok' },
-      body: JSON.stringify({ email: 'o@acme.com', group: 'tenant-acme' }),
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://auth.example.com/api/invitations',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer admintok',
+        },
+        body: JSON.stringify({ email: 'o@acme.com', group: 'tenant-acme' }),
+      },
+    );
   });
 
   it('does not fail checkout linking when the invite fails', async () => {
@@ -60,9 +73,11 @@ describe('IamService', () => {
     process.env.VOIDAUTH_ADMIN_TOKEN = 'admintok';
     fetchMock.mockResolvedValue({ ok: false, status: 500 });
 
-    await expect(service.linkOwnerAfterCheckout('t1', 'acme', 'o@acme.com')).resolves.toEqual({
+    await expect(
+      service.linkOwnerAfterCheckout('t1', 'acme', 'o@acme.com'),
+    ).resolves.toEqual({
       group: 'tenant-acme',
     });
-    expect(Logger.prototype.warn).toHaveBeenCalledWith(expect.stringContaining('HTTP 500'));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('HTTP 500'));
   });
 });

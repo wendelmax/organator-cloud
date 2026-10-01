@@ -1,4 +1,8 @@
-import { configureAppSecurity, createFastifyAdapter, readSecurityConfig } from './security.config';
+import {
+  configureAppSecurity,
+  createFastifyAdapter,
+  readSecurityConfig,
+} from './security.config';
 
 describe('security config — parsing and app wiring', () => {
   const dev = {} as NodeJS.ProcessEnv;
@@ -15,15 +19,24 @@ describe('security config — parsing and app wiring', () => {
   });
 
   it('parses rate limits and proxy hops', () => {
-    const cfg = readSecurityConfig({ RATE_LIMIT_MAX: '20', RATE_LIMIT_WINDOW_MS: '1000', HEALTH_RATE_LIMIT_MAX: '5', TRUST_PROXY_HOPS: '2' });
+    const cfg = readSecurityConfig({
+      RATE_LIMIT_MAX: '20',
+      RATE_LIMIT_WINDOW_MS: '1000',
+      HEALTH_RATE_LIMIT_MAX: '5',
+      TRUST_PROXY_HOPS: '2',
+    });
     expect(cfg.rateLimit).toEqual({ max: 20, timeWindow: 1000 });
     expect(cfg.healthRateLimit).toEqual({ max: 5, timeWindow: 1000 });
     expect(cfg.trustProxy).toBe(2);
-    expect(readSecurityConfig({ TRUST_PROXY_HOPS: '0' }).trustProxy).toBe(false);
+    expect(readSecurityConfig({ TRUST_PROXY_HOPS: '0' }).trustProxy).toBe(
+      false,
+    );
   });
 
   it.each(['0', '-1', '1.5', 'abc'])('rejects invalid rate limit %s', (v) => {
-    expect(() => readSecurityConfig({ RATE_LIMIT_MAX: v })).toThrow('positive integers');
+    expect(() => readSecurityConfig({ RATE_LIMIT_MAX: v })).toThrow(
+      'positive integers',
+    );
   });
 
   it.each([
@@ -33,17 +46,25 @@ describe('security config — parsing and app wiring', () => {
     'https://app.acme.com/path',
     ' , ',
   ])('rejects unsafe CORS_ORIGINS %j', (origins) => {
-    expect(() => readSecurityConfig({ CORS_ORIGINS: origins })).toThrow('CORS_ORIGINS');
+    expect(() => readSecurityConfig({ CORS_ORIGINS: origins })).toThrow(
+      'CORS_ORIGINS',
+    );
   });
 
   it('requires CORS_ORIGINS in production', () => {
     expect(() =>
-      readSecurityConfig({ NODE_ENV: 'production', JWT_SECRET: 'x'.repeat(32), ENCRYPTION_KEY: 'a'.repeat(64) }),
+      readSecurityConfig({
+        NODE_ENV: 'production',
+        JWT_SECRET: 'x'.repeat(32),
+        ENCRYPTION_KEY: 'a'.repeat(64),
+      }),
     ).toThrow('CORS_ORIGINS must be configured');
   });
 
   it('builds the Fastify adapter with body limit and trust proxy', () => {
-    const adapter = createFastifyAdapter(readSecurityConfig({ TRUST_PROXY_HOPS: '1' }));
+    const adapter = createFastifyAdapter(
+      readSecurityConfig({ TRUST_PROXY_HOPS: '1' }),
+    );
     const fastify = adapter.getInstance();
     expect(fastify.initialConfig.bodyLimit).toBe(1_048_576);
   });
@@ -51,13 +72,19 @@ describe('security config — parsing and app wiring', () => {
   describe('configureAppSecurity', () => {
     const registered: any[] = [];
     const app: any = {
-      register: jest.fn(async (plugin: unknown, opts: unknown) => registered.push([plugin, opts])),
+      register: jest.fn(async (plugin: unknown, opts: unknown) =>
+        registered.push([plugin, opts]),
+      ),
       enableCors: jest.fn(),
       useGlobalPipes: jest.fn(),
     };
 
     beforeAll(async () => {
-      await configureAppSecurity(app, { CORS_ORIGINS: 'https://app.acme.com', RATE_LIMIT_MAX: '50', HEALTH_RATE_LIMIT_MAX: '500' });
+      await configureAppSecurity(app, {
+        CORS_ORIGINS: 'https://app.acme.com',
+        RATE_LIMIT_MAX: '50',
+        HEALTH_RATE_LIMIT_MAX: '500',
+      });
     });
 
     it('registers helmet with CSP disabled outside production', () => {
@@ -75,15 +102,20 @@ describe('security config — parsing and app wiring', () => {
     });
 
     it('restricts CORS to the configured origins', () => {
-      expect(app.enableCors).toHaveBeenCalledWith(expect.objectContaining({
-        origin: ['https://app.acme.com'],
-        allowedHeaders: ['Authorization', 'Content-Type'],
-      }));
+      expect(app.enableCors).toHaveBeenCalledWith(
+        expect.objectContaining({
+          origin: ['https://app.acme.com'],
+          allowedHeaders: ['Authorization', 'Content-Type'],
+        }),
+      );
     });
 
     it('installs a whitelist validation pipe', () => {
       const pipe = app.useGlobalPipes.mock.calls[0][0];
-      expect(pipe.validatorOptions).toMatchObject({ whitelist: true, forbidNonWhitelisted: true });
+      expect(pipe.validatorOptions).toMatchObject({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      });
     });
   });
 });
