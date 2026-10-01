@@ -12,6 +12,22 @@ import { MfaService } from './mfa.service';
 import { MfaPolicyService } from './mfa-policy.service';
 import * as crypto from 'crypto';
 
+// Hash bcrypt (custo 10) de um valor aleatório, usado só para igualar o tempo
+// de resposta quando o e-mail não existe.
+const DUMMY_PASSWORD_HASH =
+  '$2b$10$c/sxA2AUPvjY.Gl38c999eYiOy2kpJ272W62HcqA79.03nWucwp4e';
+
+export function loginLockoutPolicy(env: NodeJS.ProcessEnv = process.env) {
+  const positive = (value: string | undefined, fallback: number) => {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+  };
+  return {
+    maxAttempts: positive(env.LOGIN_MAX_FAILED_ATTEMPTS, 5),
+    lockoutMinutes: positive(env.LOGIN_LOCKOUT_MINUTES, 15),
+  };
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -21,24 +37,65 @@ export class AuthService {
     private readonly mfaPolicy: MfaPolicyService,
   ) {}
 
+  /**
+   * Valida e-mail/senha. Falhas sempre retornam null (resposta genérica) para
+   * não revelar se a conta existe ou está bloqueada. Após
+   * LOGIN_MAX_FAILED_ATTEMPTS senhas erradas seguidas, a conta fica bloqueada
+   * por LOGIN_LOCKOUT_MINUTES — inclusive para a senha correta.
+   */
   async validateUser(email: string, pass: string): Promise<any> {
     const user = await this.prisma.user.findUnique({
       where: { email },
     });
-    if (!user) return null;
+    if (!user) {
+      // Mesmo custo de uma senha errada: o tempo de resposta não revela
+      // quais e-mails têm conta.
+      await bcrypt.compare(pass, DUMMY_PASSWORD_HASH).catch(() => false);
+      return null;
+    }
 
     await this.assertTenantActive(user.tenantId);
+
+    if (user.loginLockedUntil && user.loginLockedUntil > new Date()) {
+      return null;
+    }
 
     const isMatch = await bcrypt
       .compare(pass, user.password)
       // Nunca comparar com o valor armazenado: erro no bcrypt conta como senha inválida.
       .catch(() => false);
-    if (isMatch) {
-      const result = { ...user } as Partial<typeof user>;
-      delete result.password;
-      return result;
+    if (!isMatch) {
+      await this.registerFailedLogin(user.id);
+      return null;
     }
-    return null;
+
+    if (user.failedLoginAttempts > 0 || user.loginLockedUntil) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { failedLoginAttempts: 0, loginLockedUntil: null },
+      });
+    }
+    const result = { ...user } as Partial<typeof user>;
+    delete result.password;
+    return result;
+  }
+
+  private async registerFailedLogin(userId: string) {
+    const { maxAttempts, lockoutMinutes } = loginLockoutPolicy();
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { failedLoginAttempts: { increment: 1 } },
+      select: { failedLoginAttempts: true },
+    });
+    if (updated.failedLoginAttempts >= maxAttempts) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          failedLoginAttempts: 0,
+          loginLockedUntil: new Date(Date.now() + lockoutMinutes * 60_000),
+        },
+      });
+    }
   }
 
   async assertTenantActive(tenantId: string) {
@@ -243,7 +300,12 @@ export class AuthService {
     const hashed = await bcrypt.hash(newPassword, 10);
     await this.prisma.user.update({
       where: { id: userId },
-      data: { password: hashed, mustChangePassword: false },
+      data: {
+        password: hashed,
+        mustChangePassword: false,
+        failedLoginAttempts: 0,
+        loginLockedUntil: null,
+      },
     });
     await this.prisma.userSession.updateMany({
       where: {
