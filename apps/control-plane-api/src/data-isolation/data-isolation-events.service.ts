@@ -19,7 +19,10 @@ export class DataIsolationEventsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async stream(input: { tenantId: string; deploymentId: string }): Promise<Observable<{ data: DataIsolationEventPayload }>> {
+  async stream(input: {
+    tenantId: string;
+    deploymentId: string;
+  }): Promise<Observable<{ data: DataIsolationEventPayload }>> {
     // Ownership check: query Deployment by id and tenantId
     const deployment = await this.prisma.deployment.findFirst({
       where: {

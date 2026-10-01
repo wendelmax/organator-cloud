@@ -217,7 +217,7 @@ describe('TenantsController', () => {
       const mockReq = {
         user: {
           tenantId: 'tenant-123',
-          sub: 'admin-1',
+          userId: 'admin-1',
           email: 'admin@organator.app',
         },
         ip: '127.0.0.1',
@@ -259,7 +259,7 @@ describe('TenantsController', () => {
       const mockReq = {
         user: {
           tenantId: 'tenant-123',
-          sub: 'admin-1',
+          userId: 'admin-1',
           email: 'admin@organator.app',
         },
         ip: '127.0.0.1',
@@ -289,7 +289,7 @@ describe('TenantsController', () => {
       const mockReq = {
         user: {
           tenantId: 'tenant-123',
-          sub: 'admin-1',
+          userId: 'admin-1',
           email: 'admin@organator.app',
         },
         ip: '127.0.0.1',

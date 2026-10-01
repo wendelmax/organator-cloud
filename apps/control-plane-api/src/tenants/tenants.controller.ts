@@ -40,18 +40,27 @@ export class TenantsController {
   }
 
   @Get('available')
-  async availableTenants(@Req() req: any) { return this.tenantsService.listMemberships(req.user.userId); }
+  async availableTenants(@Req() req: any) {
+    return this.tenantsService.listMemberships(req.user.userId);
+  }
 
   @Get('context/:slug')
-  async resolveContext(@Req() req: any, @Param('slug') slug: string) { return this.tenantsService.resolveMembership(req.user.userId, slug); }
+  async resolveContext(@Req() req: any, @Param('slug') slug: string) {
+    return this.tenantsService.resolveMembership(req.user.userId, slug);
+  }
 
   @Get('current/settings')
   @Roles('OWNER', 'ADMIN')
-  async currentSettings(@Req() req: any) { return this.tenantsService.getTenant(req.user.tenantId); }
+  async currentSettings(@Req() req: any) {
+    return this.tenantsService.getTenant(req.user.tenantId);
+  }
 
   @Patch('current/settings')
   @Roles('OWNER', 'ADMIN')
-  async updateCurrentSettings(@Req() req: any, @Body() body: { name?: string; slug?: string }) {
+  async updateCurrentSettings(
+    @Req() req: any,
+    @Body() body: { name?: string; slug?: string },
+  ) {
     return this.tenantsService.updateTenant(req.user.tenantId, body);
   }
 
@@ -117,16 +126,27 @@ export class TenantsController {
 
   @Post(':id/restore')
   @Roles('PLATFORM_ADMIN')
-  async triggerRestore(@Param('id') id: string, @Body() body: { backupId: string }) {
+  async triggerRestore(
+    @Param('id') id: string,
+    @Body() body: { backupId: string },
+  ) {
     if (!body.backupId) throw new BadRequestException('backupId is required');
     return this.tenantsService.triggerRestore(id, body.backupId);
   }
 
   @Post(':id/clone')
   @Roles('PLATFORM_ADMIN')
-  async triggerClone(@Param('id') id: string, @Body() body: { targetSlug: string; targetName: string }) {
-    if (!body.targetSlug || !body.targetName) throw new BadRequestException('targetSlug and targetName are required');
-    return this.tenantsService.triggerClone(id, body.targetSlug, body.targetName);
+  async triggerClone(
+    @Param('id') id: string,
+    @Body() body: { targetSlug: string; targetName: string },
+  ) {
+    if (!body.targetSlug || !body.targetName)
+      throw new BadRequestException('targetSlug and targetName are required');
+    return this.tenantsService.triggerClone(
+      id,
+      body.targetSlug,
+      body.targetName,
+    );
   }
 
   @Delete(':id/offboard')
@@ -149,8 +169,12 @@ export class TenantsController {
 
   @Post(':id/environments/promote')
   @Roles('PLATFORM_ADMIN')
-  async promoteEnvironment(@Param('id') id: string, @Body() body: { sourceEnvId: string }) {
-    if (!body.sourceEnvId) throw new BadRequestException('sourceEnvId is required');
+  async promoteEnvironment(
+    @Param('id') id: string,
+    @Body() body: { sourceEnvId: string },
+  ) {
+    if (!body.sourceEnvId)
+      throw new BadRequestException('sourceEnvId is required');
     return this.tenantsService.promoteEnvironment(id, body.sourceEnvId);
   }
 
@@ -186,7 +210,11 @@ export class TenantsController {
 
   @Patch(':id/plan')
   @Roles('PLATFORM_ADMIN')
-  async changePlan(@Param('id') id: string, @Body() body: { plan: string }, @Req() req: any) {
+  async changePlan(
+    @Param('id') id: string,
+    @Body() body: { plan: string },
+    @Req() req: any,
+  ) {
     if (!body.plan) {
       throw new BadRequestException('Plan is required');
     }
@@ -249,7 +277,7 @@ export class TenantsController {
       body.name,
       body.role,
       body.password,
-      { actorId: req.user?.sub, actorEmail: req.user?.email, ip: req.ip },
+      { actorId: req.user?.userId, actorEmail: req.user?.email, ip: req.ip },
     );
   }
 
@@ -268,7 +296,7 @@ export class TenantsController {
       throw new BadRequestException('Role is required');
     }
     return this.tenantsService.updateMemberRole(tenantId, userId, body.role, {
-      actorId: req.user?.sub,
+      actorId: req.user?.userId,
       actorEmail: req.user?.email,
       ip: req.ip,
     });
@@ -282,7 +310,7 @@ export class TenantsController {
       throw new BadRequestException('Tenant ID is required');
     }
     return this.tenantsService.removeMember(tenantId, userId, {
-      actorId: req.user?.sub,
+      actorId: req.user?.userId,
       actorEmail: req.user?.email,
       ip: req.ip,
     });

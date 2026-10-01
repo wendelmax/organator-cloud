@@ -14,8 +14,10 @@ describe('Tenant Lifecycle Actions', () => {
   let prismaMock: any;
 
   beforeEach(async () => {
-    provisionerQueueMock = { add: jest.fn().mockResolvedValue({ id: 'job-1' }) };
-    
+    provisionerQueueMock = {
+      add: jest.fn().mockResolvedValue({ id: 'job-1' }),
+    };
+
     prismaMock = {
       tenantBackup: { findMany: jest.fn().mockResolvedValue([{ id: 'b-1' }]) },
     };
@@ -28,7 +30,10 @@ describe('Tenant Lifecycle Actions', () => {
         { provide: EntitlementsService, useValue: {} },
         { provide: AuditService, useValue: {} },
         { provide: TenantLifecycleService, useValue: {} },
-        { provide: getQueueToken('provisioner'), useValue: provisionerQueueMock },
+        {
+          provide: getQueueToken('provisioner'),
+          useValue: provisionerQueueMock,
+        },
       ],
     }).compile();
 
@@ -39,30 +44,47 @@ describe('Tenant Lifecycle Actions', () => {
   it('triggers backup', async () => {
     const res = await controller.triggerBackup('t-1');
     expect(res).toEqual({ jobId: 'job-1', status: 'QUEUED' });
-    expect(provisionerQueueMock.add).toHaveBeenCalledWith('backup-tenant-infra', { tenantId: 't-1' });
+    expect(provisionerQueueMock.add).toHaveBeenCalledWith(
+      'backup-tenant-infra',
+      { tenantId: 't-1' },
+    );
   });
 
   it('lists backups', async () => {
     const res = await controller.getBackups('t-1');
     expect(res).toEqual([{ id: 'b-1' }]);
-    expect(prismaMock.tenantBackup.findMany).toHaveBeenCalledWith({ where: { tenantId: 't-1' } });
+    expect(prismaMock.tenantBackup.findMany).toHaveBeenCalledWith({
+      where: { tenantId: 't-1' },
+    });
   });
 
   it('triggers restore', async () => {
     const res = await controller.triggerRestore('t-1', { backupId: 'b-1' });
     expect(res).toEqual({ jobId: 'job-1', status: 'QUEUED' });
-    expect(provisionerQueueMock.add).toHaveBeenCalledWith('restore-tenant-infra', { tenantId: 't-1', backupId: 'b-1' });
+    expect(provisionerQueueMock.add).toHaveBeenCalledWith(
+      'restore-tenant-infra',
+      { tenantId: 't-1', backupId: 'b-1' },
+    );
   });
 
   it('triggers clone', async () => {
-    const res = await controller.triggerClone('t-1', { targetSlug: 's2', targetName: 'n2' });
+    const res = await controller.triggerClone('t-1', {
+      targetSlug: 's2',
+      targetName: 'n2',
+    });
     expect(res).toEqual({ jobId: 'job-1', status: 'QUEUED' });
-    expect(provisionerQueueMock.add).toHaveBeenCalledWith('clone-tenant-environment', { tenantId: 't-1', targetSlug: 's2', targetName: 'n2' });
+    expect(provisionerQueueMock.add).toHaveBeenCalledWith(
+      'clone-tenant-environment',
+      { tenantId: 't-1', targetSlug: 's2', targetName: 'n2' },
+    );
   });
 
   it('triggers offboard', async () => {
     const res = await controller.triggerOffboard('t-1');
     expect(res).toEqual({ jobId: 'job-1', status: 'QUEUED' });
-    expect(provisionerQueueMock.add).toHaveBeenCalledWith('offboard-tenant-infra', { tenantId: 't-1' });
+    expect(provisionerQueueMock.add).toHaveBeenCalledWith(
+      'offboard-tenant-infra',
+      { tenantId: 't-1' },
+    );
   });
 });

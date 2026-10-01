@@ -15,8 +15,12 @@ describe('Telemetry & Rollout API', () => {
   beforeEach(async () => {
     prismaMock = {
       providerCircuitBreaker: {
-        findMany: jest.fn().mockResolvedValue([{ provider: 'AWS', state: 'CLOSED' }]),
-        upsert: jest.fn().mockResolvedValue({ provider: 'AWS', state: 'CLOSED' }),
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ provider: 'AWS', state: 'CLOSED' }]),
+        upsert: jest
+          .fn()
+          .mockResolvedValue({ provider: 'AWS', state: 'CLOSED' }),
       },
     };
 

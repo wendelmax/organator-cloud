@@ -31,7 +31,10 @@ describe('DataIsolationController', () => {
 
   it('getStatus uses tenant from JWT context', async () => {
     const req = { user: { tenantId: 'tenant-1', role: 'OWNER' } };
-    service.getStatus.mockResolvedValue({ tenantId: 'tenant-1', desiredMode: 'SHARED' });
+    service.getStatus.mockResolvedValue({
+      tenantId: 'tenant-1',
+      desiredMode: 'SHARED',
+    });
     const result = await controller.getStatus(req);
     expect(service.getStatus).toHaveBeenCalledWith('tenant-1');
     expect(result.tenantId).toBe('tenant-1');
@@ -41,7 +44,11 @@ describe('DataIsolationController', () => {
     const req = { user: { userId: 'admin-1', role: 'PLATFORM_ADMIN' } };
     service.setOverride.mockResolvedValue({ desiredMode: 'DATABASE' });
     await controller.setOverride('tenant-1', { mode: 'DATABASE' }, req);
-    expect(service.setOverride).toHaveBeenCalledWith('tenant-1', { mode: 'DATABASE' }, 'admin-1');
+    expect(service.setOverride).toHaveBeenCalledWith(
+      'tenant-1',
+      { mode: 'DATABASE' },
+      'admin-1',
+    );
   });
 
   it('reconcile passes tenantId and actorId', async () => {

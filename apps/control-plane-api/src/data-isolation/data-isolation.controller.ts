@@ -1,4 +1,14 @@
-import { Controller, Get, Put, Post, Body, Param, Req, UseGuards, Sse } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Put,
+  Post,
+  Body,
+  Param,
+  Req,
+  UseGuards,
+  Sse,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -11,7 +21,7 @@ import type { IsolationOverrideInput } from './data-isolation.types';
 export class DataIsolationController {
   constructor(
     private readonly service: DataIsolationService,
-    private readonly eventsService: DataIsolationEventsService
+    private readonly eventsService: DataIsolationEventsService,
   ) {}
 
   @Get('v1/tenants/data-isolation')
@@ -39,6 +49,9 @@ export class DataIsolationController {
   @Sse('v1/tenants/data-isolation/stream/:deploymentId')
   @Roles('OWNER', 'ADMIN', 'PLATFORM_ADMIN')
   async stream(@Req() req: any, @Param('deploymentId') deploymentId: string) {
-    return this.eventsService.stream({ tenantId: req.user.tenantId, deploymentId });
+    return this.eventsService.stream({
+      tenantId: req.user.tenantId,
+      deploymentId,
+    });
   }
 }

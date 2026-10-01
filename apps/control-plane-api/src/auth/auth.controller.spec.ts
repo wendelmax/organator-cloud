@@ -39,7 +39,10 @@ describe('AuthController', () => {
         { provide: AuthService, useValue: mockAuthService },
         { provide: MfaService, useValue: mockMfaService },
         { provide: AuditService, useValue: mockAuditService },
-        { provide: MfaPolicyService, useValue: { get: jest.fn(), update: jest.fn() } },
+        {
+          provide: MfaPolicyService,
+          useValue: { get: jest.fn(), update: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -102,7 +105,13 @@ describe('AuthController', () => {
   it('revokes other sessions after MFA is enabled', async () => {
     mockMfaService.enable.mockResolvedValue({ enabled: true });
     mockAuthService.revokeOtherSessions.mockResolvedValue({ revoked: 2 });
-    await controller.mfaEnable({ user: { userId: 'u1', sessionId: 'current' } }, { code: '123456' });
-    expect(mockAuthService.revokeOtherSessions).toHaveBeenCalledWith('u1', 'current');
+    await controller.mfaEnable(
+      { user: { userId: 'u1', sessionId: 'current' } },
+      { code: '123456' },
+    );
+    expect(mockAuthService.revokeOtherSessions).toHaveBeenCalledWith(
+      'u1',
+      'current',
+    );
   });
 });

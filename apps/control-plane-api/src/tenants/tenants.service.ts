@@ -40,7 +40,9 @@ export class TenantsService {
     private readonly entitlementsService: EntitlementsService,
     private readonly auditService: AuditService,
     private readonly lifecycleService: TenantLifecycleService,
-    @Optional() @InjectQueue('provisioner') private readonly provisionerQueue?: Queue,
+    @Optional()
+    @InjectQueue('provisioner')
+    private readonly provisionerQueue?: Queue,
   ) {}
 
   async createTenant(
@@ -111,12 +113,16 @@ export class TenantsService {
     const tenant = await this.ensureTenantExists(tenantId);
     if (this.provisionerQueue) {
       const jobId = `deploy-tenant-infra:${tenantId}:${Date.now()}`;
-      await this.provisionerQueue.add('deploy-tenant-infra', {
-        tenantId,
-        slug: tenant.slug,
-        plan: tenant.plan,
-        actorId,
-      }, { jobId });
+      await this.provisionerQueue.add(
+        'deploy-tenant-infra',
+        {
+          tenantId,
+          slug: tenant.slug,
+          plan: tenant.plan,
+          actorId,
+        },
+        { jobId },
+      );
     }
     return { status: 'QUEUED', tenantId };
   }
@@ -211,7 +217,11 @@ export class TenantsService {
       }
     }
 
-    const planRanks: Record<string, number> = { 'free': 1, 'pro': 2, 'enterprise': 3 };
+    const planRanks: Record<string, number> = {
+      free: 1,
+      pro: 2,
+      enterprise: 3,
+    };
     const currentRank = planRanks[current.plan] || 1;
     const targetRank = planRanks[normalizedPlan] || 1;
     const isDowngrade = targetRank < currentRank;
@@ -234,18 +244,37 @@ export class TenantsService {
     this.entitlementsService.bust(tenantId);
 
     const idempotencyKey = `plan-migration:${tenantId}:${normalizedPlan}`;
-    const job = this.provisionerQueue ? await this.provisionerQueue.add(jobName, {
-      tenantId,
-      currentPlan: current.plan,
-      targetPlan: normalizedPlan,
-      action: 'RECONCILING_PLAN',
-      idempotencyKey,
+    const job = this.provisionerQueue
+      ? await this.provisionerQueue.add(
+          jobName,
+          {
+            tenantId,
+            currentPlan: current.plan,
+            targetPlan: normalizedPlan,
+            action: 'RECONCILING_PLAN',
+            idempotencyKey,
+            actorId,
+          },
+          { jobId: idempotencyKey, delay: jobDelay, removeOnComplete: false },
+        )
+      : { id: undefined };
+    await this.auditService.record({
       actorId,
-    }, { jobId: idempotencyKey, delay: jobDelay, removeOnComplete: false }) : { id: undefined };
-    await this.auditService.record({ actorId, action: 'TENANT_PLAN_CHANGED', resourceType: 'TENANT', resourceId: tenantId, changes: { from: current.plan, to: normalizedPlan, jobId: job?.id, idempotencyKey } });
+      action: 'TENANT_PLAN_CHANGED',
+      resourceType: 'TENANT',
+      resourceId: tenantId,
+      changes: {
+        from: current.plan,
+        to: normalizedPlan,
+        jobId: job?.id,
+        idempotencyKey,
+      },
+    });
 
     // Reconcile data isolation when not overridden
-    const tenantForIsolation = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    const tenantForIsolation = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
     if (tenantForIsolation && !tenantForIsolation.dataIsolationOverridden) {
       const defaultMode = billingPlan.defaultDataIsolation || 'SHARED';
       if (defaultMode !== tenantForIsolation.dataIsolation) {
@@ -255,23 +284,44 @@ export class TenantsService {
         });
         const dp = await this.prisma.tenantDataPlane.upsert({
           where: { tenantId },
-          create: { tenantId, status: 'PENDING', phase: 'PREPARE', generation: 1 },
-          update: { generation: { increment: 1 }, status: 'PENDING', phase: 'PREPARE', lastError: null },
+          create: {
+            tenantId,
+            status: 'PENDING',
+            phase: 'PREPARE',
+            generation: 1,
+          },
+          update: {
+            generation: { increment: 1 },
+            status: 'PENDING',
+            phase: 'PREPARE',
+            lastError: null,
+          },
         });
         if (this.provisionerQueue) {
           const isoJobId = `data-isolation:${tenantId}:generation:${dp.generation}`;
-          await this.provisionerQueue.add('reconcile-data-isolation', {
-            apiVersion: 'organator.io/v1alpha1',
-            tenantId,
-            generation: dp.generation,
-            desiredMode: defaultMode,
-            actorId,
-          }, { jobId: isoJobId, attempts: 5, backoff: { type: 'exponential', delay: 1000 } });
+          await this.provisionerQueue.add(
+            'reconcile-data-isolation',
+            {
+              apiVersion: 'organator.io/v1alpha1',
+              tenantId,
+              generation: dp.generation,
+              desiredMode: defaultMode,
+              actorId,
+            },
+            {
+              jobId: isoJobId,
+              attempts: 5,
+              backoff: { type: 'exponential', delay: 1000 },
+            },
+          );
         }
       }
     }
 
-    return { ...result, migration: { jobId: job?.id, status: 'QUEUED', idempotencyKey } };
+    return {
+      ...result,
+      migration: { jobId: job?.id, status: 'QUEUED', idempotencyKey },
+    };
   }
 
   async setTenantStatus(tenantId: string, status: TenantStatus) {
@@ -294,11 +344,39 @@ export class TenantsService {
   }
 
   async listMemberships(userId: string) {
-    return this.prisma.tenantMembership.findMany({ where: { userId, status: 'active' }, include: { tenant: { select: { id: true, name: true, slug: true, plan: true, status: true } } }, orderBy: { createdAt: 'asc' } });
+    return this.prisma.tenantMembership.findMany({
+      where: { userId, status: 'active' },
+      include: {
+        tenant: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            plan: true,
+            status: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
   }
 
   async resolveMembership(userId: string, slug: string) {
-    const membership = await this.prisma.tenantMembership.findFirst({ where: { userId, status: 'active', tenant: { slug } }, include: { tenant: { select: { id: true, name: true, slug: true, plan: true, status: true, state: true } } } });
+    const membership = await this.prisma.tenantMembership.findFirst({
+      where: { userId, status: 'active', tenant: { slug } },
+      include: {
+        tenant: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            plan: true,
+            status: true,
+            state: true,
+          },
+        },
+      },
+    });
     if (!membership) throw new NotFoundException('Organization not found');
     return { tenant: membership.tenant, role: membership.role };
   }
@@ -519,8 +597,11 @@ export class TenantsService {
     return removed;
   }
   async triggerBackup(tenantId: string) {
-    if (!this.provisionerQueue) throw new BadRequestException('Provisioner queue not configured');
-    const job = await this.provisionerQueue.add('backup-tenant-infra', { tenantId });
+    if (!this.provisionerQueue)
+      throw new BadRequestException('Provisioner queue not configured');
+    const job = await this.provisionerQueue.add('backup-tenant-infra', {
+      tenantId,
+    });
     return { jobId: job.id, status: 'QUEUED' };
   }
 
@@ -529,20 +610,32 @@ export class TenantsService {
   }
 
   async triggerRestore(tenantId: string, backupId: string) {
-    if (!this.provisionerQueue) throw new BadRequestException('Provisioner queue not configured');
-    const job = await this.provisionerQueue.add('restore-tenant-infra', { tenantId, backupId });
+    if (!this.provisionerQueue)
+      throw new BadRequestException('Provisioner queue not configured');
+    const job = await this.provisionerQueue.add('restore-tenant-infra', {
+      tenantId,
+      backupId,
+    });
     return { jobId: job.id, status: 'QUEUED' };
   }
 
   async triggerClone(tenantId: string, targetSlug: string, targetName: string) {
-    if (!this.provisionerQueue) throw new BadRequestException('Provisioner queue not configured');
-    const job = await this.provisionerQueue.add('clone-tenant-environment', { tenantId, targetSlug, targetName });
+    if (!this.provisionerQueue)
+      throw new BadRequestException('Provisioner queue not configured');
+    const job = await this.provisionerQueue.add('clone-tenant-environment', {
+      tenantId,
+      targetSlug,
+      targetName,
+    });
     return { jobId: job.id, status: 'QUEUED' };
   }
 
   async triggerOffboard(tenantId: string) {
-    if (!this.provisionerQueue) throw new BadRequestException('Provisioner queue not configured');
-    const job = await this.provisionerQueue.add('offboard-tenant-infra', { tenantId });
+    if (!this.provisionerQueue)
+      throw new BadRequestException('Provisioner queue not configured');
+    const job = await this.provisionerQueue.add('offboard-tenant-infra', {
+      tenantId,
+    });
     return { jobId: job.id, status: 'QUEUED' };
   }
 
@@ -553,14 +646,23 @@ export class TenantsService {
   async upsertEnvironment(tenantId: string, data: any) {
     return this.prisma.tenantEnvironment.upsert({
       where: { tenantId_type: { tenantId, type: data.type || 'PRODUCTION' } },
-      create: { tenantId, name: data.name || 'Production', type: data.type || 'PRODUCTION', envVars: data.envVars || {} },
+      create: {
+        tenantId,
+        name: data.name || 'Production',
+        type: data.type || 'PRODUCTION',
+        envVars: data.envVars || {},
+      },
       update: { envVars: data.envVars || {} },
     });
   }
 
   async promoteEnvironment(tenantId: string, sourceEnvId: string) {
-    if (!this.provisionerQueue) throw new BadRequestException('Provisioner queue not configured');
-    const job = await this.provisionerQueue.add('promote-tenant-environment', { tenantId, sourceEnvId });
+    if (!this.provisionerQueue)
+      throw new BadRequestException('Provisioner queue not configured');
+    const job = await this.provisionerQueue.add('promote-tenant-environment', {
+      tenantId,
+      sourceEnvId,
+    });
     return { jobId: job.id, status: 'QUEUED' };
   }
 
@@ -572,12 +674,14 @@ export class TenantsService {
   }
 
   async getHealthSummary() {
-    const tenants = await this.prisma.tenant.findMany({ select: { id: true, name: true, slug: true } });
+    const tenants = await this.prisma.tenant.findMany({
+      select: { id: true, name: true, slug: true },
+    });
     const summary = await Promise.all(
       tenants.map(async (t) => {
         const health = await this.getTenantHealth(t.id);
         return { tenant: t, health };
-      })
+      }),
     );
     return summary;
   }
@@ -596,7 +700,12 @@ export class TenantsService {
     return this.prisma.providerCircuitBreaker.upsert({
       where: { provider },
       create: { provider, state: 'CLOSED', failureCount: 0 },
-      update: { state: 'CLOSED', failureCount: 0, lastFailureAt: null, nextAttemptAt: null },
+      update: {
+        state: 'CLOSED',
+        failureCount: 0,
+        lastFailureAt: null,
+        nextAttemptAt: null,
+      },
     });
   }
 

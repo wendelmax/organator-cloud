@@ -147,7 +147,10 @@ describe('TenantsService', () => {
         dataIsolation: 'SHARED',
         dataIsolationOverridden: false,
       });
-      mockPrisma.billingPlan.findUnique.mockResolvedValue({ slug: 'pro', defaultDataIsolation: 'SCHEMA' });
+      mockPrisma.billingPlan.findUnique.mockResolvedValue({
+        slug: 'pro',
+        defaultDataIsolation: 'SCHEMA',
+      });
       mockPrisma.tenant.update.mockResolvedValue({
         id: 'tenant-1',
         plan: 'pro',

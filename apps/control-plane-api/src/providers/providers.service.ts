@@ -190,24 +190,92 @@ export class ProvidersService {
     );
   }
 
-  async createProfile(input: { name: string; type: string; credentialId: string; tenantId?: string | null; config?: Record<string, unknown>; isDefault?: boolean }, actorId?: string | null) {
-    if (!input.name?.trim() || !PROVIDER_TYPES.includes(input.type as ProviderType)) throw new BadRequestException('Perfil inválido');
-    const credential = await this.prisma.providerCredential.findUnique({ where: { id: input.credentialId } });
-    if (!credential || credential.type !== input.type) throw new BadRequestException('Credencial incompatível com o tipo do perfil');
-    if (input.isDefault) await this.prisma.providerProfile.updateMany({ where: { tenantId: input.tenantId ?? null, type: input.type }, data: { isDefault: false } });
-    const profile = await this.prisma.providerProfile.create({ data: { name: input.name.trim(), type: input.type, tenantId: input.tenantId ?? null, credentialId: input.credentialId, config: (input.config ?? {}) as any, isDefault: input.isDefault ?? false } });
-    await this.auditService.record({ actorId, action: 'provider_profile.created', resourceType: 'ProviderProfile', resourceId: profile.id, changes: { name: profile.name, type: profile.type, tenantId: profile.tenantId } });
+  async createProfile(
+    input: {
+      name: string;
+      type: string;
+      credentialId: string;
+      tenantId?: string | null;
+      config?: Record<string, unknown>;
+      isDefault?: boolean;
+    },
+    actorId?: string | null,
+  ) {
+    if (
+      !input.name?.trim() ||
+      !PROVIDER_TYPES.includes(input.type as ProviderType)
+    )
+      throw new BadRequestException('Perfil inválido');
+    const credential = await this.prisma.providerCredential.findUnique({
+      where: { id: input.credentialId },
+    });
+    if (!credential || credential.type !== input.type)
+      throw new BadRequestException(
+        'Credencial incompatível com o tipo do perfil',
+      );
+    if (input.isDefault)
+      await this.prisma.providerProfile.updateMany({
+        where: { tenantId: input.tenantId ?? null, type: input.type },
+        data: { isDefault: false },
+      });
+    const profile = await this.prisma.providerProfile.create({
+      data: {
+        name: input.name.trim(),
+        type: input.type,
+        tenantId: input.tenantId ?? null,
+        credentialId: input.credentialId,
+        config: (input.config ?? {}) as any,
+        isDefault: input.isDefault ?? false,
+      },
+    });
+    await this.auditService.record({
+      actorId,
+      action: 'provider_profile.created',
+      resourceType: 'ProviderProfile',
+      resourceId: profile.id,
+      changes: {
+        name: profile.name,
+        type: profile.type,
+        tenantId: profile.tenantId,
+      },
+    });
     return profile;
   }
 
   async listProfiles(tenantId?: string | null) {
-    return this.prisma.providerProfile.findMany({ where: { OR: [{ tenantId: tenantId ?? null }, { tenantId: null }] }, include: { credential: { select: { id: true, name: true, type: true } } }, orderBy: [{ isDefault: 'desc' }, { name: 'asc' }] });
+    return this.prisma.providerProfile.findMany({
+      where: { OR: [{ tenantId: tenantId ?? null }, { tenantId: null }] },
+      include: { credential: { select: { id: true, name: true, type: true } } },
+      orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+    });
   }
 
   async resolveProfile(type: string, tenantId?: string | null) {
-    const profile = await this.prisma.providerProfile.findFirst({ where: { type, OR: [{ tenantId, isDefault: true }, { tenantId: null, isDefault: true }, { tenantId }] }, include: { credential: true }, orderBy: [{ tenantId: 'desc' }, { isDefault: 'desc' }, { createdAt: 'asc' }] });
+    const profile = await this.prisma.providerProfile.findFirst({
+      where: {
+        type,
+        OR: [
+          { tenantId, isDefault: true },
+          { tenantId: null, isDefault: true },
+          { tenantId },
+        ],
+      },
+      include: { credential: true },
+      orderBy: [
+        { tenantId: 'desc' },
+        { isDefault: 'desc' },
+        { createdAt: 'asc' },
+      ],
+    });
     if (!profile) return null;
-    return { type: profile.type as ProviderType, name: profile.name, config: profile.config as Record<string, unknown>, secrets: this.decryptAll(profile.credential.encryptedData as Record<string, unknown>) };
+    return {
+      type: profile.type as ProviderType,
+      name: profile.name,
+      config: profile.config as Record<string, unknown>,
+      secrets: this.decryptAll(
+        profile.credential.encryptedData as Record<string, unknown>,
+      ),
+    };
   }
 
   /**
@@ -250,9 +318,9 @@ export class ProvidersService {
   private sanitize(credential: ProviderCredentialRecord) {
     const { encryptedData, ...rest } = credential;
     const encryptedSecrets: Record<string, unknown> =
-        encryptedData !== null &&
-        typeof encryptedData === 'object' &&
-        !Array.isArray(encryptedData)
+      encryptedData !== null &&
+      typeof encryptedData === 'object' &&
+      !Array.isArray(encryptedData)
         ? Object.fromEntries(Object.entries(encryptedData))
         : {};
     return {

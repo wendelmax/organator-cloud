@@ -141,7 +141,7 @@ export class AuthController {
       req.user.sessionId,
     );
     await this.auditService.record({
-      actorId: req.user?.sub,
+      actorId: req.user?.userId,
       actorEmail: req.user?.email,
       ip: req.ip ?? null,
       action: 'auth.password_changed',
@@ -178,7 +178,7 @@ export class AuthController {
       req.user.sessionId,
     );
     await this.auditService.record({
-      actorId: req.user?.sub,
+      actorId: req.user?.userId,
       actorEmail: req.user?.email,
       ip: req.ip ?? null,
       action: 'auth.mfa_enabled',
@@ -195,7 +195,7 @@ export class AuthController {
   async mfaDisable(@Req() req: any, @Body() body: { code: string }) {
     const result = await this.mfaService.disable(req.user.userId, body.code);
     await this.auditService.record({
-      actorId: req.user?.sub,
+      actorId: req.user?.userId,
       actorEmail: req.user?.email,
       ip: req.ip ?? null,
       action: 'auth.mfa_disabled',

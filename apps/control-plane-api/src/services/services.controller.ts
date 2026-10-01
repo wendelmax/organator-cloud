@@ -45,7 +45,10 @@ export class ServicesController {
   @CheckQuota('DEPLOYMENT')
   @Scopes(API_KEY_SCOPES.SERVICES_DEPLOY)
   @Post(':id/deploy')
-  async triggerDeploy(@Param('id') id: string, @Body() body: { environment?: string }) {
+  async triggerDeploy(
+    @Param('id') id: string,
+    @Body() body: { environment?: string },
+  ) {
     return this.servicesService.triggerDeploy(id, body?.environment);
   }
 

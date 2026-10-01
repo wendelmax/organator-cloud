@@ -7,10 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditModule } from '../audit/audit.module';
 
 @Module({
-  imports: [
-    AuditModule,
-    BullModule.registerQueue({ name: 'provisioner' }),
-  ],
+  imports: [AuditModule, BullModule.registerQueue({ name: 'provisioner' })],
   controllers: [DataIsolationController],
   providers: [DataIsolationService, DataIsolationEventsService, PrismaService],
   exports: [DataIsolationService, DataIsolationEventsService],
