@@ -9,14 +9,14 @@
     "test": "tsx --test \"src/**/*.test.ts\""
   },
   "dependencies": {
-    "@aws-sdk/client-ec2": "^3.500.0",
-    "@aws-sdk/client-sts": "^3.1101.0",
+    "@aws-sdk/client-ec2": "^3.1141.0",
+    "@aws-sdk/client-sts": "^3.1141.0",
     "@wendelmax/tasklets": "^3.0.0",
     "axios": "^1.20.0",
     "ssh2": "^1.16.0"
   },
   "devDependencies": {
-    "@types/ssh2": "^1.15.5",
+    "@types/ssh2": "^1.15.6",
     "tsx": "^4.23.12",
     "typescript": "^5.3.3"
   }
