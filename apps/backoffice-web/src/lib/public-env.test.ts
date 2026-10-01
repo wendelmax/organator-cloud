@@ -1,6 +1,6 @@
 import test, { describe, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeApiUrl, publicApiUrl, publicEnvScript, readPublicEnv, serverApiUrl } from './public-env';
+import { normalizeApiUrl, publicApiUrl, publicEnvScript, publicSsoEnabled, readPublicEnv, serverApiUrl } from './public-env';
 
 describe('public runtime env', () => {
   afterEach(() => {
@@ -35,8 +35,19 @@ describe('public runtime env', () => {
     assert.equal(publicApiUrl(), 'https://injected.acme.com');
   });
 
+  test('SSO is enabled only when the VoidAuth client is fully configured', () => {
+    assert.equal(readPublicEnv({} as any).ssoEnabled, false);
+    assert.equal(readPublicEnv({ VOIDAUTH_CLIENT_ID: 'organator' } as any).ssoEnabled, false);
+    assert.equal(readPublicEnv({ VOIDAUTH_CLIENT_ID: 'organator', VOIDAUTH_CLIENT_SECRET: 's' } as any).ssoEnabled, true);
+
+    (globalThis as any).window = { __ORGANATOR_ENV__: { apiUrl: 'x', ssoEnabled: true } };
+    assert.equal(publicSsoEnabled(), true);
+    (globalThis as any).window = { __ORGANATOR_ENV__: { apiUrl: 'x' } };
+    assert.equal(publicSsoEnabled(), false);
+  });
+
   test('the injected script cannot break out of the <script> tag', () => {
-    const script = publicEnvScript({ apiUrl: 'https://x.com/</script><script>alert(1)</script>' });
+    const script = publicEnvScript({ apiUrl: 'https://x.com/</script><script>alert(1)</script>', ssoEnabled: false });
     assert.ok(!script.includes('</script>'));
     const sandbox: any = {};
     new Function('window', script)(sandbox);

@@ -10,6 +10,8 @@
  */
 export interface PublicEnv {
   apiUrl: string;
+  /** Login via VoidAuth (OIDC) disponível — mesmas condições do provider em lib/auth.ts. */
+  ssoEnabled: boolean;
 }
 
 declare global {
@@ -29,6 +31,7 @@ export function normalizeApiUrl(value: string): string {
 export function readPublicEnv(env: NodeJS.ProcessEnv = process.env): PublicEnv {
   return {
     apiUrl: normalizeApiUrl(env.PUBLIC_API_URL || env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL),
+    ssoEnabled: Boolean(env.VOIDAUTH_CLIENT_ID && env.VOIDAUTH_CLIENT_SECRET),
   };
 }
 
@@ -38,6 +41,14 @@ export function publicApiUrl(): string {
     return normalizeApiUrl(window.__ORGANATOR_ENV__.apiUrl);
   }
   return readPublicEnv().apiUrl;
+}
+
+/** O botão de SSO só aparece quando o provider VoidAuth está configurado. */
+export function publicSsoEnabled(): boolean {
+  if (typeof window !== "undefined" && window.__ORGANATOR_ENV__) {
+    return window.__ORGANATOR_ENV__.ssoEnabled === true;
+  }
+  return readPublicEnv().ssoEnabled;
 }
 
 /** URL da API para código server-side (prefere o endereço interno API_URL). */

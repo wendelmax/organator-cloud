@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { publicSsoEnabled } from "../../../lib/public-env";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -10,6 +11,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const ssoEnabled = publicSsoEnabled();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,22 +82,26 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-neutral-700" />
-          </div>
-          <div className="relative flex justify-center text-xs text-neutral-500">
-            <span className="px-2 bg-neutral-900">ou</span>
-          </div>
-        </div>
+        {ssoEnabled && (
+          <>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-neutral-700" />
+              </div>
+              <div className="relative flex justify-center text-xs text-neutral-500">
+                <span className="px-2 bg-neutral-900">ou</span>
+              </div>
+            </div>
 
-        <button
-          type="button"
-          onClick={() => signIn("voidauth", { callbackUrl: "/services" })}
-          className="w-full px-4 py-2 font-semibold text-white bg-neutral-700 rounded-lg hover:bg-neutral-600 transition-colors"
-        >
-          Entrar com VoidAuth (SSO)
-        </button>
+            <button
+              type="button"
+              onClick={() => signIn("voidauth", { callbackUrl: "/services" })}
+              className="w-full px-4 py-2 font-semibold text-white bg-neutral-700 rounded-lg hover:bg-neutral-600 transition-colors"
+            >
+              Entrar com VoidAuth (SSO)
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
