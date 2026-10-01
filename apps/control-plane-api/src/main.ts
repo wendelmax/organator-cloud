@@ -16,6 +16,8 @@ async function bootstrap() {
   );
 
   await configureAppSecurity(app);
+  // SIGTERM/SIGINT: fecha o servidor HTTP e roda onModuleDestroy (Prisma, Redis, filas).
+  app.enableShutdownHooks();
 
   // Fastify escuta na porta 3000 por padrão, configurando 0.0.0.0 para funcionar bem com Docker
   await app.listen(process.env.PORT ?? 3001, '0.0.0.0');
