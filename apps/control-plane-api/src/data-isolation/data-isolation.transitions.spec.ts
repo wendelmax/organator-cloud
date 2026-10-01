@@ -95,7 +95,7 @@ describe('DataIsolationService — transitions and reconcile', () => {
           desiredMode: 'DATABASE',
         }),
         expect.objectContaining({
-          jobId: 'data-isolation:t1:generation:4',
+          jobId: 'data-isolation__t1__generation__4',
           attempts: 5,
         }),
       );
@@ -192,7 +192,7 @@ describe('DataIsolationService — transitions and reconcile', () => {
       expect(queue.add).toHaveBeenCalledWith(
         'reconcile-data-isolation',
         expect.objectContaining({ generation: 3, desiredMode: 'SHARED' }),
-        expect.objectContaining({ jobId: 'data-isolation:t1:generation:3' }),
+        expect.objectContaining({ jobId: 'data-isolation__t1__generation__3' }),
       );
       expect(audit.record).toHaveBeenCalledWith(
         expect.objectContaining({
