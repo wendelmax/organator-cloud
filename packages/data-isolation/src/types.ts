@@ -14,7 +14,7 @@ export type IsolationPhase =
 export interface TenantScopedTable {
   schema: string;
   table: string;
-  tenantColumn: 'tenant_id';
+  tenantColumn: string;
   primaryKey: string;
 }
 
@@ -56,6 +56,13 @@ export interface IsolationManifest {
   apiVersion: 'organator.io/v1alpha1';
   product: string;
   tenantScopedTables: TenantScopedTable[];
+  /**
+   * 'clone-shared': antes de applyMigrations, o adapter cria em destinos
+   * SCHEMA/DATABASE as tabelas do manifesto copiando a estrutura das tabelas
+   * compartilhadas (colunas, NOT NULL, defaults, identity e PK). Útil quando
+   * o produto não fornece migrações próprias por tenant.
+   */
+  structure?: 'clone-shared';
   applyMigrations(connection: ConnectionReference): Promise<void>;
   validate(connection: ConnectionReference, tenantId: string): Promise<ValidationEvidence>;
 }
