@@ -1,9 +1,15 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Autenticação", () => {
-  test("login page renderiza com SSO VoidAuth", async ({ page }) => {
+  test("login page renderiza", async ({ page }) => {
     await page.goto("/login");
     await expect(page.getByRole("heading", { name: "Organator" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Entrar", exact: true })).toBeVisible();
+  });
+
+  test("botão de SSO VoidAuth aparece quando o IdP está configurado", async ({ page }) => {
+    test.skip(!process.env.E2E_SSO, "VoidAuth não configurado neste ambiente (defina E2E_SSO=1)");
+    await page.goto("/login");
     await expect(page.getByRole("button", { name: "Entrar com VoidAuth (SSO)" })).toBeVisible();
   });
 

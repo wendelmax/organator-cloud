@@ -54,3 +54,6 @@ helm/**/charts/
 
 # Coverage
 coverage/
+
+# Sessões geradas pelo setup do Playwright
+e2e/.auth/

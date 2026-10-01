@@ -1,9 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { loginAs } from "../helpers";
 
-test.beforeEach(async ({ page }) => {
-  await loginAs(page, "owner@organator.app");
-});
+// Sessão do owner vem do projeto "setup" (playwright.config.ts).
 
 test.describe("Dashboard", () => {
   test("página inicial mostra cards de visão geral", async ({ page }) => {
@@ -42,17 +39,7 @@ test.describe("Services Catalog", () => {
 });
 
 test.describe("Tenants", () => {
-  test("cria um novo tenant", async ({ page }) => {
-    const suffix = Date.now();
-    await page.goto("/tenants");
-    await expect(page.getByRole("heading", { name: "Tenants" })).toBeVisible();
-    await page.getByRole("button", { name: "Novo Tenant" }).click();
-    await page.locator('input[name="name"]').fill(`Acme Corporation ${suffix}`);
-    await page.locator('input[name="slug"]').fill(`acme-${suffix}`);
-    await page.getByRole("button", { name: "Criar Tenant" }).click();
-    await expect(page.getByText(`Acme Corporation ${suffix}`)).toBeVisible();
-  });
-
+  // Criação de tenant (admin da plataforma) fica em tenant-infra.spec.ts.
   test("convidar membro na aba Membros", async ({ page }) => {
     const suffix = Date.now();
     await page.goto("/tenants");
