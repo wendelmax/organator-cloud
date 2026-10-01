@@ -2,8 +2,13 @@
 //
 // Executado dentro do container da API (que já tem Prisma Client e bcrypt):
 //   docker compose exec -T control-plane-api node --input-type=module < e2e/seed.mjs
-import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcrypt';
+import { createRequire } from 'node:module';
+
+// Resolve as dependências como a própria API resolve (a partir do diretório
+// atual do container): o Prisma Client vem de @organator/core-models.
+const require = createRequire(`${process.cwd()}/`);
+const { PrismaClient } = require('@organator/core-models');
+const bcrypt = require('bcrypt');
 
 const prisma = new PrismaClient();
 
