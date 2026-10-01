@@ -71,6 +71,20 @@ describe('AuthService — credentials, sessions and refresh', () => {
       expect(result).not.toHaveProperty('password');
     });
 
+    it('never falls back to comparing against the stored hash when bcrypt fails', async () => {
+      const bcrypt = jest.requireMock('bcrypt');
+      bcrypt.compare.mockRejectedValueOnce(new Error('binding failed'));
+      // Enviar o próprio hash como senha não pode autenticar.
+      await expect(
+        service.validateUser(user.email, user.password),
+      ).resolves.toBeNull();
+
+      bcrypt.compare.mockRejectedValueOnce(new Error('binding failed'));
+      await expect(
+        service.changePassword('u1', user.password, 'new-password-1'),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
     it('returns null for wrong password or unknown email', async () => {
       await expect(
         service.validateUser(user.email, 'nope'),

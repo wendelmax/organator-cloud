@@ -31,7 +31,8 @@ export class AuthService {
 
     const isMatch = await bcrypt
       .compare(pass, user.password)
-      .catch(() => user.password === pass);
+      // Nunca comparar com o valor armazenado: erro no bcrypt conta como senha inválida.
+      .catch(() => false);
     if (isMatch) {
       const result = { ...user } as Partial<typeof user>;
       delete result.password;
@@ -233,7 +234,8 @@ export class AuthService {
 
     const isMatch = await bcrypt
       .compare(currentPassword, user.password)
-      .catch(() => user.password === currentPassword);
+      // Nunca comparar com o valor armazenado: erro no bcrypt conta como senha inválida.
+      .catch(() => false);
     if (!isMatch) {
       throw new UnauthorizedException('Senha atual incorreta');
     }
