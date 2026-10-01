@@ -323,7 +323,7 @@ export class PostgresIsolationAdapter implements IsolationAdapter {
           const safeRole = quoteIdentifier(target.resourceIds.role);
           await this.admin.query(`DROP SCHEMA IF EXISTS ${safeSchema} CASCADE`);
           const formatted = await this.admin.query<{ stmt: string }>(
-            `SELECT format('DROP ROLE IF EXISTS %I', $1) AS stmt`,
+            `SELECT format('DROP ROLE IF EXISTS %I', $1::text) AS stmt`,
             [target.resourceIds.role],
           );
           await this.admin.query(formatted.rows[0].stmt);
@@ -338,12 +338,12 @@ export class PostgresIsolationAdapter implements IsolationAdapter {
             [target.resourceIds.database],
           );
           const fmtDrop = await this.admin.query<{ stmt: string }>(
-            `SELECT format('DROP DATABASE IF EXISTS %I', $1) AS stmt`,
+            `SELECT format('DROP DATABASE IF EXISTS %I', $1::text) AS stmt`,
             [target.resourceIds.database],
           );
           await this.admin.query(fmtDrop.rows[0].stmt);
           const fmtRole = await this.admin.query<{ stmt: string }>(
-            `SELECT format('DROP ROLE IF EXISTS %I', $1) AS stmt`,
+            `SELECT format('DROP ROLE IF EXISTS %I', $1::text) AS stmt`,
             [target.resourceIds.role],
           );
           await this.admin.query(fmtRole.rows[0].stmt);
@@ -376,7 +376,7 @@ export class PostgresIsolationAdapter implements IsolationAdapter {
           const safeSchema = quoteIdentifier(source.resourceIds.schema);
           await this.admin.query(`DROP SCHEMA IF EXISTS ${safeSchema} CASCADE`);
           const formatted = await this.admin.query<{ stmt: string }>(
-            `SELECT format('DROP ROLE IF EXISTS %I', $1) AS stmt`,
+            `SELECT format('DROP ROLE IF EXISTS %I', $1::text) AS stmt`,
             [source.resourceIds.role],
           );
           await this.admin.query(formatted.rows[0].stmt);
@@ -390,12 +390,12 @@ export class PostgresIsolationAdapter implements IsolationAdapter {
             [source.resourceIds.database],
           );
           const fmtDrop = await this.admin.query<{ stmt: string }>(
-            `SELECT format('DROP DATABASE IF EXISTS %I', $1) AS stmt`,
+            `SELECT format('DROP DATABASE IF EXISTS %I', $1::text) AS stmt`,
             [source.resourceIds.database],
           );
           await this.admin.query(fmtDrop.rows[0].stmt);
           const fmtRole = await this.admin.query<{ stmt: string }>(
-            `SELECT format('DROP ROLE IF EXISTS %I', $1) AS stmt`,
+            `SELECT format('DROP ROLE IF EXISTS %I', $1::text) AS stmt`,
             [source.resourceIds.role],
           );
           await this.admin.query(fmtRole.rows[0].stmt);

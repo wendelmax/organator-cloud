@@ -22,6 +22,19 @@ services:
     ports:
       - "6379:6379"
 
+  # Aplica as migrações do Prisma antes de API e worker subirem.
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/control-plane-api/Dockerfile
+    working_dir: /app
+    command: ["npm", "run", "migrate:deploy", "--workspace=@organator/core-models"]
+    environment:
+      - DATABASE_URL=postgresql://organator:password@postgres:5432/organator_db?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   control-plane-api:
     build:
       context: .
@@ -38,8 +51,8 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_started
 
@@ -55,8 +68,8 @@ services:
       - DATA_ISOLATION_ADMIN_URL=${DATA_ISOLATION_ADMIN_URL:-postgresql://organator:password@postgres:5432/organator_db}
       - DATA_ISOLATION_ROLLBACK_HOURS=${DATA_ISOLATION_ROLLBACK_HOURS:-24}
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_started
 

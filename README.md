@@ -5,7 +5,8 @@
 Chega de provisionar bancos de dados e domínios manualmente para clientes *Enterprise*. O Organator orquestra deploys na Vercel, AWS e instâncias VPS com Docker de forma 100% automatizada.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Next.js](https://img.shields.io/badge/Next.js-15-black)
+![Node.js](https://img.shields.io/badge/Node.js-24-green)
+![Next.js](https://img.shields.io/badge/Next.js-16-black)
 ![Fastify](https://img.shields.io/badge/Fastify-5.0-black)
 ![BullMQ](https://img.shields.io/badge/BullMQ-Redis-red)
 
@@ -25,7 +26,7 @@ Chega de provisionar bancos de dados e domínios manualmente para clientes *Ente
 O projeto é um monorepo escalável:
 
 ```bash
-/apps/backoffice-web       # Painel Admin & Onboarding Público (Next.js 15)
+/apps/backoffice-web       # Painel Admin & Onboarding Público (Next.js 16)
 /apps/control-plane-api    # Cérebro da Operação (NestJS + Fastify + Prisma)
 /apps/provisioner-worker   # Robô de Infraestrutura (Node.js + BullMQ)
 /packages/core-models      # Esquemas de Banco de Dados (Prisma) globais
@@ -37,24 +38,54 @@ O projeto é um monorepo escalável:
 Todo o ambiente está amarrado via **Docker Compose**, então a execução é simples. Você não precisa configurar o Redis ou o PostgreSQL manualmente!
 
 ### 1. Requisitos
-- Node.js 20+
+- Node.js 24 e npm 11
 - Docker e Docker Compose instalados.
 
 ### 2. Rodando o Ambiente Completo
 
 ```bash
-# Baixe as dependências e faça build local
 npm install
-npx turbo run build
 
-# Suba a stack completa (Postgres, Redis, API, Worker e Next.js)
-docker-compose up --build
+# Postgres, Redis, migrações, API, Worker e painel
+docker compose up --build
 ```
+
+O serviço `migrate` aplica as migrações do Prisma antes de API e worker subirem.
 
 O ambiente estará disponível em:
 - **Painel Administrativo:** `http://localhost:3001`
 - **Página de Registro Público:** `http://localhost:3001/register`
-- **Control Plane API:** `http://localhost:3000`
+- **Control Plane API:** `http://localhost:3000` (`/health` e `/health/ready`)
+
+No primeiro boot a API cria o admin `admin@organator.app` e imprime a senha
+temporária **uma única vez** nos logs (`docker compose logs control-plane-api | grep BOOTSTRAP`).
+
+## 🧪 Testes
+
+```bash
+npm test                                 # todos os pacotes (turbo)
+npx turbo lint
+npm run test:e2e -w control-plane-api    # e2e da API (Fastify inject, sem banco)
+```
+
+Os testes de integração de isolamento de dados rodam contra um PostgreSQL real
+quando `TEST_DATABASE_URL` está definido (o CI faz isso automaticamente).
+
+## ☸️ Produção
+
+- **Kubernetes/Helm:** [docs/deployment/kubernetes.md](docs/deployment/kubernetes.md) —
+  secrets, banco/Redis gerenciados, migrações automáticas, probes e TLS.
+- **Imagens:** cada tag `vX.Y.Z` publica `ghcr.io/wendelmax/organator-cloud/<app>:X.Y.Z`.
+- **Configuração:** as variáveis estão documentadas em [.env.example](.env.example).
+  Em produção a API recusa subir sem `JWT_SECRET`, `ENCRYPTION_KEY` e `CORS_ORIGINS` válidos.
+
+## 🔒 Segurança
+
+Containers rodam como não-root, credenciais de provedores são cifradas com
+AES-256-GCM e o acesso é isolado por tenant (JWT, OIDC/SSO e API keys com
+escopos). Para reportar uma vulnerabilidade, abra um
+[security advisory privado](https://github.com/wendelmax/organator-cloud/security/advisories/new)
+em vez de uma issue pública.
 
 ---
 *Built with passion for SaaS Founders.*

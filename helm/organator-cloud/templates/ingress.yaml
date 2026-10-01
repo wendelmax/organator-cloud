@@ -1,0 +1,42 @@
+{{- if .Values.ingress.enabled }}
+{{- $fullname := include "organator-cloud.fullname" . -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullname }}
+  labels:
+    {{- include "organator-cloud.labels" (dict "ctx" . "component" "ingress") | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - host: {{ required "ingress.hosts.web é obrigatório" .Values.ingress.hosts.web | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullname }}-backoffice-web
+                port:
+                  number: {{ .Values.backofficeWeb.service.port }}
+    - host: {{ required "ingress.hosts.api é obrigatório" .Values.ingress.hosts.api | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullname }}-control-plane-api
+                port:
+                  number: {{ .Values.controlPlaneApi.service.port }}
+{{- end }}

@@ -17,6 +17,8 @@ import { ProvidersModule } from './providers/providers.module';
 import { PlacementModule } from './placement/placement.module';
 import { DomainsModule } from './domains/domains.module';
 import { DataIsolationModule } from './data-isolation/data-isolation.module';
+import { PrismaModule } from './prisma/prisma.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -26,6 +28,8 @@ import { DataIsolationModule } from './data-isolation/data-isolation.module';
         port: Number(process.env.REDIS_PORT) || 6379,
       },
     }),
+    PrismaModule,
+    HealthModule,
     TenantsModule,
     ServicesModule,
     OnboardingModule,

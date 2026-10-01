@@ -19,6 +19,9 @@ RUN npm run build --filter=provisioner-worker
 FROM base AS runner
 RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY --from=installer /app .
+COPY --from=installer --chown=node:node /app .
 WORKDIR /app/apps/provisioner-worker
-CMD ["npm", "run", "start"]
+ENV NODE_ENV=production
+EXPOSE 9464
+USER node
+CMD ["node", "dist/index.js"]

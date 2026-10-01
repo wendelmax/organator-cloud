@@ -48,3 +48,9 @@ scratch/organator-cloud.wiki/
 
 # Isolated development worktrees
 .worktrees/
+
+# Helm subcharts baixados (helm dependency build)
+helm/**/charts/
+
+# Coverage
+coverage/

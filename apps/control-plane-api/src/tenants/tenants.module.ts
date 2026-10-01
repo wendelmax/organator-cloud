@@ -5,7 +5,6 @@ import { TenantsController } from './tenants.controller';
 import { TenantsService } from './tenants.service';
 import { TenantLifecycleService } from './tenant-lifecycle.service';
 import { TenantStateGuard } from './tenant-state.guard';
-import { PrismaService } from '../prisma/prisma.service';
 import { EntitlementsModule } from '../entitlements/entitlements.module';
 import { AuditModule } from '../audit/audit.module';
 import { ApiKeysModule } from '../api-keys/api-keys.module';
@@ -30,7 +29,6 @@ import { InvitationsController } from './invitations.controller';
     TenantsService,
     InvitationsService,
     TenantLifecycleService,
-    PrismaService,
     {
       provide: APP_GUARD,
       useClass: TenantStateGuard,

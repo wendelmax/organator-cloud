@@ -20,7 +20,12 @@ RUN npm run build --filter=control-plane-api
 FROM base AS runner
 RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY --from=installer /app .
+COPY --from=installer --chown=node:node /app .
 WORKDIR /app/apps/control-plane-api
 ENV NODE_ENV=production
-CMD ["npm", "run", "start:prod"]
+ENV PORT=3001
+EXPOSE 3001
+USER node
+# node como PID 1 recebe SIGTERM direto (npm não repassa o sinal de forma confiável).
+# Migrações: npm run migrate:deploy --workspace=@organator/core-models (a partir de /app).
+CMD ["node", "dist/main.js"]

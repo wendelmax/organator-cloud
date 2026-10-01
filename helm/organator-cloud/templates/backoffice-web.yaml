@@ -1,5 +1,5 @@
-{{- $component := "provisioner-worker" -}}
-{{- $values := .Values.provisionerWorker -}}
+{{- $component := "backoffice-web" -}}
+{{- $values := .Values.backofficeWeb -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -15,10 +15,6 @@ spec:
     metadata:
       labels:
         {{- include "organator-cloud.selectorLabels" (dict "ctx" . "component" $component) | nindent 8 }}
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: {{ $values.metrics.port | quote }}
-        prometheus.io/path: /metrics
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -26,8 +22,6 @@ spec:
       {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      # Deixa jobs em andamento terminarem (worker.close aguarda o job atual).
-      terminationGracePeriodSeconds: 120
       containers:
         - name: {{ $component }}
           image: {{ include "organator-cloud.image" (dict "ctx" . "image" $values.image) | quote }}
@@ -35,26 +29,51 @@ spec:
           securityContext:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
           ports:
-            - name: metrics
-              containerPort: {{ $values.metrics.port }}
+            - name: http
+              containerPort: 3000
               protocol: TCP
           env:
             - name: NODE_ENV
               value: "production"
-            - name: METRICS_HOST
-              value: "0.0.0.0"
-            - name: METRICS_PORT
-              value: {{ $values.metrics.port | quote }}
-            {{- include "organator-cloud.databaseEnv" . | nindent 12 }}
-            {{- include "organator-cloud.redisEnv" . | nindent 12 }}
-            {{- include "organator-cloud.secretEnv" (dict "ctx" . "key" "ENCRYPTION_KEY") | nindent 12 }}
+            - name: PORT
+              value: "3000"
+            # Chamadas server-side (NextAuth, server actions) usam o Service interno.
+            - name: API_URL
+              value: {{ printf "http://%s-control-plane-api:%v" (include "organator-cloud.fullname" .) .Values.controlPlaneApi.service.port | quote }}
+            {{- if .Values.ingress.enabled }}
+            - name: NEXTAUTH_URL
+              value: {{ printf "https://%s" .Values.ingress.hosts.web | quote }}
+            {{- end }}
+            {{- include "organator-cloud.secretEnv" (dict "ctx" . "key" "NEXTAUTH_SECRET") | nindent 12 }}
             {{- with $values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
           livenessProbe:
             tcpSocket:
-              port: metrics
+              port: http
             initialDelaySeconds: 10
             periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /login
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
           resources:
             {{- toYaml $values.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "organator-cloud.fullname" . }}-{{ $component }}
+  labels:
+    {{- include "organator-cloud.labels" (dict "ctx" . "component" $component) | nindent 4 }}
+spec:
+  type: {{ $values.service.type }}
+  ports:
+    - port: {{ $values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "organator-cloud.selectorLabels" (dict "ctx" . "component" $component) | nindent 4 }}

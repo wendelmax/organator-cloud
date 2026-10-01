@@ -4,7 +4,6 @@ import { BillingModule } from '../billing/billing.module';
 import { BullModule } from '@nestjs/bullmq';
 import { ProvisioningService } from './provisioning.service';
 import { ProvisioningController } from './provisioning.controller';
-import { PrismaService } from '../prisma/prisma.service';
 import { AuditModule } from '../audit/audit.module';
 
 @Module({
@@ -14,6 +13,6 @@ import { AuditModule } from '../audit/audit.module';
     BullModule.registerQueue({ name: 'provisioner' }),
   ],
   controllers: [OnboardingController, ProvisioningController],
-  providers: [ProvisioningService, PrismaService],
+  providers: [ProvisioningService],
 })
 export class OnboardingModule {}

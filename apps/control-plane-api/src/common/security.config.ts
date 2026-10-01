@@ -194,5 +194,9 @@ function parseTrustProxy(
 }
 
 function isHealthRequest(url: string): boolean {
-  return url === '/health' || url.startsWith('/health?');
+  return (
+    url === '/health' ||
+    url.startsWith('/health?') ||
+    url.startsWith('/health/')
+  );
 }

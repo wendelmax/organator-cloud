@@ -1,80 +1,128 @@
-# Global Variables
-global:
-  domain: organator.local
+# Organator Cloud — valores padrão do chart.
+# Guia completo de instalação: docs/deployment/kubernetes.md
 
-# Subcharts
+# Secret criado ANTES da instalação, com as chaves:
+#   JWT_SECRET       (>= 32 caracteres)
+#   ENCRYPTION_KEY   (64 caracteres hexadecimais)
+#   NEXTAUTH_SECRET  (>= 32 caracteres)
+# kubectl create secret generic organator-cloud-secrets \
+#   --from-literal=JWT_SECRET="$(openssl rand -hex 32)" \
+#   --from-literal=ENCRYPTION_KEY="$(openssl rand -hex 32)" \
+#   --from-literal=NEXTAUTH_SECRET="$(openssl rand -hex 32)"
+existingSecret: organator-cloud-secrets
+
+imagePullSecrets: []
+
+# PostgreSQL embutido (Bitnami). Em produção prefira um banco gerenciado:
+# postgresql.enabled=false + externalDatabase.existingSecret.
 postgresql:
   enabled: true
   auth:
-    postgresPassword: "postgrespassword"
-    database: "organator_db"
+    database: organator_db
+    # Vazio: o subchart gera uma senha aleatória no Secret <release>-postgresql.
+    postgresPassword: ""
+
+externalDatabase:
+  # Secret com a connection string completa (postgresql://user:pass@host:5432/db?schema=public).
+  existingSecret: ""
+  existingSecretKey: DATABASE_URL
 
 redis:
   enabled: true
+  architecture: standalone
   auth:
     enabled: false
 
-# Organator Cloud Components
+externalRedis:
+  host: ""
+  port: 6379
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+
 controlPlaneApi:
   replicaCount: 2
   image:
-    repository: ghcr.io/your-org/control-plane-api
-    tag: "latest"
+    repository: ghcr.io/wendelmax/organator-cloud/control-plane-api
+    # Vazio = appVersion do chart.
+    tag: ""
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
     port: 3001
+  # Roda `prisma migrate deploy` num initContainer antes de cada pod subir.
+  # O Prisma usa advisory lock, então réplicas concorrentes são seguras.
+  migrations:
+    enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
   env:
-    # Pre-create this Secret with the keys JWT_SECRET and ENCRYPTION_KEY.
-    existingSecret: "organator-cloud-control-plane-api-secrets"
     CORS_ORIGINS: "https://admin.organator.local"
     RATE_LIMIT_MAX: "100"
     HEALTH_RATE_LIMIT_MAX: "1000"
     RATE_LIMIT_WINDOW_MS: "60000"
-    # Trusted reverse proxies for X-Forwarded-For (IPs, CIDRs or loopback,
-    # linklocal, uniquelocal). Narrow this to your ingress pod CIDR if known.
+    # Proxies confiáveis para X-Forwarded-For (IPs, CIDRs ou loopback,
+    # linklocal, uniquelocal). Restrinja ao CIDR dos pods do ingress se souber.
     TRUST_PROXY: "loopback,linklocal,uniquelocal"
+  # Variáveis adicionais (ex.: STRIPE_SECRET_KEY via secretKeyRef).
+  extraEnv: []
 
 provisionerWorker:
   replicaCount: 1
   image:
-    repository: ghcr.io/your-org/provisioner-worker
-    tag: "latest"
+    repository: ghcr.io/wendelmax/organator-cloud/provisioner-worker
+    tag: ""
     pullPolicy: IfNotPresent
-  env:
-    VERCEL_TOKEN: ""
-    AWS_ACCESS_KEY: ""
+  metrics:
+    port: 9464
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+  # Credenciais de provedores de nuvem: prefira cadastrá-las pela API
+  # (cifradas no banco). Para fallback via env, use secretKeyRef aqui.
+  extraEnv: []
 
 backofficeWeb:
   replicaCount: 2
   image:
-    repository: ghcr.io/your-org/backoffice-web
-    tag: "latest"
+    repository: ghcr.io/wendelmax/organator-cloud/backoffice-web
+    tag: ""
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
     port: 3000
-  env:
-    NEXTAUTH_SECRET: "change_me"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+  extraEnv: []
 
 ingress:
   enabled: true
-  className: "nginx"
+  className: nginx
   annotations: {}
   hosts:
-    - host: admin.organator.local
-      paths:
-        - path: /
-          pathType: Prefix
-          backend:
-            service:
-              name: organator-cloud-backoffice-web
-              port: 3000
-    - host: api.organator.local
-      paths:
-        - path: /
-          pathType: Prefix
-          backend:
-            service:
-              name: organator-cloud-control-plane-api
-              port: 3001
+    web: admin.organator.local
+    api: api.organator.local
+  # Ex.: - secretName: organator-tls
+  #        hosts: [admin.organator.local, api.organator.local]
+  tls: []
