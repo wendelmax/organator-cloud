@@ -41,7 +41,7 @@ export class BillingPlansController {
   @Roles('PLATFORM_ADMIN')
   create(@Req() req: any, @Body() body: BillingPlanInput) {
     return this.plansService.create(body, {
-      actorId: req.user?.sub,
+      actorId: req.user?.userId,
       actorEmail: req.user?.email,
       ip: req.ip,
     });
@@ -56,7 +56,7 @@ export class BillingPlansController {
     @Body() body: BillingPlanInput,
   ) {
     return this.plansService.update(slug, body, {
-      actorId: req.user?.sub,
+      actorId: req.user?.userId,
       actorEmail: req.user?.email,
       ip: req.ip,
     });
@@ -67,7 +67,7 @@ export class BillingPlansController {
   @Roles('PLATFORM_ADMIN')
   deactivate(@Req() req: any, @Param('slug') slug: string) {
     return this.plansService.deactivate(slug, {
-      actorId: req.user?.sub,
+      actorId: req.user?.userId,
       actorEmail: req.user?.email,
       ip: req.ip,
     });

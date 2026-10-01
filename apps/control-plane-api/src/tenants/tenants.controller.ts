@@ -249,7 +249,7 @@ export class TenantsController {
       body.name,
       body.role,
       body.password,
-      { actorId: req.user?.sub, actorEmail: req.user?.email, ip: req.ip },
+      { actorId: req.user?.userId, actorEmail: req.user?.email, ip: req.ip },
     );
   }
 
@@ -268,7 +268,7 @@ export class TenantsController {
       throw new BadRequestException('Role is required');
     }
     return this.tenantsService.updateMemberRole(tenantId, userId, body.role, {
-      actorId: req.user?.sub,
+      actorId: req.user?.userId,
       actorEmail: req.user?.email,
       ip: req.ip,
     });
@@ -282,7 +282,7 @@ export class TenantsController {
       throw new BadRequestException('Tenant ID is required');
     }
     return this.tenantsService.removeMember(tenantId, userId, {
-      actorId: req.user?.sub,
+      actorId: req.user?.userId,
       actorEmail: req.user?.email,
       ip: req.ip,
     });
