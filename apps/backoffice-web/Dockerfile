@@ -17,7 +17,9 @@ RUN npm run build --filter=backoffice-web
 
 FROM base AS runner
 WORKDIR /app
-COPY --from=installer /app .
+COPY --from=installer --chown=node:node /app .
 WORKDIR /app/apps/backoffice-web
 ENV NODE_ENV=production
-CMD ["npm", "run", "start"]
+EXPOSE 3000
+USER node
+CMD ["node", "/app/node_modules/next/dist/bin/next", "start"]
