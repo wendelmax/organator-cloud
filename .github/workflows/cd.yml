@@ -2,6 +2,12 @@ name: CD / Publish Docker Images
 on:
   push:
     tags: [ "v*.*.*" ]
+  # Valida o workflow de publicação (build sem push) quando ele ou os
+  # Dockerfiles mudam — senão uma quebra só apareceria na próxima release.
+  pull_request:
+    paths:
+      - .github/workflows/cd.yml
+      - apps/*/Dockerfile
 
 jobs:
   docker:
@@ -14,27 +20,31 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Login to GitHub Container Registry
+        if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}/${{ matrix.app }}
+          # v2.2.0 -> 2.2.0 e 2.2 (o chart Helm usa a appVersion sem "v").
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
 
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./apps/${{ matrix.app }}/Dockerfile
-          build-args: |
-            APP_NAME=${{ matrix.app }}
-          push: true
+          push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
