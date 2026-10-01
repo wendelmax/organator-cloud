@@ -119,7 +119,7 @@ describe('DataIsolationService', () => {
         desiredMode: 'SCHEMA',
       }),
       expect.objectContaining({
-        jobId: 'data-isolation:tenant-1:generation:5',
+        jobId: 'data-isolation__tenant-1__generation__5',
       }),
     );
   });

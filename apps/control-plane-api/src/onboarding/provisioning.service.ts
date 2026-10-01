@@ -3,6 +3,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { bullJobId } from '../common/queue';
 
 @Injectable()
 export class ProvisioningService {
@@ -27,7 +28,7 @@ export class ProvisioningService {
         idempotencyKey: key,
         actorId,
       },
-      { jobId: key, removeOnComplete: false },
+      { jobId: bullJobId(key), removeOnComplete: false },
     );
     await this.audit.record({
       actorId,
@@ -44,7 +45,7 @@ export class ProvisioningService {
     const job = await this.queue.add(
       'deprovision-tenant-infra',
       { tenantId, action: 'DEPROVISION', idempotencyKey: key, actorId },
-      { jobId: key, removeOnComplete: false },
+      { jobId: bullJobId(key), removeOnComplete: false },
     );
     await this.audit.record({
       actorId,

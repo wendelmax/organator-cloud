@@ -1,3 +1,4 @@
+import { bullJobId } from '../common/queue';
 import {
   Injectable,
   NotFoundException,
@@ -104,7 +105,19 @@ export class TenantsService {
       changes: { name, plan: plan || 'free', state },
     });
 
-    await this.triggerInfraProvisioning(tenant.id, opts.actorId);
+    try {
+      await this.triggerInfraProvisioning(tenant.id, opts.actorId);
+    } catch (err) {
+      // O tenant já foi criado: a fila indisponível não deve desfazer isso.
+      // O provisionamento pode ser disparado depois ("Provisionar Infra").
+      await this.auditService.record({
+        actorId: opts.actorId ?? null,
+        action: 'tenant.infra_enqueue_failed',
+        resourceType: 'Tenant',
+        resourceId: tenant.id,
+        changes: { error: (err as Error).message },
+      });
+    }
 
     return tenant;
   }
@@ -121,7 +134,7 @@ export class TenantsService {
           plan: tenant.plan,
           actorId,
         },
-        { jobId },
+        { jobId: bullJobId(jobId) },
       );
     }
     return { status: 'QUEUED', tenantId };
@@ -255,7 +268,11 @@ export class TenantsService {
             idempotencyKey,
             actorId,
           },
-          { jobId: idempotencyKey, delay: jobDelay, removeOnComplete: false },
+          {
+            jobId: bullJobId(idempotencyKey),
+            delay: jobDelay,
+            removeOnComplete: false,
+          },
         )
       : { id: undefined };
     await this.auditService.record({
@@ -309,7 +326,7 @@ export class TenantsService {
               actorId,
             },
             {
-              jobId: isoJobId,
+              jobId: bullJobId(isoJobId),
               attempts: 5,
               backoff: { type: 'exponential', delay: 1000 },
             },

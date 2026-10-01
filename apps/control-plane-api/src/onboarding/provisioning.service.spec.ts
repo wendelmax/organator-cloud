@@ -9,9 +9,7 @@ describe('ProvisioningService', () => {
   beforeEach(() => {
     prisma = { deployment: { findUnique: jest.fn().mockResolvedValue(null) } };
     queue = {
-      add: jest.fn((_name, data) =>
-        Promise.resolve({ id: data.idempotencyKey }),
-      ),
+      add: jest.fn((_name, _data, opts) => Promise.resolve({ id: opts.jobId })),
     };
     audit = { record: jest.fn().mockResolvedValue(undefined) };
     service = new ProvisioningService(prisma, queue, audit);
@@ -28,10 +26,10 @@ describe('ProvisioningService', () => {
         idempotencyKey: 'tenant-infra:t1',
         actorId: 'u1',
       },
-      { jobId: 'tenant-infra:t1', removeOnComplete: false },
+      { jobId: 'tenant-infra__t1', removeOnComplete: false },
     );
     expect(result).toEqual({
-      jobId: 'tenant-infra:t1',
+      jobId: 'tenant-infra__t1',
       status: 'QUEUED',
       idempotencyKey: 'tenant-infra:t1',
     });
@@ -71,7 +69,7 @@ describe('ProvisioningService', () => {
         action: 'DEPROVISION',
         idempotencyKey: 'tenant-deprovision:t1',
       }),
-      { jobId: 'tenant-deprovision:t1', removeOnComplete: false },
+      { jobId: 'tenant-deprovision__t1', removeOnComplete: false },
     );
     expect(result.status).toBe('QUEUED');
     expect(audit.record).toHaveBeenCalledWith(

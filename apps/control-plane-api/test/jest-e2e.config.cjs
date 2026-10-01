@@ -1,4 +1,4 @@
-const { base } = require('../jest.config.cjs');
+const base = require('../jest.base.cjs');
 
 /** @type {import('jest').Config} */
 module.exports = {

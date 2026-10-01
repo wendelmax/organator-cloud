@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { APP_FILTER } from '@nestjs/core';
 import { BullModule } from '@nestjs/bullmq';
+import { QueueUnavailableFilter } from './common/queue-unavailable.filter';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TenantsModule } from './tenants/tenants.module';
@@ -26,6 +28,9 @@ import { HealthModule } from './health/health.module';
       connection: {
         host: process.env.REDIS_HOST || 'localhost',
         port: Number(process.env.REDIS_PORT) || 6379,
+        // A API só produz jobs: com o Redis fora, falha na hora (503) em vez
+        // de segurar a requisição indefinidamente na fila offline do ioredis.
+        enableOfflineQueue: false,
       },
     }),
     PrismaModule,
@@ -47,6 +52,9 @@ import { HealthModule } from './health/health.module';
     DataIsolationModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    { provide: APP_FILTER, useClass: QueueUnavailableFilter },
+  ],
 })
 export class AppModule {}

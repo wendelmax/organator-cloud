@@ -1,3 +1,4 @@
+import { bullJobId } from '../common/queue';
 import {
   Injectable,
   BadRequestException,
@@ -134,7 +135,7 @@ export class DataIsolationService {
             actorId,
           },
           {
-            jobId,
+            jobId: bullJobId(jobId),
             attempts: 5,
             backoff: { type: 'exponential', delay: 1000 },
           },
@@ -189,7 +190,7 @@ export class DataIsolationService {
           actorId,
         },
         {
-          jobId,
+          jobId: bullJobId(jobId),
           attempts: 5,
           backoff: { type: 'exponential', delay: 1000 },
         },
