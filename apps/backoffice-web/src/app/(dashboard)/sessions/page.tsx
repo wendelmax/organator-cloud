@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@organator/ui";
+import { publicApiUrl } from "../../../lib/public-env";
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/v1$/, "");
+const API_URL = publicApiUrl();
 
 export default function SessionsPage() {
   const { data: session } = useSession();

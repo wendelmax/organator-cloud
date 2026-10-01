@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { Button, Card, Input } from "@organator/ui";
+import { publicApiUrl } from "../../../lib/public-env";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = publicApiUrl();
 
 export function RegisterClient() {
   const [step, setStep] = useState(1);

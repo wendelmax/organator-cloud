@@ -81,6 +81,8 @@ services:
       - NEXTAUTH_URL=http://localhost:3001
       - NEXTAUTH_SECRET=supersecret_organator_key
       - API_URL=http://control-plane-api:3000
+      # Endereço da API visto pelo navegador (lido em runtime).
+      - PUBLIC_API_URL=http://localhost:3000
     ports:
       - "3001:3000"
     depends_on:

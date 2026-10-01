@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@organator/ui";
 import { TenantInfraStepper } from "../tenants/infra-stepper";
+import { publicApiUrl } from "../../../lib/public-env";
 
 interface DataIsolationView {
   tenantId: string;
@@ -29,7 +30,7 @@ export function DataIsolationCard({ token }: { token?: string }) {
   const [data, setData] = useState<DataIsolationView | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/v1$/, "");
+  const API_URL = publicApiUrl();
 
   useEffect(() => {
     if (!token) return;

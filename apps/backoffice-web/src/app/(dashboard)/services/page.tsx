@@ -1,8 +1,9 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../lib/auth";
 import { ServicesClient } from "./ClientPage";
+import { serverApiUrl } from "../../../lib/public-env";
 
-const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = serverApiUrl();
 
 async function getServices(token: string, tenantId: string) {
   const res = await fetch(`${API_URL}/v1/services/tenant/${tenantId}`, {

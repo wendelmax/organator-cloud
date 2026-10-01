@@ -2,8 +2,9 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "../../../../lib/auth";
 import { PlansClient } from "./ClientPage";
+import { serverApiUrl } from "../../../../lib/public-env";
 
-const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = serverApiUrl();
 
 async function getPlans(token: string) {
   const res = await fetch(`${API_URL}/v1/billing/plans/all`, {

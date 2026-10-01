@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import { Button, Card, CardHeader, CardTitle, CardContent, Modal, Input } from "@organator/ui";
 import { useSession } from "next-auth/react";
+import { publicApiUrl } from "../../../lib/public-env";
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/v1$/, "");
+const API_URL = publicApiUrl();
 
 interface ApiDoc {
   id: string;

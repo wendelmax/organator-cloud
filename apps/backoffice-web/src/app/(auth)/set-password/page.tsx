@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useSession, signIn, getSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { publicApiUrl } from "../../../lib/public-env";
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/v1$/, "");
+const API_URL = publicApiUrl();
 
 function SetPasswordForm() {
   const router = useRouter();

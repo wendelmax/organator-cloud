@@ -10,10 +10,9 @@ import {
   CardContent,
 } from "@organator/ui";
 import { useSession } from "next-auth/react";
+import { publicApiUrl } from "../../../lib/public-env";
 
-const API_URL = (
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
-).replace(/\/v1$/, "");
+const API_URL = publicApiUrl();
 
 export default function BillingPage() {
   const [subscription, setSubscription] = useState<any>(null);

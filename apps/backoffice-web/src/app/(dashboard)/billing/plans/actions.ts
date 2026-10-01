@@ -3,8 +3,9 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../../lib/auth";
 import { revalidatePath } from "next/cache";
+import { serverApiUrl } from "../../../../lib/public-env";
 
-const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = serverApiUrl();
 
 async function requireAdminToken() {
   const session = await getServerSession(authOptions);
