@@ -1,6 +1,9 @@
+import { isIP } from 'node:net';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import { ValidationPipe } from '@nestjs/common';
+import * as classTransformer from 'class-transformer';
+import * as classValidator from 'class-validator';
 import {
   FastifyAdapter,
   NestFastifyApplication,
@@ -12,7 +15,7 @@ export interface SecurityConfig {
   jwtSecret: string;
   encryptionKey: string;
   bodyLimit: number;
-  trustProxy: number | false;
+  trustProxy: string[] | false;
   rateLimit: { max: number; timeWindow: number };
   healthRateLimit: { max: number; timeWindow: number };
 }
@@ -57,7 +60,7 @@ export function readSecurityConfig(
     jwtSecret,
     encryptionKey,
     bodyLimit: 1_048_576,
-    trustProxy: parseTrustProxyHops(env.TRUST_PROXY_HOPS),
+    trustProxy: parseTrustProxy(env.TRUST_PROXY, env.TRUST_PROXY_HOPS),
     rateLimit: {
       max: parsePositiveInt(env.RATE_LIMIT_MAX, 100),
       timeWindow: rateLimitWindow,
@@ -103,6 +106,10 @@ export async function configureAppSecurity(
   });
   app.useGlobalPipes(
     new ValidationPipe({
+      // Pacotes injetados explicitamente: o Nest os resolve a partir do próprio
+      // diretório e derruba o processo se o hoisting do npm os separar.
+      validatorPackage: classValidator,
+      transformerPackage: classTransformer,
       transform: true,
       whitelist: true,
       forbidNonWhitelisted: true,
@@ -150,9 +157,40 @@ function parsePositiveInt(value: string | undefined, fallback: number): number {
   return parsed;
 }
 
-function parseTrustProxyHops(value: string | undefined): number | false {
-  if (!value || value === '0') return false;
-  return parsePositiveInt(value, 1);
+const PROXY_RANGE_NAMES = ['loopback', 'linklocal', 'uniquelocal'];
+
+/**
+ * Proxies confiáveis para X-Forwarded-*. TRUST_PROXY aceita IPs, CIDRs e os
+ * nomes loopback/linklocal/uniquelocal. O Fastify >= 5.12 ignora contagem de
+ * hops (não valida o peer imediato), então TRUST_PROXY_HOPS > 0 — legado —
+ * passa a confiar apenas em proxies de rede privada.
+ */
+function parseTrustProxy(
+  value: string | undefined,
+  legacyHops: string | undefined,
+): string[] | false {
+  if (value !== undefined && value.trim() !== '') {
+    if (value.trim() === 'false') return false;
+    const entries = value
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+    for (const entry of entries) {
+      const [address, prefix] = entry.split('/');
+      const validAddress =
+        PROXY_RANGE_NAMES.includes(entry) || isIP(address) !== 0;
+      const validPrefix = prefix === undefined || /^\d{1,3}$/.test(prefix);
+      if (!validAddress || !validPrefix) {
+        throw new Error(
+          'TRUST_PROXY must list IP addresses, CIDRs or loopback/linklocal/uniquelocal',
+        );
+      }
+    }
+    return entries;
+  }
+  if (!legacyHops || legacyHops === '0') return false;
+  parsePositiveInt(legacyHops, 1);
+  return [...PROXY_RANGE_NAMES];
 }
 
 function isHealthRequest(url: string): boolean {

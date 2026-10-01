@@ -27,11 +27,37 @@ describe('security config — parsing and app wiring', () => {
     });
     expect(cfg.rateLimit).toEqual({ max: 20, timeWindow: 1000 });
     expect(cfg.healthRateLimit).toEqual({ max: 5, timeWindow: 1000 });
-    expect(cfg.trustProxy).toBe(2);
+    // Legado: hops > 0 vira "confiar em proxies de rede privada" (fastify >= 5.12 ignora hops).
+    expect(cfg.trustProxy).toEqual(['loopback', 'linklocal', 'uniquelocal']);
     expect(readSecurityConfig({ TRUST_PROXY_HOPS: '0' }).trustProxy).toBe(
       false,
     );
   });
+
+  it('prefers explicit TRUST_PROXY addresses and CIDRs', () => {
+    expect(
+      readSecurityConfig({
+        TRUST_PROXY: '10.0.0.0/8, 192.168.1.5,::1',
+        TRUST_PROXY_HOPS: '3',
+      }).trustProxy,
+    ).toEqual(['10.0.0.0/8', '192.168.1.5', '::1']);
+    expect(readSecurityConfig({ TRUST_PROXY: 'loopback' }).trustProxy).toEqual([
+      'loopback',
+    ]);
+    expect(
+      readSecurityConfig({ TRUST_PROXY: 'false', TRUST_PROXY_HOPS: '1' })
+        .trustProxy,
+    ).toBe(false);
+  });
+
+  it.each(['*', 'true', 'example.com', '10.0.0.0/abc', '999.1.1.1'])(
+    'rejects invalid TRUST_PROXY %s',
+    (value) => {
+      expect(() => readSecurityConfig({ TRUST_PROXY: value })).toThrow(
+        'TRUST_PROXY',
+      );
+    },
+  );
 
   it.each(['0', '-1', '1.5', 'abc'])('rejects invalid rate limit %s', (v) => {
     expect(() => readSecurityConfig({ RATE_LIMIT_MAX: v })).toThrow(

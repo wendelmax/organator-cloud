@@ -37,8 +37,8 @@ spec:
               value: {{ .Values.controlPlaneApi.env.HEALTH_RATE_LIMIT_MAX | quote }}
             - name: RATE_LIMIT_WINDOW_MS
               value: {{ .Values.controlPlaneApi.env.RATE_LIMIT_WINDOW_MS | quote }}
-            - name: TRUST_PROXY_HOPS
-              value: {{ .Values.controlPlaneApi.env.TRUST_PROXY_HOPS | quote }}
+            - name: TRUST_PROXY
+              value: {{ .Values.controlPlaneApi.env.TRUST_PROXY | quote }}
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
