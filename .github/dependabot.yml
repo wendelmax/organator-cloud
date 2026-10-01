@@ -11,6 +11,14 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # Majors com breaking changes que exigem migração planejada.
+      - dependency-name: prisma
+        update-types: [version-update:semver-major]
+      - dependency-name: "@prisma/client"
+        update-types: [version-update:semver-major]
+      - dependency-name: "@babel/types"
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /
@@ -30,3 +38,7 @@ updates:
     groups:
       base-images:
         patterns: ["*"]
+    ignore:
+      # O runtime segue o "engines" do projeto (Node 24); troca de major é deliberada.
+      - dependency-name: node
+        update-types: [version-update:semver-major]
