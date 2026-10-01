@@ -38,7 +38,7 @@ describe('AppController (e2e)', () => {
       RATE_LIMIT_MAX: '2',
       HEALTH_RATE_LIMIT_MAX: '4',
       RATE_LIMIT_WINDOW_MS: '60000',
-      TRUST_PROXY_HOPS: '1',
+      TRUST_PROXY: 'loopback',
     } as NodeJS.ProcessEnv;
     const security = readSecurityConfig(env);
 

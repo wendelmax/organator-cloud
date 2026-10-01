@@ -64,7 +64,7 @@ describe('readSecurityConfig', () => {
         'https://app.organator.example',
       ],
       bodyLimit: 1_048_576,
-      trustProxy: 2,
+      trustProxy: ['loopback', 'linklocal', 'uniquelocal'],
       rateLimit: { max: 100, timeWindow: 30_000 },
       healthRateLimit: { max: 1_000, timeWindow: 30_000 },
     });

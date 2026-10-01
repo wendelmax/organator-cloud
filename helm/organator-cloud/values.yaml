@@ -31,8 +31,9 @@ controlPlaneApi:
     RATE_LIMIT_MAX: "100"
     HEALTH_RATE_LIMIT_MAX: "1000"
     RATE_LIMIT_WINDOW_MS: "60000"
-    # nginx ingress -> API is one trusted proxy hop.
-    TRUST_PROXY_HOPS: "1"
+    # Trusted reverse proxies for X-Forwarded-For (IPs, CIDRs or loopback,
+    # linklocal, uniquelocal). Narrow this to your ingress pod CIDR if known.
+    TRUST_PROXY: "loopback,linklocal,uniquelocal"
 
 provisionerWorker:
   replicaCount: 1
