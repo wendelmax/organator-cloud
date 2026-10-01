@@ -26,7 +26,7 @@ export class BillingService {
     try {
       const session = await stripe.billingPortal.sessions.create({
         customer: tenant.stripeId,
-        return_url: returnUrl || 'http://localhost:3000/billing',
+        return_url: this.safeReturnUrl(returnUrl),
       });
       return { url: session.url };
     } catch (err: any) {
