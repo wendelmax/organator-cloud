@@ -100,6 +100,12 @@ O que acontece:
   (o rate limit é por IP). `TRUST_PROXY_HOPS` ainda é aceito, mas está
   obsoleto: no Fastify ≥ 5.12 contagem de hops não é suportada e o valor > 0
   passa a significar "proxies de rede privada".
+- **Logs**: em produção a API escreve JSON (uma linha por evento, pronto para
+  Loki/Datadog/CloudWatch) com log de acesso do Fastify. Cada resposta traz
+  `X-Request-Id` (o valor enviado pelo cliente é reaproveitado se for seguro),
+  o mesmo `reqId` dos logs de acesso. Ajuste com `LOG_LEVEL`
+  (`error|warn|info|debug|trace`) e `LOG_FORMAT` (`json|pretty`) via
+  `controlPlaneApi.env`.
 - **Métricas**: o worker expõe Prometheus em `:9464/metrics` (anotações
   `prometheus.io/*` no pod).
 - **Segurança**: todos os containers rodam como usuário não-root (uid 1000),

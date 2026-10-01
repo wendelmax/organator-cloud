@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { IsString } from 'class-validator';
 import { AppController } from './../src/app.controller';
 import { AppService } from './../src/app.service';
+import { registerRequestIdHeader } from './../src/common/logging.config';
 import {
   configureAppSecurity,
   createFastifyAdapter,
@@ -46,12 +47,34 @@ describe('AppController (e2e)', () => {
       createFastifyAdapter(security),
     );
     await configureAppSecurity(app, env);
+    registerRequestIdHeader(app);
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
   });
 
   afterEach(async () => {
     await app.close();
+  });
+
+  it('returns a generated X-Request-Id on every response', async () => {
+    const response = await app.inject({ method: 'GET', url: '/health' });
+    expect(response.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it('propagates a safe client X-Request-Id and replaces an unsafe one', async () => {
+    const kept = await app.inject({
+      method: 'GET',
+      url: '/health',
+      headers: { 'x-request-id': 'trace-abc.123' },
+    });
+    expect(kept.headers['x-request-id']).toBe('trace-abc.123');
+
+    const replaced = await app.inject({
+      method: 'GET',
+      url: '/health',
+      headers: { 'x-request-id': 'bad id with spaces' },
+    });
+    expect(replaced.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
   });
 
   it('/health (GET)', async () => {
