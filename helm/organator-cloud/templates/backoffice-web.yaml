@@ -44,6 +44,11 @@ spec:
             - name: NEXTAUTH_URL
               value: {{ printf "https://%s" .Values.ingress.hosts.web | quote }}
             {{- end }}
+            # Endereço da API visto pelo navegador, lido em runtime pelo painel.
+            {{- if or $values.publicApiUrl .Values.ingress.enabled }}
+            - name: PUBLIC_API_URL
+              value: {{ default (printf "https://%s" .Values.ingress.hosts.api) $values.publicApiUrl | quote }}
+            {{- end }}
             {{- include "organator-cloud.secretEnv" (dict "ctx" . "key" "NEXTAUTH_SECRET") | nindent 12 }}
             {{- with $values.extraEnv }}
             {{- toYaml . | nindent 12 }}

@@ -104,9 +104,8 @@ O que acontece:
   `prometheus.io/*` no pod).
 - **Segurança**: todos os containers rodam como usuário não-root (uid 1000),
   sem escalonamento de privilégio e com todas as capabilities removidas.
-
-## Limitação conhecida
-
-O painel ainda lê `NEXT_PUBLIC_API_URL` no **build** da imagem para as chamadas
-feitas pelo navegador, então imagens pré-construídas apontam para o endereço
-padrão. Isso está sendo migrado para configuração de runtime.
+- **URL da API no painel**: o navegador usa `PUBLIC_API_URL`, lida em runtime
+  (a mesma imagem serve qualquer ambiente). O chart a define como
+  `https://<ingress.hosts.api>`; para outro endereço use
+  `backofficeWeb.publicApiUrl`. As chamadas server-side do painel usam o
+  Service interno da API.
