@@ -75,8 +75,11 @@ export class TenantsService {
         state,
         stateChangedAt: new Date(),
         stripeId: `cus_simulated_${Date.now()}`,
+        // Usuário existente vira OWNER via membership (abaixo): `connect`
+        // trocaria o tenant de origem dele — o admin da plataforma que cria um
+        // tenant pelo painel sairia do tenant da plataforma.
         users: admin
-          ? { connect: { id: admin.id } }
+          ? undefined
           : adminEmail
             ? {
                 create: [
@@ -95,6 +98,19 @@ export class TenantsService {
             : undefined,
       },
     });
+
+    if (admin) {
+      await this.prisma.tenantMembership.upsert({
+        where: { tenantId_userId: { tenantId: tenant.id, userId: admin.id } },
+        create: {
+          tenantId: tenant.id,
+          userId: admin.id,
+          role: 'OWNER',
+          status: 'active',
+        },
+        update: { role: 'OWNER', status: 'active' },
+      });
+    }
 
     await this.auditService.record({
       actorId: opts.actorId ?? null,
