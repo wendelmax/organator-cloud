@@ -356,7 +356,12 @@ describe('AuthService — credentials, sessions and refresh', () => {
       ).resolves.toMatchObject({ success: true });
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: 'u1' },
-        data: { password: 'hash:new-password-1', mustChangePassword: false },
+        data: {
+          password: 'hash:new-password-1',
+          mustChangePassword: false,
+          failedLoginAttempts: 0,
+          loginLockedUntil: null,
+        },
       });
       expect(prisma.userSession.updateMany).toHaveBeenCalledWith({
         where: { userId: 'u1', id: { not: 'cur' }, revokedAt: null },

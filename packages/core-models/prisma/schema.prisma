@@ -190,6 +190,8 @@ model User {
   mfaSecretEncrypted  String?  // segredo TOTP cifrado
   mfaFailedAttempts   Int      @default(0)
   mfaLockedUntil      DateTime?
+  failedLoginAttempts Int      @default(0) // senhas erradas consecutivas
+  loginLockedUntil    DateTime? // bloqueio temporário após excesso de tentativas
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
