@@ -48,7 +48,10 @@ describe('authentication guard', () => {
     await assert.rejects(services.createService(form({ name: 'x' })), /Unauthorized/);
     await assert.rejects(plans.createPlan(form({ name: 'x' })), /Unauthorized/);
     await assert.rejects(plans.togglePlan('pro'), /Unauthorized/);
-    await assert.rejects(tenants.createTenant(form({ name: 'x' })), /Unauthorized/);
+    assert.deepEqual(await tenants.createTenant(form({ name: 'x' })), {
+      success: false,
+      error: 'Sessão expirada. Entre novamente.',
+    });
     await assert.rejects(tenants.addMember(form({ email: 'a@b.c' })), /Unauthorized/);
     await assert.rejects(tenants.removeMember('u2'), /Unauthorized/);
     assert.equal(f.mock.callCount(), 0);
@@ -131,6 +134,20 @@ describe('billing plan actions', () => {
 });
 
 describe('tenant actions', () => {
+  test('createTenant returns a readable error instead of throwing (no error-boundary crash)', async () => {
+    mockFetch(403, { message: 'Forbidden resource' });
+    assert.deepEqual(await tenants.createTenant(form({ name: 'Acme' })), {
+      success: false,
+      error: 'Apenas administradores da plataforma podem criar tenants.',
+    });
+    mockFetch(400, { message: ['name should not be empty'] });
+    assert.deepEqual(await tenants.createTenant(form({ name: '' })), {
+      success: false,
+      error: 'name should not be empty',
+    });
+    assert.deepEqual(revalidated, []);
+  });
+
   test('createTenant uses the session email as the admin and defaults to free', async () => {
     const f = mockFetch();
     await tenants.createTenant(form({ name: 'Acme' }));

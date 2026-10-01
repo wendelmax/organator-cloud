@@ -54,10 +54,13 @@ type Status = "active" | "suspended" | "archived";
 export function TenantsClient({
   initialTenants,
   initialMembers = [],
+  canCreateTenant = false,
 }: {
   initialTenants: Tenant[];
   initialMembers?: Member[];
+  canCreateTenant?: boolean;
 }) {
+  const [createTenantError, setCreateTenantError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"tenants" | "members">("tenants");
   const [members, setMembers] = useState<Member[]>(initialMembers);
   const [isTenantModalOpen, setIsTenantModalOpen] = useState(false);
@@ -87,8 +90,13 @@ export function TenantsClient({
   };
 
   async function handleCreateTenant(formData: FormData) {
+    setCreateTenantError(null);
     startTransition(async () => {
-      await createTenant(formData);
+      const result = await createTenant(formData);
+      if (!result.success) {
+        setCreateTenantError(result.error);
+        return;
+      }
       setIsTenantModalOpen(false);
       await refreshTenants();
     });
@@ -254,7 +262,9 @@ export function TenantsClient({
                 Gerencie as organizações isoladas do seu SaaS.
               </p>
             </div>
-            <Button onClick={() => setIsTenantModalOpen(true)}>Novo Tenant</Button>
+            {canCreateTenant && (
+              <Button onClick={() => setIsTenantModalOpen(true)}>Novo Tenant</Button>
+            )}
           </div>
 
           <Card>
@@ -510,6 +520,11 @@ export function TenantsClient({
             <label className="text-sm font-medium text-neutral-200">Subdomínio</label>
             <Input name="slug" required placeholder="Ex: acme" />
           </div>
+          {createTenantError && (
+            <p role="alert" className="text-sm text-red-400">
+              {createTenantError}
+            </p>
+          )}
           <div className="pt-4 flex justify-end gap-2">
             <Button variant="ghost" type="button" onClick={() => setIsTenantModalOpen(false)}>
               Cancelar

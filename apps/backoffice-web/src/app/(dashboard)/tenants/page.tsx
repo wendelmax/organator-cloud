@@ -28,5 +28,13 @@ export default async function TenantsPage() {
   const token = (session as any)?.accessToken;
   const tenants = token ? await getTenants(token) : [];
   const members = token ? await getMembers(token) : [];
-  return <TenantsClient initialTenants={tenants} initialMembers={members} />;
+  // Criar tenants é exclusivo do admin da plataforma (POST /v1/tenants).
+  const canCreateTenant = (session as any)?.user?.role === "PLATFORM_ADMIN";
+  return (
+    <TenantsClient
+      initialTenants={tenants}
+      initialMembers={members}
+      canCreateTenant={canCreateTenant}
+    />
+  );
 }

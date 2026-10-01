@@ -7,10 +7,16 @@ import { serverApiUrl } from "../../../lib/public-env";
 
 const API_URL = serverApiUrl();
 
-export async function createTenant(formData: FormData) {
+/**
+ * Retorna o erro em vez de lançar: em produção o Next.js oculta a mensagem de
+ * exceções de server actions e a página inteira cai no error boundary.
+ */
+export async function createTenant(
+  formData: FormData,
+): Promise<{ success: true } | { success: false; error: string }> {
   const session = await getServerSession(authOptions);
   const token = (session as any)?.accessToken;
-  if (!token) throw new Error("Unauthorized");
+  if (!token) return { success: false, error: "Sessão expirada. Entre novamente." };
 
   const payload = {
     name: formData.get("name"),
@@ -28,7 +34,12 @@ export async function createTenant(formData: FormData) {
   });
 
   if (!res.ok) {
-    throw new Error("Failed to create tenant");
+    const data = await res.json().catch(() => ({}));
+    const message =
+      res.status === 403
+        ? "Apenas administradores da plataforma podem criar tenants."
+        : data.message || "Não foi possível criar o tenant.";
+    return { success: false, error: Array.isArray(message) ? message.join(", ") : message };
   }
 
   revalidatePath("/tenants");
