@@ -50,11 +50,7 @@ export default function DashboardLayout({
     if (res.ok) {
       const data = await res.json();
       const selected = tenants.find((item) => item.tenant.id === tenantId);
-      await update({
-        accessToken: data.access_token,
-        tenantId,
-        role: selected?.role,
-      });
+      await update({ accessToken: data.access_token });
       if (selected) router.push(`/org/${selected.tenant.slug}/settings`);
     }
     setSwitching(false);
