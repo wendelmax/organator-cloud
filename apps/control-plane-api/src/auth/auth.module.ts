@@ -6,7 +6,6 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { OidcStrategy } from './oidc.strategy';
 import { MfaService } from './mfa.service';
-import { PrismaService } from '../prisma/prisma.service';
 
 import { RolesGuard } from './roles.guard';
 import { AuditModule } from '../audit/audit.module';
@@ -35,7 +34,6 @@ export const jwtConstants = {
     OidcStrategy,
     MfaService,
     MfaPolicyService,
-    PrismaService,
     RolesGuard,
   ],
   exports: [AuthService, RolesGuard, MfaService],
