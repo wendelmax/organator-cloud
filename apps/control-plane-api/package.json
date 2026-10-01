@@ -20,7 +20,7 @@
     "test:watch": "npm test -- --watch",
     "test:cov": "npm test -- --coverage",
     "test:debug": "node --inspect-brk --experimental-vm-modules scripts/jest.cjs --runInBand",
-    "test:e2e": "node --experimental-vm-modules scripts/jest.cjs --config ./test/jest-e2e.json"
+    "test:e2e": "node --experimental-vm-modules scripts/jest.cjs --config ./test/jest-e2e.config.cjs"
   },
   "dependencies": {
     "@fastify/helmet": "^13.1.0",
@@ -85,25 +85,5 @@
     "tsconfig-paths": "^4.2.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.66.0"
-  },
-  "jest": {
-    "moduleFileExtensions": [
-      "js",
-      "json",
-      "ts"
-    ],
-    "rootDir": "src",
-    "modulePaths": [
-      "<rootDir>/../../../node_modules"
-    ],
-    "testRegex": ".*\\.spec\\.ts$",
-    "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
-    },
-    "collectCoverageFrom": [
-      "**/*.(t|j)s"
-    ],
-    "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
   }
 }
