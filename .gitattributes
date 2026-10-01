@@ -1,0 +1,20 @@
+# Texto sempre em LF no repositório e no working tree, em qualquer SO.
+# Alinha com o Prettier (endOfLine: lf) e evita que `eslint --fix`/formatadores
+# marquem arquivos como modificados no Windows (core.autocrlf=true).
+* text=auto eol=lf
+
+# Scripts do Windows mantêm CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binários
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.tgz binary
