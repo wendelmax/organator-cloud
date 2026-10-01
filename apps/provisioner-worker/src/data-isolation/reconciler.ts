@@ -1,6 +1,7 @@
 import type {
   IsolationAdapter,
   IsolationContext,
+  IsolationManifest,
   IsolationPhase,
   TargetResources,
   DataIsolationMode,
@@ -19,10 +20,23 @@ export interface ReconcilePayload {
 
 export type ReconcileResultStatus = 'SUCCESS' | 'STALE' | 'FAILED';
 
+/** IDs de recursos da origem: gravados no cutover espalhados em resourceState. */
+function sourceResourceIds(state: Record<string, unknown>): Record<string, string> {
+  if (state.resourceIds && typeof state.resourceIds === 'object') {
+    return state.resourceIds as Record<string, string>;
+  }
+  const ids: Record<string, string> = {};
+  for (const key of ['schema', 'database', 'role']) {
+    if (typeof state[key] === 'string' && state[key]) ids[key] = state[key] as string;
+  }
+  return ids;
+}
+
 export async function reconcileDataIsolation(
   repository: IsolationRepository,
   adapter: IsolationAdapter,
   payload: ReconcilePayload,
+  manifest: IsolationManifest,
 ): Promise<{ status: ReconcileResultStatus; message?: string }> {
   return repository.withTenantLock(payload.tenantId, async () => {
     const snapshot = await repository.load(payload.tenantId);
@@ -45,23 +59,13 @@ export async function reconcileDataIsolation(
         database: (snapshot.resourceState.database as string) || '',
         schema: (snapshot.resourceState.schema as string) || 'public',
         role: (snapshot.resourceState.role as string) || '',
-        resourceIds: (snapshot.resourceState.resourceIds as Record<string, string>) || {},
+        resourceIds: sourceResourceIds(snapshot.resourceState),
       } : null,
       sourceConnection: snapshot.encryptedConnection ? {
         id: (snapshot.resourceState.activeConnectionReference as string) || '',
         mode: snapshot.activeIsolation || 'SHARED',
       } : null,
-      manifest: {
-        apiVersion: 'organator.io/v1alpha1',
-        product: 'organator-cloud',
-        tenantScopedTables: [
-          { schema: 'public', table: 'users', tenantColumn: 'tenant_id', primaryKey: 'id' },
-        ],
-        async applyMigrations() {},
-        async validate() {
-          return { rowCounts: {}, checksums: {}, validatedAt: new Date().toISOString() };
-        },
-      },
+      manifest,
       resolveConnection: async () => '',
       storeConnection: async (input) => ({
         reference: { id: `${input.mode}:${payload.tenantId}:${payload.generation}`, mode: input.mode },

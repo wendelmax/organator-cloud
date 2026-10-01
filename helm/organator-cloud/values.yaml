@@ -81,6 +81,21 @@ controlPlaneApi:
   # Variáveis adicionais (ex.: STRIPE_SECRET_KEY via secretKeyRef).
   extraEnv: []
 
+# Isolamento de dados por tenant (SHARED/SCHEMA/DATABASE) no data plane do seu
+# produto. Veja docs/runbooks/data-plane-isolation.md.
+dataIsolation:
+  enabled: false
+  # Secret com a connection string do Postgres do DATA PLANE (privilégio de
+  # CREATE ROLE/DATABASE). Obrigatório com enabled=true.
+  adminUrlSecret:
+    name: ""
+    key: DATA_ISOLATION_ADMIN_URL
+  # Tabelas do produto com escopo de tenant.
+  # Ex.: - table: orders
+  #      - { table: invoices, tenantColumn: account_id }
+  tables: []
+  rollbackHours: 24
+
 provisionerWorker:
   replicaCount: 1
   image:

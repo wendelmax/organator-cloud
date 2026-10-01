@@ -111,7 +111,11 @@ describe('Isolation transitions (integration)', { skip: !TEST_URL ? 'TEST_DATABA
     );
     await admin.query(`DROP DATABASE IF EXISTS "${dbA}"`);
     await admin.query(`DROP TABLE IF EXISTS public.orders`);
-    for (const role of [schemaRole, dbRole]) {
+    const sharedRoleB = tenantRoleName(tenantB, 'SHARED');
+    if (await admin.schemaExists('organator_guard')) {
+      await admin.query('DELETE FROM organator_guard.tenant_roles WHERE role_name = $1', [sharedRoleB]);
+    }
+    for (const role of [schemaRole, dbRole, sharedRoleB]) {
       const exists = await admin.query<{ exists: boolean }>(
         'SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname = $1) AS exists',
         [role],
@@ -224,6 +228,33 @@ describe('Isolation transitions (integration)', { skip: !TEST_URL ? 'TEST_DATABA
 
     const rows = await queryAs<{ id: string }>(databaseUrl, 'SELECT id FROM public.orders ORDER BY id');
     assert.deepEqual(rows.map((r) => r.id), ['a1', 'a2']);
+  });
+
+  test('SHARED target enforces row-level security for the tenant role', async () => {
+    const ctxB: IsolationContext = { ...context('SHARED', sharedSource, 'SHARED'), tenantId: tenantB, source: null, sourceMode: null };
+    await adapter.prepareTarget(ctxB);
+    const url = new URL(stored.SHARED);
+    assert.equal(url.username, tenantRoleName(tenantB, 'SHARED'));
+
+    const client = new pg.Client({ connectionString: url.toString() });
+    await client.connect();
+    try {
+      // Sem app.tenant_id a política não libera nenhuma linha.
+      assert.equal((await client.query('SELECT id FROM public.orders')).rowCount, 0);
+      await client.query('BEGIN');
+      await client.query(`SELECT set_config('app.tenant_id', $1, true)`, [tenantB]);
+      const own = await client.query<{ id: string }>('SELECT id FROM public.orders ORDER BY id');
+      assert.deepEqual(own.rows.map((r) => r.id), ['b1', 'b2']);
+      await client.query('COMMIT');
+
+      // Outro tenant no contexto não expõe dados (a política exige o role mapeado).
+      await client.query('BEGIN');
+      await client.query(`SELECT set_config('app.tenant_id', $1, true)`, [tenantA]);
+      assert.equal((await client.query('SELECT id FROM public.orders')).rowCount, 0);
+      await client.query('COMMIT');
+    } finally {
+      await client.end();
+    }
   });
 
   test('compensate drops the dedicated database and its role', async () => {

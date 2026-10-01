@@ -1,4 +1,4 @@
-import { PostgresAdmin, quoteIdentifier } from './admin.js';
+import { PostgresAdmin, quoteIdentifier, quoteName } from './admin.js';
 import { IsolationError } from '../identifiers.js';
 import type { TenantScopedTable, TargetResources, ConnectionReference, StoredConnection } from '../types.js';
 
@@ -77,30 +77,31 @@ export async function provisionSharedIsolation(
       );
     }
 
-    const qualifiedTable = `"${table.schema}"."${table.table}"`;
+    const qualifiedTable = `${quoteName(table.schema)}.${quoteName(table.table)}`;
+    const tenantColumn = quoteName(table.tenantColumn);
 
     // Enable and force RLS
     await admin.query(`ALTER TABLE ${qualifiedTable} ENABLE ROW LEVEL SECURITY`);
     await admin.query(`ALTER TABLE ${qualifiedTable} FORCE ROW LEVEL SECURITY`);
 
     // Create the policy
-    const policyName = `org_tenant_isolation_${table.table}`;
-    await admin.query(`DROP POLICY IF EXISTS "${policyName}" ON ${qualifiedTable}`);
+    const policyName = quoteName(`org_tenant_isolation_${table.table}`);
+    await admin.query(`DROP POLICY IF EXISTS ${policyName} ON ${qualifiedTable}`);
     await admin.query(`
-      CREATE POLICY "${policyName}" ON ${qualifiedTable}
+      CREATE POLICY ${policyName} ON ${qualifiedTable}
       FOR ALL
       USING (
-        ${table.tenantColumn} = organator_guard.tenant_for_role(session_user)
-        AND ${table.tenantColumn} = current_setting('app.tenant_id', true)
+        ${tenantColumn} = organator_guard.tenant_for_role(session_user)
+        AND ${tenantColumn} = current_setting('app.tenant_id', true)
       )
       WITH CHECK (
-        ${table.tenantColumn} = organator_guard.tenant_for_role(session_user)
-        AND ${table.tenantColumn} = current_setting('app.tenant_id', true)
+        ${tenantColumn} = organator_guard.tenant_for_role(session_user)
+        AND ${tenantColumn} = current_setting('app.tenant_id', true)
       )
     `);
 
     // Grant privileges to tenant role
-    await admin.query(`GRANT USAGE ON SCHEMA "${table.schema}" TO ${safeRole}`);
+    await admin.query(`GRANT USAGE ON SCHEMA ${quoteName(table.schema)} TO ${safeRole}`);
     await admin.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ${qualifiedTable} TO ${safeRole}`);
   }
 

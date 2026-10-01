@@ -48,6 +48,21 @@ spec:
             {{- include "organator-cloud.databaseEnv" . | nindent 12 }}
             {{- include "organator-cloud.redisEnv" . | nindent 12 }}
             {{- include "organator-cloud.secretEnv" (dict "ctx" . "key" "ENCRYPTION_KEY") | nindent 12 }}
+            {{- with .Values.dataIsolation }}
+            - name: DATA_ISOLATION_ENABLED
+              value: {{ .enabled | toString | quote }}
+            {{- if .enabled }}
+            - name: DATA_ISOLATION_ADMIN_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "dataIsolation.adminUrlSecret.name é obrigatório com dataIsolation.enabled=true" .adminUrlSecret.name }}
+                  key: {{ .adminUrlSecret.key }}
+            - name: DATA_ISOLATION_TABLES
+              value: {{ required "dataIsolation.tables é obrigatório com dataIsolation.enabled=true" .tables | toJson | quote }}
+            - name: DATA_ISOLATION_ROLLBACK_HOURS
+              value: {{ .rollbackHours | quote }}
+            {{- end }}
+            {{- end }}
             {{- with $values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
