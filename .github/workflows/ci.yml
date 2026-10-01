@@ -149,6 +149,7 @@ jobs:
             -e JWT_SECRET="$(openssl rand -hex 32)" \
             -e ENCRYPTION_KEY="$(openssl rand -hex 32)" \
             -e CORS_ORIGINS=https://admin.example.com \
+            -e API_DOCS_ENABLED=true \
             organator/control-plane-api:ci
           for i in $(seq 1 30); do
             if curl -fsS http://localhost:3001/health/ready; then exit 0; fi
@@ -156,6 +157,22 @@ jobs:
           done
           docker logs api
           exit 1
+
+      - name: Production logs are JSON
+        run: |
+          docker logs api 2>&1 | head -20
+          docker logs api 2>&1 | grep -m1 '"context"' | python3 -c 'import json,sys; json.loads(sys.stdin.readline())'
+
+      - name: Export and validate the OpenAPI document
+        run: |
+          curl -fsS http://localhost:3001/docs/openapi.json -o openapi.json
+          npx --yes @apidevtools/swagger-cli@4.0.4 validate openapi.json
+          python3 -c 'import json; s=json.load(open("openapi.json")); print(len(s["paths"]), "paths")'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openapi
+          path: openapi.json
 
   helm:
     runs-on: ubuntu-latest

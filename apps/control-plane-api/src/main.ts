@@ -1,4 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { NestFactory } from '@nestjs/core';
+import { apiDocsEnabled, setupApiDocs } from './common/openapi';
 import { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module';
 import {
@@ -23,6 +26,10 @@ async function bootstrap() {
 
   await configureAppSecurity(app);
   registerRequestIdHeader(app);
+  if (apiDocsEnabled()) {
+    // UI em /docs e especificação em /docs/openapi.json (e .yaml).
+    setupApiDocs(app, readPackageVersion());
+  }
   // SIGTERM/SIGINT: fecha o servidor HTTP e roda onModuleDestroy (Prisma, Redis, filas).
   app.enableShutdownHooks();
 
@@ -39,6 +46,17 @@ bootstrap().catch((err: unknown) => {
   );
   process.exit(1);
 });
+
+function readPackageVersion(): string {
+  try {
+    const pkg = JSON.parse(
+      readFileSync(join(__dirname, '..', 'package.json'), 'utf8'),
+    ) as { version?: string };
+    return pkg.version ?? '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+}
 
 function readLoggingConfigSafe() {
   try {
