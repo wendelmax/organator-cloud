@@ -86,7 +86,8 @@ export async function encryptSecretAsync(text: string): Promise<string> {
   const keyHex = resolveEncryptionKey();
   return Tasklets.run(
     (value: string, key: string) => {
-      const cryptoLib = require('crypto');
+      // new Function() no worker não tem `require` no escopo; usa o loader global de builtins (Node >= 22.3).
+      const cryptoLib: typeof crypto = (process as any).getBuiltinModule('crypto');
       const algo = 'aes-256-gcm';
       const derived =
         key.length === 64
@@ -112,7 +113,8 @@ export async function decryptSecretAsync(encryptedText: string): Promise<string>
   const keyHex = resolveEncryptionKey();
   return Tasklets.run(
     (value: string, key: string) => {
-      const cryptoLib = require('crypto');
+      // new Function() no worker não tem `require` no escopo; usa o loader global de builtins (Node >= 22.3).
+      const cryptoLib: typeof crypto = (process as any).getBuiltinModule('crypto');
       const parts = value.split(':');
       if (parts.length !== 3) return value;
       const [ivHex, authTagHex, encryptedHex] = parts;
