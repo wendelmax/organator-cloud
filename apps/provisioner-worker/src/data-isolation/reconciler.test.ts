@@ -2,6 +2,7 @@ import test, { describe, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { IsolationError } from '@organator/data-isolation';
 import { reconcileDataIsolation, ReconcilePayload } from './reconciler.js';
+import { buildManifest } from './config.js';
 import type { IsolationSnapshot } from './repository.js';
 
 type Call = [string, any?];
@@ -53,6 +54,8 @@ const snapshot = (overrides: Partial<IsolationSnapshot> = {}): IsolationSnapshot
   ...overrides,
 });
 
+const manifest = buildManifest([{ schema: 'public', table: 'orders', tenantColumn: 'tenant_id', primaryKey: 'id' }]);
+
 const payload: ReconcilePayload = { apiVersion: 'v1', tenantId: 't1', generation: 2, desiredMode: 'SCHEMA', deploymentId: 'dep-1' };
 
 describe('reconcileDataIsolation', () => {
@@ -62,7 +65,7 @@ describe('reconcileDataIsolation', () => {
   });
 
   test('runs every phase in order under the tenant lock and cuts over', async () => {
-    const result = await reconcileDataIsolation(makeRepository(snapshot(), calls), makeAdapter(calls), payload);
+    const result = await reconcileDataIsolation(makeRepository(snapshot(), calls), makeAdapter(calls), payload, manifest);
 
     assert.deepEqual(result, { status: 'SUCCESS' });
     assert.deepEqual(calls[0], ['lock', 't1']);
@@ -86,20 +89,20 @@ describe('reconcileDataIsolation', () => {
   });
 
   test('fails when the tenant has no data plane', async () => {
-    const result = await reconcileDataIsolation(makeRepository(null, calls), makeAdapter(calls), payload);
+    const result = await reconcileDataIsolation(makeRepository(null, calls), makeAdapter(calls), payload, manifest);
     assert.equal(result.status, 'FAILED');
     assert.ok(!calls.some(([k]) => k.startsWith('adapter.')));
   });
 
   test('skips stale jobs whose generation does not match', async () => {
-    const result = await reconcileDataIsolation(makeRepository(snapshot({ generation: 3 }), calls), makeAdapter(calls), payload);
+    const result = await reconcileDataIsolation(makeRepository(snapshot({ generation: 3 }), calls), makeAdapter(calls), payload, manifest);
     assert.equal(result.status, 'STALE');
     assert.ok(!calls.some(([k]) => k === 'checkpoint' || k.startsWith('adapter.')));
   });
 
   for (const failAt of ['applyMigrations', 'copyData', 'validate']) {
     test(`compensates the target and records failure when ${failAt} fails`, async () => {
-      const result = await reconcileDataIsolation(makeRepository(snapshot(), calls), makeAdapter(calls, failAt), payload);
+      const result = await reconcileDataIsolation(makeRepository(snapshot(), calls), makeAdapter(calls, failAt), payload, manifest);
 
       assert.deepEqual(result, { status: 'FAILED', message: 'copy failed' });
       assert.ok(calls.some(([k]) => k === 'adapter.compensate'));
@@ -111,20 +114,20 @@ describe('reconcileDataIsolation', () => {
   }
 
   test('does not compensate when prepareTarget fails (nothing to clean up)', async () => {
-    await reconcileDataIsolation(makeRepository(snapshot(), calls), makeAdapter(calls, 'prepareTarget'), payload);
+    await reconcileDataIsolation(makeRepository(snapshot(), calls), makeAdapter(calls, 'prepareTarget'), payload, manifest);
     assert.ok(!calls.some(([k]) => k === 'adapter.compensate'));
     assert.equal(calls.find(([k]) => k === 'fail')![1].phase, 'PROVISION_TARGET');
   });
 
   test('does not compensate a failure during cutover', async () => {
-    await reconcileDataIsolation(makeRepository(snapshot(), calls), makeAdapter(calls, 'activate'), payload);
+    await reconcileDataIsolation(makeRepository(snapshot(), calls), makeAdapter(calls, 'activate'), payload, manifest);
     assert.ok(!calls.some(([k]) => k === 'adapter.compensate'));
     assert.equal(calls.find(([k]) => k === 'fail')![1].phase, 'CUTOVER');
   });
 
   test('never persists raw errors that may carry credentials', async () => {
     const leaky = new Error('connect failed postgresql://admin:hunter2@db:5432/x');
-    await reconcileDataIsolation(makeRepository(snapshot(), calls), makeAdapter(calls, 'copyData', leaky), payload);
+    await reconcileDataIsolation(makeRepository(snapshot(), calls), makeAdapter(calls, 'copyData', leaky), payload, manifest);
 
     const persisted = JSON.stringify(calls.filter(([k]) => k === 'fail' || k === 'audit'));
     assert.ok(!persisted.includes('hunter2'));
@@ -133,7 +136,7 @@ describe('reconcileDataIsolation', () => {
 
   test('redacts connection strings inside IsolationError messages', async () => {
     const err = new IsolationError('ISOLATION_COPY_FAILED' as any, 'failed on postgresql://u:p@h/db');
-    const result = await reconcileDataIsolation(makeRepository(snapshot(), calls), makeAdapter(calls, 'copyData', err), payload);
+    const result = await reconcileDataIsolation(makeRepository(snapshot(), calls), makeAdapter(calls, 'copyData', err), payload, manifest);
     assert.ok(!result.message!.includes('u:p@h'));
     assert.match(result.message!, /\[REDACTED\]/);
   });
@@ -145,11 +148,11 @@ describe('reconcileDataIsolation', () => {
       captured = ctx;
       return { mode: 'DATABASE', resourceIds: {} };
     };
-    await reconcileDataIsolation(makeRepository(snapshot(), calls), adapter, { ...payload, desiredMode: 'DATABASE' });
+    await reconcileDataIsolation(makeRepository(snapshot(), calls), adapter, { ...payload, desiredMode: 'DATABASE' }, manifest);
 
     assert.equal(captured.sourceMode, 'SHARED');
     assert.equal(captured.targetMode, 'DATABASE');
-    assert.deepEqual(captured.source, { mode: 'SHARED', database: 'organator', schema: 'public', role: '', resourceIds: {} });
+    assert.deepEqual(captured.source, { mode: 'SHARED', database: 'organator', schema: 'public', role: '', resourceIds: { database: 'organator' } });
     assert.deepEqual(captured.sourceConnection, { id: 'ref-1', mode: 'SHARED' });
   });
 
@@ -164,6 +167,7 @@ describe('reconcileDataIsolation', () => {
       makeRepository(snapshot({ activeIsolation: null, encryptedConnection: null }), calls),
       adapter,
       payload,
+      manifest,
     );
     assert.equal(captured.source, null);
     assert.equal(captured.sourceConnection, null);

@@ -16,11 +16,20 @@ Plan defaults:
 
 ## Environment Variables
 
+Read by the `provisioner-worker`, validated at startup (the worker refuses to boot when enabled but misconfigured).
+
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATA_ISOLATION_ENABLED` | `false` | Feature flag. When `false`, microservice deployments skip data plane connection enforcement. |
-| `DATA_ISOLATION_ADMIN_URL` | `postgresql://organator:password@localhost:5433/organator_db` | Administrative PostgreSQL connection string with DDL privileges. |
+| `DATA_ISOLATION_ENABLED` | `false` | Feature flag. When not `true`, reconciliation jobs are marked `SKIPPED` without touching any database. |
+| `DATA_ISOLATION_ADMIN_URL` | — (required when enabled) | Connection string of the **data plane** PostgreSQL (where your product's tenant data lives), with `CREATE ROLE`/`CREATE DATABASE` privileges. Keep it separate from the control plane database in production. |
+| `DATA_ISOLATION_TABLES` | — (required when enabled) | JSON array of tenant-scoped tables, e.g. `[{"table":"orders"},{"schema":"app","table":"invoices","tenantColumn":"account_id","primaryKey":"invoice_id"}]`. `schema`, `tenantColumn` and `primaryKey` default to `public`, `tenant_id` and `id`. Names must be plain SQL identifiers. |
 | `DATA_ISOLATION_ROLLBACK_HOURS` | `24` | Retention window (in hours) before source resources are eligible for automatic cleanup. |
+
+### How tenant tables are created
+
+The shared (SHARED mode) tables are the template. When a tenant moves to `SCHEMA` or `DATABASE`, the worker creates the tables in the target from that template — `LIKE ... INCLUDING ALL` inside the same database, or a column/default/NOT NULL/primary-key/identity copy into a dedicated database — copies the tenant's rows, advances identity sequences past the copied ids and validates row counts and checksums before cutover. Custom types (enums, domains) used by these tables must also exist in the target database.
+
+Each mode gets its own tenant role (`SHARED` keeps the original role name), so preparing the target never invalidates the tenant's active connection and cleaning up the source never drops the role in use.
 
 ## Operations & Commands
 

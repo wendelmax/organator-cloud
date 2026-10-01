@@ -9,6 +9,15 @@ import { handleBackupTenantInfra, handleRestoreTenantInfra, handleCloneTenantEnv
 import { handleCollectTenantMetrics, handlePromoteTenantEnvironment } from './data-isolation/health-metrics-handler.js';
 import { handleDeployRollout } from './infrastructure/rollout-handler.js';
 import { createDeployLogger, handleDeployMicroservice } from './deploy/deploy-microservice.js';
+import { loadDataIsolationConfig } from './data-isolation/config.js';
+
+// Falha no boot se o isolamento de dados estiver ligado e mal configurado.
+const dataIsolation = loadDataIsolationConfig();
+console.log(
+  dataIsolation.enabled
+    ? `[Data Isolation] Habilitado: ${dataIsolation.tables.length} tabela(s) com escopo de tenant`
+    : '[Data Isolation] Desabilitado (DATA_ISOLATION_ENABLED != true): reconciliações serão ignoradas',
+);
 
 const prisma = new PrismaClient();
 const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
