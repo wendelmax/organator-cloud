@@ -1,4 +1,4 @@
 # Commits só de formatação/fim de linha, ignorados pelo git blame:
 #   git config blame.ignoreRevsFile .git-blame-ignore-revs
-# chore: normalize line endings to LF
-f0d40aea9c6e8efc281a2c9b870ceb8ee49511e7
+# chore: normalize line endings to LF (#162)
+265e61bfec7dff7202636ef112b6694e69092f3b
