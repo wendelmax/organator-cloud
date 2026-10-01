@@ -1,7 +1,10 @@
 version: 2
 updates:
-  # Monorepo npm (workspaces): um PR semanal agrupado para minor/patch e PRs
-  # separados para majors. Atualizações de segurança chegam imediatamente.
+  # Monorepo npm (workspaces): um PR semanal agrupado para minor/patch.
+  # Majors (Nest, Next, TypeScript, Prisma, ESLint...) precisam ser atualizados
+  # em conjunto e deliberadamente, então não são propostos automaticamente.
+  # Vulnerabilidades sem correção na major atual são barradas pelo
+  # `npm audit` do CI.
   - package-ecosystem: npm
     directory: /
     schedule:
@@ -12,12 +15,7 @@ updates:
       minor-and-patch:
         update-types: [minor, patch]
     ignore:
-      # Majors com breaking changes que exigem migração planejada.
-      - dependency-name: prisma
-        update-types: [version-update:semver-major]
-      - dependency-name: "@prisma/client"
-        update-types: [version-update:semver-major]
-      - dependency-name: "@babel/types"
+      - dependency-name: "*"
         update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
