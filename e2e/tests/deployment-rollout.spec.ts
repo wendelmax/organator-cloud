@@ -1,8 +1,10 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from "@playwright/test";
 
-test.describe('Deployment Strategies & Telemetry Suite', () => {
-  test('renders telemetry dashboard controls', async ({ page }) => {
-    await page.goto('/settings');
-    await expect(page.getByText('Configurações')).toBeVisible();
+test.describe("Catálogo de serviços (deploys)", () => {
+  test("owner acessa o catálogo e o formulário de registro de serviço", async ({ page }) => {
+    await page.goto("/services");
+    await expect(page.getByRole("heading", { name: "Catálogo de Serviços" })).toBeVisible();
+    await page.getByRole("button", { name: "Registrar Serviço" }).click();
+    await expect(page.locator('select[name="cloudProvider"]')).toBeVisible();
   });
 });

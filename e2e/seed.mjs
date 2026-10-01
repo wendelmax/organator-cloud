@@ -15,6 +15,8 @@ const prisma = new PrismaClient();
 export const E2E_USERS = {
   admin: { email: 'admin@organator.app', password: 'Temp1234!' },
   owner: { email: 'owner@organator.app', password: 'Owner1234!' },
+  // Admin da plataforma pronto para uso (sem troca de senha pendente).
+  ops: { email: 'ops@organator.app', password: 'Ops12345!' },
 };
 
 const PLANS = [
@@ -61,6 +63,13 @@ async function main() {
     role: 'PLATFORM_ADMIN',
     tenantId: platform.id,
     mustChangePassword: true,
+  });
+
+  await upsertUser(E2E_USERS.ops, {
+    name: 'Platform Ops',
+    role: 'PLATFORM_ADMIN',
+    tenantId: platform.id,
+    mustChangePassword: false,
   });
 
   const acme = await upsertTenant('acme', 'Acme Corp', 'pro');
