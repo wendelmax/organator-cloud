@@ -12,12 +12,6 @@ import type {
   ValidationEvidence,
 } from '../types.js';
 
-const TEST_URL = process.env.TEST_DATABASE_URL;
-
-describe('Migration transitions', { skip: !TEST_URL ? 'TEST_DATABASE_URL not set' : undefined }, () => {
-  // Integration tests would go here with real DB
-});
-
 describe('Adapter validation and activation logic (unit)', () => {
   test('activate throws without prior validation', async () => {
     const adapter = new PostgresIsolationAdapter({

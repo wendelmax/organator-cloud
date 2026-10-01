@@ -5,6 +5,8 @@ import type { TenantScopedTable, TargetResources, ConnectionReference, StoredCon
 export interface SharedProvisionResult {
   role: string;
   resources: TargetResources;
+  /** Conexão do tenant (credenciais do role do tenant). */
+  connection: StoredConnection;
 }
 
 export async function provisionSharedIsolation(
@@ -13,7 +15,6 @@ export async function provisionSharedIsolation(
   role: string,
   tables: TenantScopedTable[],
   storeConnection: (input: { tenantId: string; mode: 'SHARED'; url: string }) => Promise<StoredConnection>,
-  adminUrl: string,
 ): Promise<SharedProvisionResult> {
   // 1. Create the guard schema and mapping table
   await admin.query(`CREATE SCHEMA IF NOT EXISTS organator_guard`);
@@ -38,24 +39,11 @@ export async function provisionSharedIsolation(
     $$
   `);
 
-  // 3. Create the tenant role (if not exists)
+  // 3. Tenant role (senha rotacionada se já existir) e conexão do tenant.
+  //    A senha em claro só passa pelo callback storeConnection.
   const safeRole = quoteIdentifier(role);
-  if (!(await admin.roleExists(role))) {
-    // Generate a secure password using PostgreSQL format() for safety
-    const { randomBytes } = await import('node:crypto');
-    const password = randomBytes(32).toString('base64url');
-    const formatted = await admin.query<{ stmt: string }>(
-      `SELECT format('CREATE ROLE %I WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', $1::text, $2::text) AS stmt`,
-      [role, password],
-    );
-    await admin.query(formatted.rows[0].stmt);
-
-    // Store the connection (plaintext only passes through the callback)
-    const connUrl = new URL(adminUrl);
-    connUrl.username = role;
-    connUrl.password = password;
-    await storeConnection({ tenantId, mode: 'SHARED', url: connUrl.toString() });
-  }
+  const password = await admin.ensureLoginRole(role);
+  const connection = await storeConnection({ tenantId, mode: 'SHARED', url: admin.tenantUrl(role, password) });
 
   // 4. Register role-to-tenant mapping
   await admin.query(
@@ -121,6 +109,7 @@ export async function provisionSharedIsolation(
 
   return {
     role,
+    connection,
     resources: {
       mode: 'SHARED',
       database: '',

@@ -41,3 +41,15 @@ export function makeTenantIdentifier(prefix: string, tenantId: string): string {
 
   return identifier;
 }
+
+/**
+ * Role de login do tenant para um modo de isolamento. SCHEMA e DATABASE usam
+ * roles próprios: durante uma migração entre modos, preparar/remover o destino
+ * não pode rotacionar a senha nem derrubar o role da conexão ativa (origem).
+ * SHARED mantém o nome original, mapeado em organator_guard.tenant_roles.
+ */
+export function tenantRoleName(tenantId: string, mode: 'SHARED' | 'SCHEMA' | 'DATABASE'): string {
+  return mode === 'SHARED'
+    ? makeTenantIdentifier('role', tenantId)
+    : makeTenantIdentifier('role', `${tenantId}:${mode.toLowerCase()}`);
+}
