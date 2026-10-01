@@ -3,13 +3,15 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 
 const PROVIDERS = ['route53', 'cloudflare', 'vercel'];
+// RFC 1123: labels de 1-63 chars, sem hífen nas pontas, ao menos dois labels, total <= 253.
+const HOSTNAME_RE = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i;
 
 @Injectable()
 export class DomainsService {
   constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
 
   async create(tenantId: string, input: { hostname: string; provider: string; microserviceId?: string }, actorId: string) {
-    if (!/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/i.test(input.hostname) || !input.hostname.includes('.')) throw new BadRequestException('Hostname inválido');
+    if (!HOSTNAME_RE.test(input.hostname)) throw new BadRequestException('Hostname inválido');
     if (!PROVIDERS.includes(input.provider)) throw new BadRequestException('Provedor DNS inválido');
     if (input.microserviceId) {
       const service = await this.prisma.microservice.findFirst({ where: { id: input.microserviceId, tenantId } });
