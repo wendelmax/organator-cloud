@@ -73,11 +73,19 @@ export class ServicesController {
     if (!repo) {
       throw new BadRequestException('repository or repositoryUrl is required');
     }
+    const cloudProvider =
+      body.cloudProvider === 'DOCKER_VPS' ? 'VPS' : body.cloudProvider;
+    if (cloudProvider === 'VPS' && !body.image) {
+      throw new BadRequestException('image is required for VPS services');
+    }
     return this.servicesService.createService(
       effectiveTenantFor(req, body.tenantId),
       body.name,
-      body.cloudProvider,
+      cloudProvider,
       repo,
+      cloudProvider === 'VPS'
+        ? { image: body.image, vpsHost: body.vpsHost }
+        : {},
     );
   }
 

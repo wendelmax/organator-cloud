@@ -331,6 +331,8 @@ model Microservice {
   deployments Deployment[]
   apiDocs     ApiDoc[]
   cloudProvider String // 'AWS', 'VERCEL', 'VPS'
+  image       String?  // imagem Docker publicada no deploy em VPS
+  vpsHost     String?  // destino do deploy em VPS (user@host)
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

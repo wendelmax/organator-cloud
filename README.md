@@ -29,7 +29,7 @@ Chega de provisionar bancos de dados e domínios manualmente para clientes *Ente
 | Cobrança com Stripe (checkout por assinatura, webhooks idempotentes, portal, faturas, cancelamento no offboarding) | Implementado e testado (unitários + E2E) |
 | Ciclo de vida do tenant (onboarding, past_due, suspensão, offboarding) e audit log | Implementado e testado (unitários + E2E) |
 | Isolamento de dados no PostgreSQL (SHARED / SCHEMA / DATABASE, com migração entre modos) | Implementado e testado contra PostgreSQL real (`DATA_ISOLATION_*`) |
-| Deploy de serviços na Vercel e em VPS via SSH/Docker | Integrado com as APIs reais (a VPS ainda publica uma imagem fixa, `nginx:alpine`); falhas marcam o deploy como `FAILED` |
+| Deploy de serviços na Vercel e em VPS via SSH/Docker | Integrado com as APIs reais (na VPS, publica a imagem Docker cadastrada no serviço); falhas marcam o deploy como `FAILED` |
 | Deploy na AWS | Ainda não automatizado: o deploy falha com mensagem explícita |
 | Drivers de infraestrutura do tenant (rede, DNS, banco dedicado em nuvem) | **Simulados**: registram as fases, mas não criam recursos |
 

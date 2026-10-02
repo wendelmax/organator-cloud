@@ -65,6 +65,8 @@ describe('ServicesService', () => {
         name: 'api',
         cloudProvider: 'VERCEL',
         repository: 'git@x/y',
+        image: null,
+        vpsHost: null,
       },
     });
     expect(result.id).toBe('svc-1');

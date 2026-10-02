@@ -87,7 +87,7 @@ export async function handleDeployMicroservice(
   appendLog: AppendLog,
   setStatus: SetDeploymentStatus = noStatus,
 ) {
-  const { serviceId, provider, repo, vpsHost } = job.data;
+  const { serviceId, provider, repo, vpsHost, image } = job.data;
   const creds = job.data.credentials?.secrets || {};
   const config = job.data.credentials?.config || {};
   await setStatus(deploymentId, 'RUNNING');
@@ -99,10 +99,13 @@ export async function handleDeployMicroservice(
       await vercel.injectEnvVar(project.id, 'SERVICE_ID', String(serviceId));
       const url = await vercel.createDeployment(project.id);
       await appendLog(deploymentId, job, `[Vercel] Build completo: ${url}`);
-    } else if (provider === 'VPS') {
+    } else if (provider === 'VPS' || provider === 'DOCKER_VPS') {
+      // Antes publicava sempre nginx:alpine, qualquer que fosse o serviço.
+      if (!image) throw new Error('Serviço VPS sem imagem Docker configurada');
       const [user, host] = (vpsHost || config.host || 'root@localhost').split('@');
       const vps = new VPSClient(host, Number(config.port) || 22, user, creds.privateKey || process.env.SSH_PRIVATE_KEY || 'mock-key');
-      const result = await vps.deployDockerContainer('nginx:alpine', `service-${serviceId}`, { PORT: '80' }, `service-${serviceId}.organator.local`);
+      const domain = `service-${serviceId}.${process.env.WILDCARD_DOMAIN || 'organator.local'}`;
+      const result = await vps.deployDockerContainer(image, `service-${serviceId}`, { PORT: '80' }, domain);
       await appendLog(deploymentId, job, `[SSH VPS] Imagem docker implantada com sucesso em ${host}. Resultado: ${result}`);
     } else {
       // Sem deploy automatizado para este provedor: não reportar sucesso.
