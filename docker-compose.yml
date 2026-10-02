@@ -45,12 +45,20 @@ services:
       - DATABASE_URL=postgresql://organator:password@postgres:5432/organator_db?schema=public
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      # Endereço do painel visto pelo navegador: destino dos links enviados por
+      # e-mail (senha, convites) e dos retornos do Stripe.
+      - BACKOFFICE_URL=http://localhost:3001
+      # E-mails vão para o Mailpit (http://localhost:8025) por padrão.
+      - SMTP_URL=${SMTP_URL:-smtp://mailpit:1025}
+      - MAIL_FROM=${MAIL_FROM:-Organator <no-reply@organator.local>}
     ports:
       - "3000:3000"
     depends_on:
       migrate:
         condition: service_completed_successfully
       redis:
+        condition: service_started
+      mailpit:
         condition: service_started
 
   provisioner-worker:
@@ -85,6 +93,13 @@ services:
       - "3001:3000"
     depends_on:
       - control-plane-api
+
+  # Caixa de entrada de desenvolvimento: captura os e-mails da API (recuperação
+  # de senha, ativação, convites). Interface em http://localhost:8025.
+  mailpit:
+    image: axllent/mailpit:v1.31
+    ports:
+      - "8025:8025"
 
   prometheus:
     image: prom/prometheus:v2.51.0

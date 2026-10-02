@@ -56,6 +56,7 @@ O ambiente estará disponível em:
 - **Painel Administrativo:** `http://localhost:3001`
 - **Página de Registro Público:** `http://localhost:3001/register`
 - **Control Plane API:** `http://localhost:3000` (`/health` e `/health/ready`)
+- **Caixa de e-mails (Mailpit):** `http://localhost:8025` — recuperação de senha, ativação de conta e convites enviados pela API
 - **Documentação da API (OpenAPI):** `http://localhost:3000/docs` — especificação em `/docs/openapi.json`, útil para gerar clientes (`openapi-generator`, `openapi-typescript`). O CI publica o `openapi.json` como artefato de cada build.
 
 No primeiro boot a API cria o admin `admin@organator.app` e imprime a senha
