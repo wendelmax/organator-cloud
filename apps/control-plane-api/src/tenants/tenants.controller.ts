@@ -284,7 +284,12 @@ export class TenantsController {
       body.name,
       body.role,
       body.password,
-      { actorId: req.user?.userId, actorEmail: req.user?.email, ip: req.ip },
+      {
+        actorId: req.user?.userId,
+        actorEmail: req.user?.email,
+        ip: req.ip,
+        actorRole: req.user?.role,
+      },
     );
   }
 
@@ -306,6 +311,7 @@ export class TenantsController {
       actorId: req.user?.userId,
       actorEmail: req.user?.email,
       ip: req.ip,
+      actorRole: req.user?.role,
     });
   }
 

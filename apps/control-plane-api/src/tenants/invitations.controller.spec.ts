@@ -17,7 +17,7 @@ describe('InvitationsController', () => {
     invitations.create.mockResolvedValue({ id: 'invite-1' });
 
     await controller.create(
-      { user: { tenantId: 'tenant-1', userId: 'owner-1' } },
+      { user: { tenantId: 'tenant-1', userId: 'owner-1', role: 'OWNER' } },
       { email: 'dev@example.com', role: 'MEMBER' },
     );
 
@@ -26,6 +26,7 @@ describe('InvitationsController', () => {
       'dev@example.com',
       'MEMBER',
       'owner-1',
+      'OWNER',
     );
   });
 

@@ -4,6 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -20,6 +21,7 @@ import * as crypto from 'crypto';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PasswordResetService } from '../auth/password-reset.service';
+import { canAssignRole } from '../auth/roles.guard';
 import { cancelCustomerSubscriptions } from '../billing/stripe-subscriptions';
 
 export type TenantStatus = 'active' | 'suspended' | 'archived';
@@ -562,12 +564,34 @@ export class TenantsService {
     name?: string,
     role: string = 'MEMBER',
     password?: string,
-    opts: { actorId?: string; actorEmail?: string; ip?: string } = {},
+    opts: {
+      actorId?: string;
+      actorEmail?: string;
+      ip?: string;
+      actorRole?: string;
+    } = {},
   ) {
+    const normalizedRole = String(role || 'MEMBER').toUpperCase();
+    // Sem esta checagem um OWNER/ADMIN de tenant criava um PLATFORM_ADMIN com
+    // a senha que quisesse.
+    if (!canAssignRole(opts.actorRole, normalizedRole)) {
+      throw new ForbiddenException(
+        `Você não pode atribuir o papel ${normalizedRole}`,
+      );
+    }
+    if (password !== undefined && password.length < 8) {
+      throw new BadRequestException('A senha deve ter no mínimo 8 caracteres');
+    }
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      throw new ConflictException(
+        'Este e-mail já tem conta. Envie um convite para adicioná-lo ao tenant.',
+      );
+    }
+
     const rawPassword =
       password || crypto.randomBytes(16).toString('base64url');
     const hashedPassword = await bcrypt.hash(rawPassword, 10);
-    const normalizedRole = String(role || 'MEMBER').toUpperCase();
     const member = await this.prisma.user.create({
       data: {
         tenantId,
@@ -576,6 +600,9 @@ export class TenantsService {
         role: normalizedRole,
         password: hashedPassword,
         mustChangePassword: true,
+        memberships: {
+          create: { tenantId, role: normalizedRole, status: 'active' },
+        },
       },
       select: {
         id: true,
@@ -585,6 +612,8 @@ export class TenantsService {
         createdAt: true,
       },
     });
+    // Sem senha definida pelo admin, o membro recebe o link para criar a sua.
+    if (!password) await this.passwordReset?.sendActivation(member.id);
 
     await this.auditService.record({
       actorId: opts.actorId ?? null,
@@ -603,7 +632,12 @@ export class TenantsService {
     tenantId: string,
     userId: string,
     role: string,
-    opts: { actorId?: string; actorEmail?: string; ip?: string } = {},
+    opts: {
+      actorId?: string;
+      actorEmail?: string;
+      ip?: string;
+      actorRole?: string;
+    } = {},
   ) {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, tenantId },
@@ -616,6 +650,16 @@ export class TenantsService {
     if (PLATFORM_ONLY_ROLES.includes(normalizedRole)) {
       throw new BadRequestException(
         'PLATFORM_ADMIN não pode ser atribuído via gestão de membros',
+      );
+    }
+    // Promover acima do próprio alcance (ADMIN -> OWNER) ou mexer em quem está
+    // acima (ADMIN rebaixando um OWNER) também é escalada de privilégio.
+    if (
+      !canAssignRole(opts.actorRole, normalizedRole) ||
+      !canAssignRole(opts.actorRole, user.role)
+    ) {
+      throw new ForbiddenException(
+        `Você não pode alterar este membro para ${normalizedRole}`,
       );
     }
 

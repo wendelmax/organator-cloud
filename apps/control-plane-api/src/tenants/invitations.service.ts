@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Logger,
   NotFoundException,
   Optional,
@@ -10,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { MailService } from '../mail/mail.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
+import { canAssignRole } from '../auth/roles.guard';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 
@@ -90,12 +92,16 @@ export class InvitationsService {
     email: string,
     role: string,
     actorId?: string,
+    actorRole?: string,
   ) {
     const normalized = email.trim().toLowerCase();
     if (!normalized || !normalized.includes('@'))
       throw new BadRequestException('Valid email is required');
     if (!['OWNER', 'ADMIN', 'MEMBER', 'BILLING', 'DEVELOPER'].includes(role))
       throw new BadRequestException('Invalid role');
+    // Convidar é atribuir o papel: um ADMIN não convida um OWNER.
+    if (actorRole !== undefined && !canAssignRole(actorRole, role))
+      throw new ForbiddenException(`You cannot invite a member as ${role}`);
     const existing = await this.prisma.user.findUnique({
       where: { email: normalized },
     });

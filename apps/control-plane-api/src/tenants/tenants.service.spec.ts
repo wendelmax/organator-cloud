@@ -8,6 +8,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 
 describe('TenantsService', () => {
@@ -412,6 +413,7 @@ describe('TenantsService', () => {
         role: 'MEMBER',
         createdAt: new Date(),
       };
+      mockPrisma.user.findUnique.mockResolvedValue(null);
       mockPrisma.user.create.mockResolvedValue(newUser);
 
       const result = await service.addMember(
@@ -420,6 +422,7 @@ describe('TenantsService', () => {
         'User 2',
         'MEMBER',
         'secret123',
+        { actorRole: 'OWNER' },
       );
 
       expect(result).toEqual(newUser);
@@ -430,6 +433,13 @@ describe('TenantsService', () => {
           name: 'User 2',
           role: 'MEMBER',
           password: expect.any(String),
+          memberships: {
+            create: {
+              tenantId: 'tenant-123',
+              role: 'MEMBER',
+              status: 'active',
+            },
+          },
         }),
         select: {
           id: true,
@@ -442,6 +452,7 @@ describe('TenantsService', () => {
     });
 
     it('records an audit entry with actor info', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
       mockPrisma.user.create.mockResolvedValue({
         id: 'user-2',
         email: 'user2@example.com',
@@ -459,6 +470,7 @@ describe('TenantsService', () => {
           actorId: 'admin-1',
           actorEmail: 'admin@organator.app',
           ip: '127.0.0.1',
+          actorRole: 'ADMIN',
         },
       );
 
@@ -478,7 +490,65 @@ describe('TenantsService', () => {
     });
   });
 
+  describe('addMember — privilege escalation', () => {
+    it.each([
+      ['OWNER', 'PLATFORM_ADMIN'],
+      ['ADMIN', 'PLATFORM_ADMIN'],
+      ['ADMIN', 'OWNER'],
+      ['OWNER', 'NOT_A_ROLE'],
+      [undefined, 'MEMBER'],
+    ])('%s cannot create a %s member', async (actorRole, role) => {
+      await expect(
+        service.addMember('tenant-123', 'x@acme.com', 'X', role, 'secret123', {
+          actorRole,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects an existing e-mail with 409 instead of a database error', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce({ id: 'u-existing' });
+      await expect(
+        service.addMember(
+          'tenant-123',
+          'taken@acme.com',
+          'X',
+          'MEMBER',
+          undefined,
+          {
+            actorRole: 'OWNER',
+          },
+        ),
+      ).rejects.toThrow(ConflictException);
+      expect(mockPrisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a short password', async () => {
+      await expect(
+        service.addMember('tenant-123', 'x@acme.com', 'X', 'MEMBER', 'short', {
+          actorRole: 'OWNER',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
   describe('updateMemberRole', () => {
+    it.each([
+      ['ADMIN', 'MEMBER', 'OWNER'],
+      ['ADMIN', 'OWNER', 'MEMBER'],
+      ['OWNER', 'MEMBER', 'NOT_A_ROLE'],
+    ])('%s cannot change a %s to %s', async (actorRole, current, role) => {
+      mockPrisma.user.findFirst.mockResolvedValue({
+        id: 'user-1',
+        tenantId: 'tenant-123',
+        role: current,
+      });
+      await expect(
+        service.updateMemberRole('tenant-123', 'user-1', role, { actorRole }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    });
+
     it('should update member role if member exists in tenant', async () => {
       const existingUser = {
         id: 'user-1',
@@ -499,6 +569,7 @@ describe('TenantsService', () => {
         'tenant-123',
         'user-1',
         'ADMIN',
+        { actorRole: 'OWNER' },
       );
       expect(result).toEqual(updatedUser);
       expect(mockPrisma.user.update).toHaveBeenCalledWith({
@@ -532,6 +603,7 @@ describe('TenantsService', () => {
         actorId: 'admin-1',
         actorEmail: 'admin@organator.app',
         ip: '127.0.0.1',
+        actorRole: 'OWNER',
       });
 
       expect(mockAudit.record).toHaveBeenCalledWith({

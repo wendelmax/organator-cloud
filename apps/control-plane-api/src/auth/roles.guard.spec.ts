@@ -1,6 +1,6 @@
 import { Reflector } from '@nestjs/core';
 import { ExecutionContext } from '@nestjs/common';
-import { RolesGuard } from './roles.guard';
+import { RolesGuard, canAssignRole } from './roles.guard';
 
 describe('RolesGuard', () => {
   let guard: RolesGuard;
@@ -102,5 +102,24 @@ describe('RolesGuard', () => {
     expect(guard.canActivate(contextMember)).toBe(true);
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['BILLING']);
     expect(guard.canActivate(contextMember)).toBe(false);
+  });
+});
+
+describe('canAssignRole', () => {
+  it('never allows assigning PLATFORM_ADMIN or unknown roles', () => {
+    for (const actor of ['PLATFORM_ADMIN', 'OWNER', 'ADMIN']) {
+      expect(canAssignRole(actor, 'PLATFORM_ADMIN')).toBe(false);
+      expect(canAssignRole(actor, 'ROOT')).toBe(false);
+    }
+  });
+
+  it('only assigns roles within the actor reach', () => {
+    expect(canAssignRole('OWNER', 'OWNER')).toBe(true);
+    expect(canAssignRole('OWNER', 'billing')).toBe(true);
+    expect(canAssignRole('ADMIN', 'DEVELOPER')).toBe(true);
+    expect(canAssignRole('ADMIN', 'OWNER')).toBe(false);
+    expect(canAssignRole('ADMIN', 'BILLING')).toBe(false);
+    expect(canAssignRole('MEMBER', 'VIEWER')).toBe(true);
+    expect(canAssignRole(undefined, 'VIEWER')).toBe(false);
   });
 });
