@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { Button, Card } from "@organator/ui";
+import { useSession } from "next-auth/react";
 import { publicApiUrl } from "../../../../lib/public-env";
+import { streamSse } from "../../../../lib/sse";
 
 interface Deployment {
   id: string;
@@ -18,15 +20,15 @@ export function ServiceDetailsClient({ serviceId, initialDeployments }: { servic
   const [selectedDeployment, setSelectedDeployment] = useState<Deployment | null>(initialDeployments[0] || null);
 
   const selectedDeploymentId = selectedDeployment?.id;
+  const { data: session } = useSession();
+  const token = (session as any)?.accessToken as string | undefined;
 
   useEffect(() => {
-    if (!selectedDeploymentId) return;
+    if (!selectedDeploymentId || !token) return;
 
-    const eventSource = new EventSource(`${API_URL}/v1/services/deployments/${selectedDeploymentId}/stream`);
-
-    eventSource.onmessage = (event) => {
+    const onData = (data: string) => {
       try {
-        const payload = JSON.parse(event.data);
+        const payload = JSON.parse(data);
         const logLine = payload.logLine || (typeof payload === 'string' ? payload : '');
         const newStatus = payload.status;
         const targetId = payload.deploymentId || selectedDeploymentId;
@@ -58,15 +60,13 @@ export function ServiceDetailsClient({ serviceId, initialDeployments }: { servic
       }
     };
 
-    eventSource.onerror = (err) => {
-      console.warn("EventSource error or closed:", err);
-      eventSource.close();
-    };
-
-    return () => {
-      eventSource.close();
-    };
-  }, [selectedDeploymentId]);
+    // O stream exige autenticação: EventSource não envia o token.
+    return streamSse(
+      `${API_URL}/v1/services/deployments/${selectedDeploymentId}/stream`,
+      token,
+      onData,
+    );
+  }, [selectedDeploymentId, token]);
 
   return (
     <div className="space-y-6">

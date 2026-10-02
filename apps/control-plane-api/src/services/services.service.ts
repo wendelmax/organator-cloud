@@ -1,4 +1,4 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Injectable, Optional, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
@@ -76,21 +76,52 @@ export class ServicesService {
     });
   }
 
-  async getDeploymentsByService(serviceId: string) {
+  /**
+   * Serviço visível para o escopo: `tenantId` null = qualquer tenant (admin da
+   * plataforma). De outro tenant responde 404, sem revelar que existe.
+   */
+  async findServiceInScope(serviceId: string, tenantId: string | null) {
+    const service = await this.prisma.microservice.findUnique({
+      where: { id: serviceId },
+    });
+    if (!service || (tenantId !== null && service.tenantId !== tenantId)) {
+      throw new NotFoundException('Service not found');
+    }
+    return service;
+  }
+
+  /** Mesma regra para um deploy (pelo tenant do deploy ou do serviço). */
+  async assertDeploymentInScope(deploymentId: string, tenantId: string | null) {
+    const deployment = await this.prisma.deployment.findUnique({
+      where: { id: deploymentId },
+      include: { microservice: { select: { tenantId: true } } },
+    });
+    const owner = deployment?.tenantId ?? deployment?.microservice?.tenantId;
+    if (!deployment || (tenantId !== null && owner !== tenantId)) {
+      throw new NotFoundException('Deployment not found');
+    }
+  }
+
+  async getDeploymentsByService(
+    serviceId: string,
+    tenantId: string | null = null,
+  ) {
+    await this.findServiceInScope(serviceId, tenantId);
     return this.prisma.deployment.findMany({
       where: { microserviceId: serviceId },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async triggerDeploy(serviceId: string, environment = 'production') {
+  async triggerDeploy(
+    serviceId: string,
+    environment = 'production',
+    tenantId: string | null = null,
+  ) {
     if (!['production', 'staging', 'development'].includes(environment)) {
       throw new Error('environment must be production, staging or development');
     }
-    const service = await this.prisma.microservice.findUnique({
-      where: { id: serviceId },
-    });
-    if (!service) throw new Error('Service not found');
+    const service = await this.findServiceInScope(serviceId, tenantId);
 
     const deployment = await this.prisma.deployment.create({
       data: {
