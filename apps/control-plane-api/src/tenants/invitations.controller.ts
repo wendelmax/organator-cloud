@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -50,8 +51,14 @@ export class InvitationsController {
     return this.invitations.resend(req.user.tenantId, id, req.user.userId);
   }
 
+  /** Público: a página de aceite mostra organização e se a conta já existe. */
+  @Get('preview')
+  preview(@Query('token') token: string) {
+    return this.invitations.preview(token);
+  }
+
   @Post('accept')
-  accept(@Body() body: { token: string; name?: string }) {
-    return this.invitations.accept(body.token, body.name);
+  accept(@Body() body: { token: string; name?: string; password?: string }) {
+    return this.invitations.accept(body.token, body.name, body.password);
   }
 }

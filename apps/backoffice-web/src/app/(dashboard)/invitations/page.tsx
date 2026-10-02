@@ -20,7 +20,10 @@ export default function InvitationsPage() {
   const [items, setItems] = useState<any[]>([]);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("MEMBER");
-  const [deliveryToken, setDeliveryToken] = useState<string | null>(null);
+  const [delivery, setDelivery] = useState<{
+    token: string;
+    emailed: boolean;
+  } | null>(null);
   const headers = {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -42,7 +45,7 @@ export default function InvitationsPage() {
     });
     if (!response.ok) return alert("Não foi possível criar o convite");
     const result = await response.json();
-    setDeliveryToken(result.token);
+    setDelivery({ token: result.token, emailed: !!result.emailed });
     setEmail("");
     await load();
   }
@@ -61,7 +64,7 @@ export default function InvitationsPage() {
     );
     if (!response.ok) return alert("Não foi possível reenviar o convite");
     const result = await response.json();
-    setDeliveryToken(result.token);
+    setDelivery({ token: result.token, emailed: !!result.emailed });
     await load();
   }
   const statusOf = (item: any) =>
@@ -80,14 +83,16 @@ export default function InvitationsPage() {
           Gerencie o acesso de novos membros da organização.
         </p>
       </div>
-      {deliveryToken && (
+      {delivery && (
         <Card className="border-amber-700 bg-amber-950/30">
           <CardContent className="p-5">
             <p className="text-amber-300">
-              Link/token de aceite exibido uma única vez para entrega segura:
+              {delivery.emailed
+                ? "Convite enviado por e-mail. Se preferir, entregue também este link (exibido uma única vez):"
+                : "O e-mail não está configurado: entregue este link ao convidado por um canal seguro (exibido uma única vez):"}
             </p>
             <code className="mt-2 block break-all rounded bg-neutral-950 p-3 text-emerald-300">
-              {deliveryToken}
+              {`${window.location.origin}/accept-invite?token=${delivery.token}`}
             </code>
           </CardContent>
         </Card>

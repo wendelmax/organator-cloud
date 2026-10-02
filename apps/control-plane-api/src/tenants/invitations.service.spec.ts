@@ -1,4 +1,9 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InvitationsService } from './invitations.service';
 
 describe('InvitationsService lifecycle', () => {
@@ -16,11 +21,20 @@ describe('InvitationsService lifecycle', () => {
       create: jest.fn(),
       update: jest.fn(),
     },
+    tenant: {
+      findUnique: jest.fn().mockResolvedValue({ name: 'Acme' }),
+    },
     $transaction: jest.fn(),
   };
-  const service = new InvitationsService(prisma, audit as any);
+  const mail = { send: jest.fn(), enabled: true };
+  const service = new InvitationsService(prisma, audit as any, mail as any);
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mail.enabled = true;
+    mail.send.mockResolvedValue(undefined);
+    prisma.tenant.findUnique.mockResolvedValue({ name: 'Acme' });
+  });
 
   it('allows inviting an existing user into a second tenant', async () => {
     prisma.user.findUnique.mockResolvedValue({
@@ -145,6 +159,7 @@ describe('InvitationsService lifecycle', () => {
       expiresAt: new Date(Date.now() + 60_000),
     };
     prisma.tenantInvitation.findUnique.mockResolvedValue(invitation);
+    prisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
     const tx: any = {
       tenantInvitation: {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -164,8 +179,7 @@ describe('InvitationsService lifecycle', () => {
     expect(result).toEqual({
       userId: 'user-1',
       email: 'dev@example.com',
-      temporaryPassword: null,
-      mustChangePassword: false,
+      accountCreated: false,
     });
     expect(tx.user.create).not.toHaveBeenCalled();
     expect(tx.tenantMembership.create).toHaveBeenCalledWith({
@@ -175,6 +189,130 @@ describe('InvitationsService lifecycle', () => {
         role: 'MEMBER',
         status: 'active',
       },
+    });
+  });
+
+  describe('e-mail delivery', () => {
+    beforeEach(() => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.tenantInvitation.findFirst.mockResolvedValue(null);
+      prisma.tenantInvitation.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: 'invite-1', ...data }),
+      );
+      process.env.BACKOFFICE_URL = 'https://app.acme.com';
+    });
+
+    it('e-mails the accept link with the raw token', async () => {
+      const result = await service.create('tenant-1', 'dev@x.com', 'MEMBER');
+
+      expect(result.emailed).toBe(true);
+      const message = mail.send.mock.calls[0][0];
+      expect(message.to).toBe('dev@x.com');
+      expect(message.subject).toContain('Acme');
+      expect(message.text).toContain(
+        `https://app.acme.com/accept-invite?token=${result.token}`,
+      );
+    });
+
+    it('reports emailed=false without SMTP so the panel shows the link', async () => {
+      mail.enabled = false;
+      const result = await service.create('tenant-1', 'dev@x.com', 'MEMBER');
+      expect(result.emailed).toBe(false);
+    });
+
+    it('still creates the invitation when the e-mail fails', async () => {
+      mail.send.mockRejectedValue(new Error('SMTP down'));
+      const result = await service.create('tenant-1', 'dev@x.com', 'MEMBER');
+      expect(result).toMatchObject({ id: 'invite-1', emailed: false });
+    });
+  });
+
+  describe('preview', () => {
+    const pending = {
+      email: 'dev@x.com',
+      role: 'MEMBER',
+      acceptedAt: null,
+      revokedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+      tenant: { name: 'Acme' },
+    };
+
+    it('shows the organization and whether the account exists', async () => {
+      prisma.tenantInvitation.findUnique.mockResolvedValue(pending);
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.preview('tok')).resolves.toEqual({
+        email: 'dev@x.com',
+        role: 'MEMBER',
+        tenantName: 'Acme',
+        accountExists: false,
+      });
+    });
+
+    it.each([
+      ['unknown', null],
+      ['accepted', { ...pending, acceptedAt: new Date() }],
+      ['expired', { ...pending, expiresAt: new Date(Date.now() - 1) }],
+    ])('rejects an %s invitation', async (_label, found) => {
+      prisma.tenantInvitation.findUnique.mockResolvedValue(found);
+      await expect(service.preview('tok')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('accept for a new account', () => {
+    const invitation = {
+      id: 'invite-1',
+      tenantId: 'tenant-2',
+      email: 'new@x.com',
+      role: 'DEVELOPER',
+      acceptedAt: null,
+      revokedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+    };
+    let tx: any;
+
+    beforeEach(() => {
+      prisma.tenantInvitation.findUnique.mockResolvedValue(invitation);
+      prisma.user.findUnique.mockResolvedValue(null);
+      tx = {
+        tenantInvitation: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        user: {
+          findUnique: jest.fn().mockResolvedValue(null),
+          create: jest.fn(({ data }: any) =>
+            Promise.resolve({ id: 'user-9', ...data }),
+          ),
+        },
+        tenantMembership: { create: jest.fn().mockResolvedValue({}) },
+      };
+      prisma.$transaction.mockImplementation((callback: any) => callback(tx));
+    });
+
+    it('creates the user with the chosen password (no temporary password)', async () => {
+      const result = await service.accept('tok', ' Dev ', 'Secret123');
+
+      expect(result).toEqual({
+        userId: 'user-9',
+        email: 'new@x.com',
+        accountCreated: true,
+      });
+      const { data } = tx.user.create.mock.calls[0][0];
+      expect(data).toMatchObject({ name: 'Dev', role: 'DEVELOPER' });
+      expect(data.mustChangePassword).toBeUndefined();
+      await expect(bcrypt.compare('Secret123', data.password)).resolves.toBe(
+        true,
+      );
+    });
+
+    it('requires a password before consuming the invitation', async () => {
+      await expect(service.accept('tok', 'Dev', 'short')).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.accept('tok', 'Dev')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
   });
 });
