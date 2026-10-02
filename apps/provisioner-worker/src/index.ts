@@ -6,7 +6,7 @@ import { startMetricsServer } from './data-isolation/metrics-server.js';
 import { handleDeployTenantInfra, handleDeprovisionTenantInfra } from './infrastructure/infra-handler.js';
 import { handleReconcilePlanMigration, handleApplyDowngradeReconciliation } from './data-isolation/plan-migration-handler.js';
 import { handleBackupTenantInfra, handleRestoreTenantInfra, handleCloneTenantEnvironment, handleOffboardTenantInfra } from './data-isolation/lifecycle-handlers.js';
-import { handleCollectTenantMetrics, handlePromoteTenantEnvironment } from './data-isolation/health-metrics-handler.js';
+import { handlePromoteTenantEnvironment } from './data-isolation/health-metrics-handler.js';
 import { handleDeployRollout } from './infrastructure/rollout-handler.js';
 import {
   createDeployLogger,
@@ -47,7 +47,6 @@ const worker = createProvisionerWorker({
     'restore-tenant-infra': (job: Job) => handleRestoreTenantInfra(job, prisma),
     'clone-tenant-environment': (job: Job) => handleCloneTenantEnvironment(job, prisma),
     'offboard-tenant-infra': (job: Job) => handleOffboardTenantInfra(job, prisma),
-    'collect-tenant-metrics': (job: Job) => handleCollectTenantMetrics(job, prisma),
     'promote-tenant-environment': (job: Job) => handlePromoteTenantEnvironment(job, prisma),
     'deploy-rollout': (job: Job) => handleDeployRollout(job, prisma),
     'deploy-microservice': (job: Job) =>
