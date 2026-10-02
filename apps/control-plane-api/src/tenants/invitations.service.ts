@@ -2,19 +2,86 @@ import {
   Injectable,
   BadRequestException,
   ConflictException,
+  Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { MailService } from '../mail/mail.service';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 
+const MIN_PASSWORD_LENGTH = 8;
+const hashToken = (token: string) =>
+  crypto.createHash('sha256').update(token).digest('hex');
+
 @Injectable()
 export class InvitationsService {
+  private readonly logger = new Logger(InvitationsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    @Optional() private readonly mail?: MailService,
   ) {}
+
+  /**
+   * Envia o link de aceite ao convidado. Retorna true só se saiu por SMTP; sem
+   * SMTP (ou em falha) o painel mostra o link para entrega manual.
+   */
+  private async deliver(
+    tenantId: string,
+    email: string,
+    token: string,
+  ): Promise<boolean> {
+    if (!this.mail) return false;
+    try {
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { name: true },
+      });
+      const backoffice = (
+        process.env.BACKOFFICE_URL || 'http://localhost:3000'
+      ).replace(/\/+$/, '');
+      await this.mail.send({
+        to: email,
+        subject: `Convite para ${tenant?.name ?? 'uma organização'} no Organator`,
+        text: `Você foi convidado para ${tenant?.name ?? 'uma organização'} no Organator.\n\nAceite o convite (o link vale por 7 dias):\n${backoffice}/accept-invite?token=${token}\n`,
+      });
+      return this.mail.enabled;
+    } catch (err) {
+      this.logger.warn(
+        `Could not e-mail the invitation to ${email}: ${(err as Error).message}`,
+      );
+      return false;
+    }
+  }
+
+  /** Dados públicos do convite para a página de aceite (sem autenticação). */
+  async preview(token: string) {
+    const invitation = await this.prisma.tenantInvitation.findUnique({
+      where: { tokenHash: hashToken(token || '') },
+      include: { tenant: { select: { name: true } } },
+    });
+    if (
+      !invitation ||
+      invitation.acceptedAt ||
+      invitation.revokedAt ||
+      invitation.expiresAt < new Date()
+    )
+      throw new NotFoundException('Invitation is invalid or expired');
+    const user = await this.prisma.user.findUnique({
+      where: { email: invitation.email },
+      select: { id: true },
+    });
+    return {
+      email: invitation.email,
+      role: invitation.role,
+      tenantName: invitation.tenant.name,
+      accountExists: user !== null,
+    };
+  }
 
   async create(
     tenantId: string,
@@ -53,7 +120,7 @@ export class InvitationsService {
         tenantId,
         email: normalized,
         role,
-        tokenHash: crypto.createHash('sha256').update(token).digest('hex'),
+        tokenHash: hashToken(token),
         invitedBy: actorId,
         expiresAt: new Date(Date.now() + 7 * 86400000),
       },
@@ -65,12 +132,14 @@ export class InvitationsService {
       resourceId: invitation.id,
       changes: { tenantId, email: normalized, role },
     });
+    const emailed = await this.deliver(tenantId, normalized, token);
     return {
       id: invitation.id,
       email: normalized,
       role,
       expiresAt: invitation.expiresAt,
       token,
+      emailed,
     };
   }
 
@@ -121,7 +190,7 @@ export class InvitationsService {
     const updated = await this.prisma.tenantInvitation.update({
       where: { id },
       data: {
-        tokenHash: crypto.createHash('sha256').update(token).digest('hex'),
+        tokenHash: hashToken(token),
         expiresAt: new Date(Date.now() + 7 * 86400000),
         sentAt: new Date(),
       },
@@ -133,19 +202,18 @@ export class InvitationsService {
       resourceId: id,
       changes: { tenantId, email: invitation.email },
     });
+    const emailed = await this.deliver(tenantId, updated.email, token);
     return {
       id: updated.id,
       email: updated.email,
       expiresAt: updated.expiresAt,
       token,
+      emailed,
     };
   }
 
-  async accept(token: string, name?: string) {
-    const hash = crypto
-      .createHash('sha256')
-      .update(token || '')
-      .digest('hex');
+  async accept(token: string, name?: string, password?: string) {
+    const hash = hashToken(token || '');
     const invitation = await this.prisma.tenantInvitation.findUnique({
       where: { tokenHash: hash },
     });
@@ -156,6 +224,20 @@ export class InvitationsService {
       invitation.expiresAt < new Date()
     )
       throw new NotFoundException('Invitation is invalid or expired');
+
+    // Conta nova: a senha é escolhida pelo convidado. Validar antes de
+    // consumir o convite, para um erro de digitação não queimar o link.
+    const existing = await this.prisma.user.findUnique({
+      where: { email: invitation.email },
+      select: { id: true },
+    });
+    if (!existing && (!password || password.length < MIN_PASSWORD_LENGTH)) {
+      throw new BadRequestException(
+        `Defina uma senha com no mínimo ${MIN_PASSWORD_LENGTH} caracteres`,
+      );
+    }
+    const passwordHash = existing ? null : await bcrypt.hash(password!, 12);
+
     const accepted = await this.prisma.$transaction(async (tx) => {
       const consumed = await tx.tenantInvitation.updateMany({
         where: {
@@ -172,19 +254,22 @@ export class InvitationsService {
       let user = await tx.user.findUnique({
         where: { email: invitation.email },
       });
-      let temporaryPassword: string | null = null;
+      let accountCreated = false;
       if (!user) {
-        temporaryPassword = crypto.randomBytes(24).toString('base64url');
+        // Conta criada entre a validação e a transação: sem senha escolhida
+        // não dá para criá-la aqui.
+        if (!passwordHash)
+          throw new ConflictException('Account state changed, retry');
         user = await tx.user.create({
           data: {
             email: invitation.email,
             name: name?.trim() || null,
             tenantId: invitation.tenantId,
             role: invitation.role,
-            password: await bcrypt.hash(temporaryPassword, 12),
-            mustChangePassword: true,
+            password: passwordHash,
           },
         });
+        accountCreated = true;
       }
       await tx.tenantMembership.create({
         data: {
@@ -194,7 +279,7 @@ export class InvitationsService {
           status: 'active',
         },
       });
-      return { user, temporaryPassword };
+      return { user, accountCreated };
     });
     await this.audit.record({
       actorId: accepted.user.id,
@@ -206,8 +291,7 @@ export class InvitationsService {
     return {
       userId: accepted.user.id,
       email: accepted.user.email,
-      temporaryPassword: accepted.temporaryPassword,
-      mustChangePassword: accepted.temporaryPassword !== null,
+      accountCreated: accepted.accountCreated,
     };
   }
 }

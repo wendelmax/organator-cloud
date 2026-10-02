@@ -10,6 +10,8 @@ const PUBLIC_PATHS = [
   '/v1/onboarding/checkout',
   '/v1/auth/login',
   '/v1/auth/password/',
+  '/v1/tenant-invitations/accept',
+  '/v1/tenant-invitations/preview',
   '/v1/auth/register',
   '/v1/auth/callback',
   '/v1/docs/public',

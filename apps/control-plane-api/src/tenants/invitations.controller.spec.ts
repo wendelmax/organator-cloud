@@ -7,6 +7,7 @@ describe('InvitationsController', () => {
     revoke: jest.fn(),
     resend: jest.fn(),
     accept: jest.fn(),
+    preview: jest.fn(),
   };
   const controller = new InvitationsController(invitations as any);
 
@@ -46,8 +47,24 @@ describe('InvitationsController', () => {
   it('accepts a one-time token without requiring an authenticated session', async () => {
     invitations.accept.mockResolvedValue({ userId: 'user-1' });
 
-    await controller.accept({ token: 'opaque-token', name: 'Dev' });
+    await controller.accept({
+      token: 'opaque-token',
+      name: 'Dev',
+      password: 'Secret123',
+    });
 
-    expect(invitations.accept).toHaveBeenCalledWith('opaque-token', 'Dev');
+    expect(invitations.accept).toHaveBeenCalledWith(
+      'opaque-token',
+      'Dev',
+      'Secret123',
+    );
+  });
+
+  it('previews an invitation by token without authentication', async () => {
+    invitations.preview.mockResolvedValue({ email: 'a@b.c' });
+    await expect(controller.preview('opaque-token')).resolves.toEqual({
+      email: 'a@b.c',
+    });
+    expect(invitations.preview).toHaveBeenCalledWith('opaque-token');
   });
 });
