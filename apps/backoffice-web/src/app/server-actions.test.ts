@@ -208,3 +208,40 @@ describe('tenant infrastructure actions', () => {
     assert.equal(lastCall(f).init.headers.Authorization, 'Bearer jwt-1');
   });
 });
+
+describe('service deploy action', () => {
+  test('starts a deploy in the chosen environment and returns it', async () => {
+    const f = mockFetch(200, { id: 'dep-1', status: 'PENDING', logs: null, createdAt: '2026-10-02T00:00:00Z' });
+
+    const result = await services.triggerDeploy('svc 1', 'staging');
+
+    assert.deepEqual(result, {
+      success: true,
+      deployment: { id: 'dep-1', status: 'PENDING', logs: null, createdAt: '2026-10-02T00:00:00Z' },
+    });
+    const { url, init, body } = lastCall(f);
+    assert.equal(url, 'http://localhost:3001/v1/services/svc%201/deploy');
+    assert.equal(init.method, 'POST');
+    assert.equal(init.headers.Authorization, 'Bearer jwt-1');
+    assert.deepEqual(body, { environment: 'staging' });
+    assert.deepEqual(revalidated, ['/services/svc 1']);
+  });
+
+  test('returns the API message on failure (e.g. quota) instead of throwing', async () => {
+    mockFetch(403, { message: 'Quota exceeded for DEPLOYMENT' });
+    assert.deepEqual(await services.triggerDeploy('svc-1'), {
+      success: false,
+      error: 'Quota exceeded for DEPLOYMENT',
+    });
+  });
+
+  test('asks to sign in again without a session', async () => {
+    currentSession = null;
+    const f = mockFetch();
+    assert.deepEqual(await services.triggerDeploy('svc-1'), {
+      success: false,
+      error: 'Sessão expirada. Entre novamente.',
+    });
+    assert.equal(f.mock.callCount(), 0);
+  });
+});

@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { Button, Modal, Input, Card, CardHeader, CardTitle, CardContent } from "@organator/ui";
-import { createService } from "./actions";
+import { useRouter } from "next/navigation";
+import { createService, triggerDeploy } from "./actions";
 
 interface Service {
   id: string;
@@ -15,6 +16,22 @@ export function ServicesClient({ initialServices }: { initialServices: Service[]
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [cloudProvider, setCloudProvider] = useState("VERCEL");
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+  const [deployingId, setDeployingId] = useState<string | null>(null);
+  const [deployError, setDeployError] = useState<string | null>(null);
+
+  // Inicia o deploy e abre a página do serviço, que acompanha os logs ao vivo.
+  async function handleDeploy(serviceId: string) {
+    setDeployError(null);
+    setDeployingId(serviceId);
+    const result = await triggerDeploy(serviceId);
+    setDeployingId(null);
+    if (!result.success) {
+      setDeployError(result.error);
+      return;
+    }
+    router.push(`/services/${serviceId}`);
+  }
 
   async function handleCreate(formData: FormData) {
     startTransition(async () => {
@@ -32,6 +49,12 @@ export function ServicesClient({ initialServices }: { initialServices: Service[]
         </div>
         <Button onClick={() => setIsModalOpen(true)}>Registrar Serviço</Button>
       </div>
+
+      {deployError && (
+        <p role="status" className="rounded-lg border border-red-800/60 bg-red-950/40 p-3 text-sm text-red-300">
+          {deployError}
+        </p>
+      )}
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {initialServices.length === 0 ? (
@@ -52,7 +75,14 @@ export function ServicesClient({ initialServices }: { initialServices: Service[]
               </CardHeader>
               <CardContent>
                 <div className="flex gap-2">
-                  <Button className="w-full" variant="outline">Deploy Lote</Button>
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    disabled={deployingId === service.id}
+                    onClick={() => handleDeploy(service.id)}
+                  >
+                    {deployingId === service.id ? "Iniciando..." : "Fazer deploy"}
+                  </Button>
                   <a href={`/services/${service.id}`} className="w-full">
                     <Button className="w-full" variant="default">Ver Logs</Button>
                   </a>
