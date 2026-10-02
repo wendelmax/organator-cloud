@@ -16,6 +16,23 @@ export function resolveProvider(providerName?: string): InfrastructureProvider {
   }
 }
 
+type IsolationMode = 'SHARED' | 'SCHEMA' | 'DATABASE';
+
+/**
+ * Isolamento padrão por plano. Os slugs dos planos são minúsculos ("pro"); a
+ * comparação antiga com "Pro"/"Enterprise" deixava todo tenant em SHARED.
+ */
+export function isolationForPlan(plan?: string | null): IsolationMode {
+  switch ((plan || '').toLowerCase()) {
+    case 'enterprise':
+      return 'DATABASE';
+    case 'pro':
+      return 'SCHEMA';
+    default:
+      return 'SHARED';
+  }
+}
+
 export async function handleDeployTenantInfra(job: Job, prisma: PrismaClient): Promise<{ success: boolean }> {
   const { tenantId, slug, plan, provider } = job.data;
   const driver = resolveProvider(provider);
@@ -23,7 +40,7 @@ export async function handleDeployTenantInfra(job: Job, prisma: PrismaClient): P
   const spec = {
     tenantId,
     slug: slug || tenantId,
-    isolationMode: (plan === 'Enterprise' ? 'DATABASE' : plan === 'Pro' ? 'SCHEMA' : 'SHARED') as any,
+    isolationMode: isolationForPlan(plan),
     environment: 'production',
   };
 
@@ -59,10 +76,23 @@ export async function handleDeployTenantInfra(job: Job, prisma: PrismaClient): P
   return { success: true };
 }
 
+/** Isolamento em uso (data plane) ou, sem ele, o padrão do plano do tenant. */
+export async function currentIsolation(prisma: PrismaClient, tenantId: string): Promise<IsolationMode> {
+  const dataPlane = await prisma.tenantDataPlane.findUnique({ where: { tenantId } });
+  if (dataPlane?.activeIsolation) return dataPlane.activeIsolation as IsolationMode;
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+  return isolationForPlan(tenant?.plan);
+}
+
 export async function handleDeprovisionTenantInfra(job: Job, prisma: PrismaClient): Promise<{ success: boolean }> {
   const { tenantId, slug, provider } = job.data;
   const driver = resolveProvider(provider);
-  const spec = { tenantId, slug: slug || tenantId, isolationMode: 'SHARED' as any, environment: 'production' };
+  const spec = {
+    tenantId,
+    slug: slug || tenantId,
+    isolationMode: await currentIsolation(prisma, tenantId),
+    environment: 'production',
+  };
   await driver.deprovision(spec, {});
   await prisma.tenantDataPlane.update({
     where: { tenantId },

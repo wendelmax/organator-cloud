@@ -147,8 +147,13 @@ describe('TenantsController', () => {
       mockTenantsService.archiveTenant.mockResolvedValue({
         status: 'archived',
       });
-      const result = await controller.archiveTenant('t1');
-      expect(mockTenantsService.archiveTenant).toHaveBeenCalledWith('t1');
+      const result = await controller.archiveTenant('t1', {
+        user: { userId: 'admin-1', email: 'ops@x.com' },
+      });
+      expect(mockTenantsService.archiveTenant).toHaveBeenCalledWith('t1', {
+        actorId: 'admin-1',
+        actorEmail: 'ops@x.com',
+      });
       expect(result).toEqual({ status: 'archived' });
     });
   });

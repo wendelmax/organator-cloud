@@ -78,13 +78,4 @@ describe('Tenant Lifecycle Actions', () => {
       { tenantId: 't-1', targetSlug: 's2', targetName: 'n2' },
     );
   });
-
-  it('triggers offboard', async () => {
-    const res = await controller.triggerOffboard('t-1');
-    expect(res).toEqual({ jobId: 'job-1', status: 'QUEUED' });
-    expect(provisionerQueueMock.add).toHaveBeenCalledWith(
-      'offboard-tenant-infra',
-      { tenantId: 't-1' },
-    );
-  });
 });

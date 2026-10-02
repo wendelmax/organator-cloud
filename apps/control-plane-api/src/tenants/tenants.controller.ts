@@ -151,8 +151,8 @@ export class TenantsController {
 
   @Delete(':id/offboard')
   @Roles('PLATFORM_ADMIN')
-  async triggerOffboard(@Param('id') id: string) {
-    return this.tenantsService.triggerOffboard(id);
+  async triggerOffboard(@Param('id') id: string, @Req() req: any) {
+    return this.tenantsService.triggerOffboard(id, req.user?.userId);
   }
 
   @Get(':id/environments')
@@ -235,8 +235,11 @@ export class TenantsController {
 
   @Post(':id/archive')
   @Roles('PLATFORM_ADMIN')
-  async archiveTenant(@Param('id') id: string) {
-    return this.tenantsService.archiveTenant(id);
+  async archiveTenant(@Param('id') id: string, @Req() req: any) {
+    return this.tenantsService.archiveTenant(id, {
+      actorId: req.user?.userId,
+      actorEmail: req.user?.email,
+    });
   }
 
   @Post(':id/transfer-ownership')

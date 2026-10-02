@@ -2,6 +2,7 @@ import { Job } from 'bullmq';
 import { PrismaClient } from '@organator/core-models';
 import { calculateBackupChecksum } from '@organator/data-isolation';
 import { DockerDriver } from '@organator/cloud-providers';
+import { currentIsolation, resolveProvider } from '../infrastructure/infra-handler.js';
 
 export async function handleBackupTenantInfra(job: Job, prisma: PrismaClient): Promise<{ success: boolean; backupId: string }> {
   const { tenantId, type } = job.data;
@@ -48,18 +49,50 @@ export async function handleCloneTenantEnvironment(job: Job, prisma: PrismaClien
   return { success: true, targetTenantId: targetTenant.id };
 }
 
+/**
+ * Conclui o offboarding iniciado pela API (tenant já em "offboarding", acesso
+ * bloqueado e cobrança encerrada): backup final, remoção da infraestrutura com
+ * o slug e o isolamento reais e transição para "deleted". Se algo falhar, o
+ * tenant continua em "offboarding" e o job pode ser repetido.
+ */
 export async function handleOffboardTenantInfra(job: Job, prisma: PrismaClient): Promise<{ success: boolean }> {
-  const { tenantId } = job.data;
+  const { tenantId, actorId, provider } = job.data;
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+  if (!tenant) throw new Error(`Tenant ${tenantId} not found`);
+  if (tenant.state === 'deleted') return { success: true }; // job repetido
+  if (tenant.state !== 'offboarding') {
+    throw new Error(`Tenant ${tenantId} is ${tenant.state}, expected offboarding`);
+  }
 
   await handleBackupTenantInfra({ data: { tenantId, type: 'PRE_OFFBOARDING' } } as any, prisma);
 
-  const driver = new DockerDriver();
-  await driver.deprovision({ tenantId, slug: tenantId, isolationMode: 'SHARED', environment: 'production' }, {});
+  const driver = resolveProvider(provider);
+  await driver.deprovision(
+    {
+      tenantId,
+      slug: tenant.slug,
+      isolationMode: await currentIsolation(prisma, tenantId),
+      environment: 'production',
+    },
+    {},
+  );
 
+  // Mesma escrita da máquina de estados da API: o guard de acesso lê `state`.
   await prisma.tenant.update({
     where: { id: tenantId },
-    data: { status: 'deleted' },
+    data: { state: 'deleted', status: 'archived', stateChangedAt: new Date() },
   });
+  await prisma.auditLog
+    .create({
+      data: {
+        actorId: actorId ?? null,
+        action: 'tenant.state_change',
+        resourceType: 'Tenant',
+        resourceId: tenantId,
+        changes: { from: 'offboarding', to: 'deleted', reason: 'offboard-tenant-infra' },
+      },
+    })
+    .catch(() => undefined);
 
   return { success: true };
 }
