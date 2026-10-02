@@ -1,6 +1,6 @@
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, Logger } from '@nestjs/common';
 import { PasswordResetService } from './password-reset.service';
 
 const sha256 = (v: string) =>
@@ -86,6 +86,15 @@ describe('PasswordResetService', () => {
       await expect(service.requestReset('x@acme.com')).resolves.toBeUndefined();
       expect(mail.send).not.toHaveBeenCalled();
       expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
+    });
+
+    it('answers normally when the e-mail cannot be sent (no account enumeration)', async () => {
+      mail.send.mockRejectedValue(new Error('SMTP down'));
+      jest.spyOn(Logger.prototype, 'error').mockImplementation();
+
+      await expect(
+        service.requestReset('owner@acme.com'),
+      ).resolves.toBeUndefined();
     });
 
     it('ignores an empty e-mail', async () => {

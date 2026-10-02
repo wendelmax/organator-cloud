@@ -45,7 +45,15 @@ export class PasswordResetService {
       where: { email: normalized },
     });
     if (!user || user.authProvider !== 'credentials') return;
-    if (!(await this.issue(user.id, user.email, 'reset'))) return;
+    try {
+      if (!(await this.issue(user.id, user.email, 'reset'))) return;
+    } catch (err) {
+      // Um erro só para e-mails existentes revelaria quais têm conta.
+      this.logger.error(
+        `Could not send the password reset e-mail to user ${user.id}: ${(err as Error).message}`,
+      );
+      return;
+    }
     await this.audit.record({
       actorId: user.id,
       actorEmail: user.email,
