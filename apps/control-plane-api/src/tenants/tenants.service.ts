@@ -545,15 +545,67 @@ export class TenantsService {
     return this.computeMetrics(tenantId, tenant.plan);
   }
 
+  /**
+   * Membros do tenant: quem tem o tenant como origem (papel em `user.role`) e
+   * quem entrou por membership, ex. convite (papel em `membership.role`).
+   */
   async getMembers(tenantId: string) {
-    return this.prisma.user.findMany({
-      where: { tenantId },
+    const users = await this.prisma.user.findMany({
+      where: {
+        OR: [
+          { tenantId },
+          { memberships: { some: { tenantId, status: 'active' } } },
+        ],
+      },
       select: {
         id: true,
         email: true,
         name: true,
         role: true,
+        tenantId: true,
         createdAt: true,
+        memberships: {
+          where: { tenantId, status: 'active' },
+          select: { role: true },
+        },
+      },
+    });
+    return users.map(({ tenantId: home, memberships, role, ...user }) => ({
+      ...user,
+      role: home === tenantId ? role : (memberships[0]?.role ?? role),
+    }));
+  }
+
+  /** Membro do tenant (origem ou membership ativa), com o papel nele. */
+  private async findMember(tenantId: string, userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const membership = user
+      ? await this.prisma.tenantMembership.findUnique({
+          where: { tenantId_userId: { tenantId, userId } },
+        })
+      : null;
+    const isHome = user?.tenantId === tenantId;
+    const activeMembership =
+      membership && membership.status === 'active' ? membership : null;
+    if (!user || (!isHome && !activeMembership)) {
+      throw new NotFoundException('Member not found in tenant');
+    }
+    const role = isHome ? user.role : activeMembership!.role;
+    return { user, membership: activeMembership, isHome, role };
+  }
+
+  /** OWNERs do tenant, pelos dois caminhos (origem ou membership). */
+  private countOwners(tenantId: string) {
+    return this.prisma.user.count({
+      where: {
+        OR: [
+          { tenantId, role: 'OWNER' },
+          {
+            memberships: {
+              some: { tenantId, role: 'OWNER', status: 'active' },
+            },
+          },
+        ],
       },
     });
   }
@@ -639,12 +691,12 @@ export class TenantsService {
       actorRole?: string;
     } = {},
   ) {
-    const user = await this.prisma.user.findFirst({
-      where: { id: userId, tenantId },
-    });
-    if (!user) {
-      throw new NotFoundException('Member not found in tenant');
-    }
+    const {
+      user,
+      membership,
+      isHome,
+      role: currentRole,
+    } = await this.findMember(tenantId, userId);
 
     const normalizedRole = String(role).toUpperCase();
     if (PLATFORM_ONLY_ROLES.includes(normalizedRole)) {
@@ -656,24 +708,41 @@ export class TenantsService {
     // acima (ADMIN rebaixando um OWNER) também é escalada de privilégio.
     if (
       !canAssignRole(opts.actorRole, normalizedRole) ||
-      !canAssignRole(opts.actorRole, user.role)
+      !canAssignRole(opts.actorRole, currentRole)
     ) {
       throw new ForbiddenException(
         `Você não pode alterar este membro para ${normalizedRole}`,
       );
     }
 
-    const updated = await this.prisma.user.update({
-      where: { id: userId },
-      data: { role: normalizedRole },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        createdAt: true,
-      },
-    });
+    // O papel vale onde é lido: user.role no login (tenant de origem) e
+    // membership.role ao trocar de tenant.
+    if (membership) {
+      await this.prisma.tenantMembership.update({
+        where: { id: membership.id },
+        data: { role: normalizedRole },
+      });
+    }
+    const safeSelect = {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      createdAt: true,
+    };
+    const updated = isHome
+      ? await this.prisma.user.update({
+          where: { id: userId },
+          data: { role: normalizedRole },
+          select: safeSelect,
+        })
+      : {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: normalizedRole,
+          createdAt: user.createdAt,
+        };
 
     await this.auditService.record({
       actorId: opts.actorId ?? null,
@@ -685,7 +754,7 @@ export class TenantsService {
       changes: {
         tenantId,
         email: user.email,
-        from: user.role,
+        from: currentRole,
         to: normalizedRole,
       },
     });
@@ -693,30 +762,52 @@ export class TenantsService {
     return updated;
   }
 
+  /**
+   * Tira o usuário do tenant. A conta só é apagada se ele não pertence a
+   * nenhum outro tenant; senão perde só o acesso a este (membership removida,
+   * tenant de origem movido para outro) e as sessões neste tenant caem.
+   */
   async removeMember(
     tenantId: string,
     userId: string,
     opts: { actorId?: string; actorEmail?: string; ip?: string } = {},
   ) {
-    const user = await this.prisma.user.findFirst({
-      where: { id: userId, tenantId },
-    });
-    if (!user) {
-      throw new NotFoundException('Member not found in tenant');
-    }
+    const { user, isHome, role } = await this.findMember(tenantId, userId);
 
-    const remainingOwners = await this.prisma.user.count({
-      where: { tenantId, role: 'OWNER' },
-    });
-    if (user.role === 'OWNER' && remainingOwners <= 1) {
+    if (role === 'OWNER' && (await this.countOwners(tenantId)) <= 1) {
       throw new BadRequestException(
         'Não é possível remover o único OWNER do tenant',
       );
     }
 
-    const removed = await this.prisma.user.delete({
-      where: { id: userId },
+    const others = await this.prisma.tenantMembership.findMany({
+      where: { userId, status: 'active', tenantId: { not: tenantId } },
+      orderBy: { createdAt: 'asc' },
     });
+
+    let accountDeleted = false;
+    if (isHome && others.length === 0) {
+      await this.prisma.user.delete({ where: { id: userId } });
+      accountDeleted = true;
+    } else {
+      await this.prisma.$transaction([
+        this.prisma.tenantMembership.deleteMany({
+          where: { tenantId, userId },
+        }),
+        ...(isHome
+          ? [
+              this.prisma.user.update({
+                where: { id: userId },
+                data: { tenantId: others[0].tenantId, role: others[0].role },
+              }),
+            ]
+          : []),
+        this.prisma.userSession.updateMany({
+          where: { userId, tenantId, revokedAt: null },
+          data: { revokedAt: new Date() },
+        }),
+      ]);
+    }
 
     await this.auditService.record({
       actorId: opts.actorId ?? null,
@@ -725,11 +816,13 @@ export class TenantsService {
       action: 'tenant.member.removed',
       resourceType: 'TenantMember',
       resourceId: userId,
-      changes: { tenantId, email: user.email, role: user.role },
+      changes: { tenantId, email: user.email, role, accountDeleted },
     });
 
-    return removed;
+    // Nunca devolver o registro do usuário: ele contém o hash da senha.
+    return { id: user.id, email: user.email, removed: true, accountDeleted };
   }
+
   async triggerBackup(tenantId: string) {
     if (!this.provisionerQueue)
       throw new BadRequestException('Provisioner queue not configured');
