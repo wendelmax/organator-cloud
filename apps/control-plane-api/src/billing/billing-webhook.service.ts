@@ -31,25 +31,46 @@ export class BillingWebhookService {
       return { received: true, error: 'Invalid event' };
     }
 
-    const existing = await this.prisma.webhookEvent.findUnique({
-      where: { eventId: event.id },
-    });
-    if (existing) {
+    // Reivindica o evento ANTES de processar: o eventId é único, então entregas
+    // concorrentes do mesmo evento (retries do Stripe) não passam as duas —
+    // checar e gravar só no fim deixava ambas criarem o tenant do checkout.
+    if (!(await this.claimEvent(event))) {
       return { received: true, duplicate: true };
     }
 
-    switch (event.type) {
-      case 'checkout.session.completed':
-        return this.handleCheckoutCompleted(event);
-      case 'invoice.payment_failed':
-        return this.handlePaymentFailed(event);
-      case 'customer.subscription.deleted':
-        return this.handleSubscriptionDeleted(event);
-      case 'customer.subscription.updated':
-        return this.handleSubscriptionUpdated(event);
-      default:
-        await this.recordEvent(event, null);
-        return { received: true, ignored: true };
+    try {
+      switch (event.type) {
+        case 'checkout.session.completed':
+          return await this.handleCheckoutCompleted(event);
+        case 'invoice.payment_failed':
+          return await this.handlePaymentFailed(event);
+        case 'customer.subscription.deleted':
+          return await this.handleSubscriptionDeleted(event);
+        case 'customer.subscription.updated':
+          return await this.handleSubscriptionUpdated(event);
+        default:
+          await this.recordEvent(event, null);
+          return { received: true, ignored: true };
+      }
+    } catch (err) {
+      // Libera o evento para o retry do Stripe processá-lo de novo.
+      await this.prisma.webhookEvent
+        .delete({ where: { eventId: event.id } })
+        .catch(() => undefined);
+      throw err;
+    }
+  }
+
+  /** true se este processo ficou com o evento; false se já foi recebido. */
+  private async claimEvent(event: any): Promise<boolean> {
+    try {
+      await this.prisma.webhookEvent.create({
+        data: { eventId: event.id, type: event.type, payload: event as object },
+      });
+      return true;
+    } catch (err) {
+      if ((err as { code?: string }).code === 'P2002') return false;
+      throw err;
     }
   }
 
@@ -178,14 +199,11 @@ export class BillingWebhookService {
     });
   }
 
+  /** Conclui o evento já reivindicado em claimEvent (associa o tenant) e audita. */
   private async recordEvent(event: any, tenantId: string | null) {
-    await this.prisma.webhookEvent.create({
-      data: {
-        eventId: event.id,
-        type: event.type,
-        tenantId,
-        payload: event as object,
-      },
+    await this.prisma.webhookEvent.update({
+      where: { eventId: event.id },
+      data: { tenantId, processedAt: new Date() },
     });
     await this.auditService.record({
       action: 'billing.webhook_received',
