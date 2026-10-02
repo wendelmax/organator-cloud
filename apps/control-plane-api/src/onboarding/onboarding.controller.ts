@@ -55,34 +55,54 @@ export class OnboardingController {
 
   @Post('checkout')
   async createCheckoutSession(@Body() body: any) {
-    const planSlug = (body.plan || 'free').toLowerCase();
+    const tenantName =
+      typeof body?.tenantName === 'string' ? body.tenantName.trim() : '';
+    const email = typeof body?.email === 'string' ? body.email.trim() : '';
+    if (!tenantName || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new BadRequestException(
+        'tenantName and a valid email are required',
+      );
+    }
+
+    const planSlug = String(body.plan || 'free').toLowerCase();
     const plan = await this.plansService.getBySlug(planSlug);
     const unitAmount =
       plan?.price ?? (planSlug === 'enterprise' ? 19900 : 4900);
-    const price = plan?.stripePriceId;
+    // Preços "simulados" (Stripe desabilitado na sincronização do plano) não
+    // existem na conta Stripe: monta o preço inline.
+    const price =
+      plan?.stripePriceId && !plan.stripePriceId.startsWith('price_simulated_')
+        ? plan.stripePriceId
+        : undefined;
 
-    const lineItem = price
+    const lineItem: Stripe.Checkout.SessionCreateParams.LineItem = price
       ? { price, quantity: 1 }
       : {
           price_data: {
-            currency: 'usd',
-            product_data: { name: `Plan ${body.plan}` },
+            currency: plan?.currency || 'usd',
+            product_data: { name: `Plan ${planSlug}` },
             unit_amount: unitAmount,
+            recurring: {
+              interval: plan?.cycle === 'yearly' ? 'year' : 'month',
+            },
           },
           quantity: 1,
         };
 
+    const metadata = { tenantName, plan: planSlug };
+    const backoffice = (
+      process.env.BACKOFFICE_URL || 'http://localhost:3000'
+    ).replace(/\/+$/, '');
+    // Assinatura (não pagamento avulso): os preços dos planos são recorrentes e
+    // o ciclo de vida do tenant depende dos eventos de invoice/subscription.
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
+      mode: 'subscription',
       line_items: [lineItem],
-      mode: 'payment',
-      success_url: 'http://localhost:3000/login?success=true',
-      cancel_url: 'http://localhost:3000/register?canceled=true',
-      metadata: {
-        tenantName: body.tenantName,
-        plan: planSlug,
-      },
-      customer_email: body.email,
+      success_url: `${backoffice}/login?success=true`,
+      cancel_url: `${backoffice}/register?canceled=true`,
+      metadata,
+      subscription_data: { metadata },
+      customer_email: email,
     });
     return { url: session.url };
   }
