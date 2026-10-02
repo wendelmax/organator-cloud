@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 const redisInstances: any[] = [];
 jest.mock('ioredis', () => {
   return jest.fn().mockImplementation(() => {
@@ -76,7 +77,52 @@ describe('ServicesService', () => {
     });
   });
 
+  describe('tenant scope', () => {
+    it('hides services and deployments of another tenant (404)', async () => {
+      prisma.microservice.findUnique.mockResolvedValue({
+        id: 'svc-1',
+        tenantId: 't-a',
+      });
+      await expect(
+        service.getDeploymentsByService('svc-1', 't-b'),
+      ).rejects.toThrow(NotFoundException);
+      await expect(
+        service.triggerDeploy('svc-1', 'production', 't-b'),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.deployment.findMany).not.toHaveBeenCalled();
+      expect(prisma.deployment.create).not.toHaveBeenCalled();
+    });
+
+    it('checks the tenant of a deployment before streaming its logs', async () => {
+      prisma.deployment.findUnique = jest
+        .fn()
+        .mockResolvedValueOnce({
+          tenantId: null,
+          microservice: { tenantId: 't-a' },
+        })
+        .mockResolvedValueOnce({
+          tenantId: null,
+          microservice: { tenantId: 't-a' },
+        })
+        .mockResolvedValueOnce(null);
+
+      await expect(
+        service.assertDeploymentInScope('dep-1', 't-a'),
+      ).resolves.toBeUndefined();
+      await expect(
+        service.assertDeploymentInScope('dep-1', 't-b'),
+      ).rejects.toThrow(NotFoundException);
+      await expect(
+        service.assertDeploymentInScope('missing', null),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
   it('lists deployments newest first', async () => {
+    prisma.microservice.findUnique.mockResolvedValue({
+      id: 'svc-1',
+      tenantId: 't-a',
+    });
     await service.getDeploymentsByService('svc-1');
     expect(prisma.deployment.findMany).toHaveBeenCalledWith({
       where: { microserviceId: 'svc-1' },
