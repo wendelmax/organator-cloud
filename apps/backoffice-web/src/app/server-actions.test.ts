@@ -187,3 +187,24 @@ describe('tenant actions', () => {
     await assert.rejects(tenants.getMembers(), /Failed to fetch members/);
   });
 });
+
+describe('tenant infrastructure actions', () => {
+  // Estas rotas ficam em /v1/tenants/:id (TenantsController); o prefixo
+  // /v1/platform/tenants só existe para data-isolation e dava 404.
+  test('provision, clone and offboard call the existing API routes', async () => {
+    const f = mockFetch(200, { jobId: 'j1', status: 'QUEUED' });
+
+    await tenants.provisionInfra('t9');
+    assert.equal(lastCall(f).url, 'http://localhost:3001/v1/tenants/t9/provision-infra');
+    assert.equal(lastCall(f).init.method, 'POST');
+
+    await tenants.cloneTenantEnvironment('t9', 'acme-copy', 'Acme Copy');
+    assert.equal(lastCall(f).url, 'http://localhost:3001/v1/tenants/t9/clone');
+    assert.deepEqual(lastCall(f).body, { targetSlug: 'acme-copy', targetName: 'Acme Copy' });
+
+    await tenants.offboardTenantEnvironment('t9');
+    assert.equal(lastCall(f).url, 'http://localhost:3001/v1/tenants/t9/offboard');
+    assert.equal(lastCall(f).init.method, 'DELETE');
+    assert.equal(lastCall(f).init.headers.Authorization, 'Bearer jwt-1');
+  });
+});

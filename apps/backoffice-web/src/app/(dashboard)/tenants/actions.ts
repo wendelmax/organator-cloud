@@ -341,7 +341,7 @@ export async function provisionInfra(tenantId: string) {
   const token = (session as any)?.accessToken;
   if (!token) throw new Error("Unauthorized");
 
-  const res = await fetch(`${API_URL}/v1/platform/tenants/${tenantId}/provision-infra`, {
+  const res = await fetch(`${API_URL}/v1/tenants/${tenantId}/provision-infra`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` }
   });
@@ -360,7 +360,7 @@ export async function cloneTenantEnvironment(tenantId: string, targetSlug: strin
   const token = (session as any)?.accessToken;
   if (!token) throw new Error("Unauthorized");
 
-  const res = await fetch(`${API_URL}/v1/platform/tenants/${tenantId}/clone`, {
+  const res = await fetch(`${API_URL}/v1/tenants/${tenantId}/clone`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({ targetSlug, targetName })
@@ -380,7 +380,7 @@ export async function offboardTenantEnvironment(tenantId: string) {
   const token = (session as any)?.accessToken;
   if (!token) throw new Error("Unauthorized");
 
-  const res = await fetch(`${API_URL}/v1/platform/tenants/${tenantId}/offboard`, {
+  const res = await fetch(`${API_URL}/v1/tenants/${tenantId}/offboard`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` }
   });

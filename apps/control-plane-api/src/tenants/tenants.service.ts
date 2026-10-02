@@ -20,6 +20,7 @@ import * as crypto from 'crypto';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PasswordResetService } from '../auth/password-reset.service';
+import { cancelCustomerSubscriptions } from '../billing/stripe-subscriptions';
 
 export type TenantStatus = 'active' | 'suspended' | 'archived';
 
@@ -452,12 +453,49 @@ export class TenantsService {
   }
 
   async archiveTenant(tenantId: string, opts: Record<string, unknown> = {}) {
-    await this.ensureTenantExists(tenantId);
-    return this.lifecycleService.markOffboarding(tenantId, {
+    return this.beginOffboarding(tenantId, {
       reason: (opts.reason as string) || 'manual.admin',
       actorId: (opts.actorId as string) || null,
       actorEmail: (opts.actorEmail as string) || null,
     });
+  }
+
+  /**
+   * Início do offboarding: bloqueia o acesso na hora (estado offboarding,
+   * auditado) e encerra a cobrança. Falha no Stripe não impede o offboarding,
+   * mas fica no audit log para cancelamento manual.
+   */
+  private async beginOffboarding(
+    tenantId: string,
+    opts: {
+      reason: string;
+      actorId?: string | null;
+      actorEmail?: string | null;
+    },
+  ) {
+    const tenant = await this.ensureTenantExists(tenantId);
+    const updated = await this.lifecycleService.markOffboarding(tenantId, opts);
+    try {
+      const canceled = await cancelCustomerSubscriptions(tenant.stripeId);
+      if (canceled.length) {
+        await this.auditService.record({
+          actorId: opts.actorId ?? null,
+          action: 'tenant.billing_canceled',
+          resourceType: 'Tenant',
+          resourceId: tenantId,
+          changes: { subscriptions: canceled },
+        });
+      }
+    } catch (err) {
+      await this.auditService.record({
+        actorId: opts.actorId ?? null,
+        action: 'tenant.billing_cancel_failed',
+        resourceType: 'Tenant',
+        resourceId: tenantId,
+        changes: { customer: tenant.stripeId, error: (err as Error).message },
+      });
+    }
+    return updated;
   }
 
   async transferOwnership(tenantId: string, newOwnerId: string) {
@@ -682,12 +720,24 @@ export class TenantsService {
     return { jobId: job.id, status: 'QUEUED' };
   }
 
-  async triggerOffboard(tenantId: string) {
+  /**
+   * Offboarding completo: acesso bloqueado e cobrança encerrada agora; o worker
+   * faz o backup final, remove a infraestrutura e conclui em "deleted".
+   */
+  async triggerOffboard(tenantId: string, actorId?: string) {
     if (!this.provisionerQueue)
       throw new BadRequestException('Provisioner queue not configured');
-    const job = await this.provisionerQueue.add('offboard-tenant-infra', {
-      tenantId,
+    const tenant = await this.ensureTenantExists(tenantId);
+    await this.beginOffboarding(tenantId, {
+      reason: 'manual.offboard',
+      actorId: actorId ?? null,
     });
+    const job = await this.provisionerQueue.add(
+      'offboard-tenant-infra',
+      { tenantId, slug: tenant.slug, actorId: actorId ?? null },
+      // Um offboarding por tenant: cliques repetidos não enfileiram outro.
+      { jobId: bullJobId(`offboard-tenant-infra:${tenantId}`) },
+    );
     return { jobId: job.id, status: 'QUEUED' };
   }
 
