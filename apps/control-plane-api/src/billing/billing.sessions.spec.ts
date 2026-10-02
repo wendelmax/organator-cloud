@@ -1,12 +1,15 @@
 const portalCreate = jest.fn();
 const checkoutCreate = jest.fn();
+const invoicesList = jest.fn();
 jest.mock('stripe', () =>
   jest.fn().mockImplementation(() => ({
     billingPortal: { sessions: { create: portalCreate } },
+    invoices: { list: invoicesList },
     checkout: { sessions: { create: checkoutCreate } },
   })),
 );
 
+import { BadGatewayException, ConflictException } from '@nestjs/common';
 import { BillingService } from './billing.service';
 
 describe('BillingService — Stripe sessions', () => {
@@ -48,13 +51,11 @@ describe('BillingService — Stripe sessions', () => {
   });
 
   describe('createPortalSession', () => {
-    it('returns a simulated URL for tenants without a Stripe customer', async () => {
+    it('refuses tenants without a Stripe customer instead of faking a portal URL', async () => {
       prisma.tenant.findUnique.mockResolvedValue({ id: 't1', stripeId: null });
-      const { url } = await service.createPortalSession(
-        't1',
-        'https://app.acme.com/billing',
-      );
-      expect(url).toMatch(/^https:\/\/billing\.stripe\.com\/p\/session\/test_/);
+      await expect(
+        service.createPortalSession('t1', 'https://app.acme.com/billing'),
+      ).rejects.toThrow(ConflictException);
       expect(portalCreate).not.toHaveBeenCalled();
     });
 
@@ -77,10 +78,11 @@ describe('BillingService — Stripe sessions', () => {
       );
     });
 
-    it('falls back when Stripe fails', async () => {
+    it('reports 502 when Stripe fails', async () => {
       portalCreate.mockRejectedValue(new Error('No such customer'));
-      const { url } = await service.createPortalSession('t1', '');
-      expect(url).toMatch(/test_/);
+      await expect(service.createPortalSession('t1', '')).rejects.toThrow(
+        BadGatewayException,
+      );
     });
   });
 
@@ -154,6 +156,90 @@ describe('BillingService — Stripe sessions', () => {
       });
       await service.createUpgradeSession('t1', 'pro');
       expect(checkoutCreate.mock.calls[0][0].customer).toBeUndefined();
+    });
+  });
+
+  describe('getSubscription invoices', () => {
+    beforeEach(() => {
+      prisma.billingPlan.findUnique.mockResolvedValue(null);
+      Object.assign(prisma, {
+        microservice: { count: jest.fn().mockResolvedValue(0) },
+        deployment: { count: jest.fn().mockResolvedValue(0) },
+        user: { count: jest.fn().mockResolvedValue(0) },
+        apiDoc: { count: jest.fn().mockResolvedValue(0) },
+      });
+      invoicesList.mockReset().mockResolvedValue({
+        data: [
+          {
+            id: 'in_1',
+            number: 'ACME-0001',
+            status: 'paid',
+            amount_paid: 4900,
+            amount_due: 4900,
+            currency: 'brl',
+            created: 1767225600,
+            hosted_invoice_url: 'https://invoice.stripe.com/i/1',
+          },
+          {
+            id: 'in_2',
+            number: null,
+            status: 'open',
+            amount_paid: 0,
+            amount_due: 9900,
+            currency: 'brl',
+            created: 1769904000,
+            hosted_invoice_url: null,
+          },
+        ],
+      });
+    });
+
+    it('lists the real Stripe invoices of the tenant customer', async () => {
+      process.env.STRIPE_SECRET_KEY = 'sk_live_real';
+      const { invoices } = await service.getSubscription('t1');
+
+      expect(invoicesList).toHaveBeenCalledWith({
+        customer: 'cus_1',
+        limit: 12,
+      });
+      expect(invoices).toEqual([
+        {
+          id: 'ACME-0001',
+          amount: 4900,
+          currency: 'brl',
+          status: 'paid',
+          date: '2026-01-01T00:00:00.000Z',
+          url: 'https://invoice.stripe.com/i/1',
+        },
+        {
+          id: 'in_2',
+          amount: 9900,
+          currency: 'brl',
+          status: 'open',
+          date: '2026-02-01T00:00:00.000Z',
+          url: null,
+        },
+      ]);
+    });
+
+    it('returns no invoices without a customer or a real Stripe key', async () => {
+      process.env.STRIPE_SECRET_KEY = 'sk_test_123';
+      expect((await service.getSubscription('t1')).invoices).toEqual([]);
+
+      process.env.STRIPE_SECRET_KEY = 'sk_live_real';
+      prisma.tenant.findUnique.mockResolvedValue({
+        id: 't1',
+        plan: 'Free',
+        stripeId: null,
+      });
+      expect((await service.getSubscription('t1')).invoices).toEqual([]);
+      expect(invoicesList).not.toHaveBeenCalled();
+    });
+
+    it('degrades to no invoices when Stripe fails', async () => {
+      process.env.STRIPE_SECRET_KEY = 'sk_live_real';
+      invoicesList.mockRejectedValue(new Error('rate limited'));
+      expect((await service.getSubscription('t1')).invoices).toEqual([]);
     });
   });
 

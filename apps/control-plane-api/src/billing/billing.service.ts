@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
@@ -8,8 +14,21 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_123', {
   apiVersion: '2025-02-24.acacia' as any,
 });
 
+const DEV_STRIPE_KEYS = ['sk_test_123', 'sk_test_placeholder', ''];
+
+export interface InvoiceSummary {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  date: string;
+  url: string | null;
+}
+
 @Injectable()
 export class BillingService {
+  private readonly logger = new Logger(BillingService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly entitlements: EntitlementsService,
@@ -20,8 +39,12 @@ export class BillingService {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
     });
+    // Sem customer ainda não há o que gerenciar no portal: o customer é criado
+    // no primeiro checkout. Antes devolvíamos uma URL fictícia do Stripe.
     if (!tenant?.stripeId) {
-      return { url: `https://billing.stripe.com/p/session/test_${Date.now()}` };
+      throw new ConflictException(
+        'This organization has no billing account yet. Subscribe to a plan first.',
+      );
     }
     try {
       const session = await stripe.billingPortal.sessions.create({
@@ -29,9 +52,38 @@ export class BillingService {
         return_url: this.safeReturnUrl(returnUrl),
       });
       return { url: session.url };
-    } catch (err: any) {
-      console.warn(`[Stripe BillingPortal Warning] ${err.message}`);
-      return { url: `https://billing.stripe.com/p/session/test_${Date.now()}` };
+    } catch (err) {
+      this.logger.warn(
+        `Stripe billing portal failed for tenant ${tenantId}: ${(err as Error).message}`,
+      );
+      throw new BadGatewayException('Billing portal is unavailable right now.');
+    }
+  }
+
+  /** Últimas faturas do customer no Stripe; vazio sem customer/Stripe ou em erro. */
+  private async listInvoices(
+    stripeId: string | null | undefined,
+  ): Promise<InvoiceSummary[]> {
+    const key = process.env.STRIPE_SECRET_KEY ?? '';
+    if (!stripeId || DEV_STRIPE_KEYS.includes(key)) return [];
+    try {
+      const { data } = await stripe.invoices.list({
+        customer: stripeId,
+        limit: 12,
+      });
+      return data.map((inv) => ({
+        id: inv.number || inv.id || '',
+        amount: inv.status === 'paid' ? inv.amount_paid : inv.amount_due,
+        currency: inv.currency,
+        status: inv.status || 'draft',
+        date: new Date(inv.created * 1000).toISOString(),
+        url: inv.hosted_invoice_url ?? null,
+      }));
+    } catch (err) {
+      this.logger.warn(
+        `Stripe invoices unavailable for ${stripeId}: ${(err as Error).message}`,
+      );
+      return [];
     }
   }
 
@@ -47,6 +99,7 @@ export class BillingService {
           where: { slug: tenant.plan.toLowerCase() },
         })
       : null;
+    const invoices = await this.listInvoices(tenant?.stripeId);
     const [microservices, deployments, users, apiDocs] = tenantId
       ? await Promise.all([
           this.prisma.microservice.count({ where: { tenantId } }),
@@ -77,15 +130,7 @@ export class BillingService {
             : 'active',
       entitlements,
       usage,
-      invoices: [
-        {
-          id: 'inv_1001',
-          amount: 4900,
-          currency: 'usd',
-          status: 'paid',
-          date: new Date().toISOString(),
-        },
-      ],
+      invoices,
     };
   }
 

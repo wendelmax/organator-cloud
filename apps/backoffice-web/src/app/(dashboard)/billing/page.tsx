@@ -14,11 +14,23 @@ import { publicApiUrl } from "../../../lib/public-env";
 
 const API_URL = publicApiUrl();
 
+/** Valor em centavos na moeda da fatura (o Stripe usa códigos ISO minúsculos). */
+function formatMoney(cents: number, currency = "usd") {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currency.toUpperCase(),
+    }).format(cents / 100);
+  } catch {
+    return `${(cents / 100).toFixed(2)} ${currency.toUpperCase()}`;
+  }
+}
+
 export default function BillingPage() {
   const [subscription, setSubscription] = useState<any>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
-  const [portalUrl, setPortalUrl] = useState<string | null>(null);
+  const [portalError, setPortalError] = useState<string | null>(null);
   const [targetPlan, setTargetPlan] = useState("pro");
   const { data: session } = useSession();
   const token = (session as any)?.accessToken;
@@ -39,6 +51,7 @@ export default function BillingPage() {
 
   const handleStripePortal = async () => {
     setIsSyncing(true);
+    setPortalError(null);
     try {
       const res = await fetch(`${API_URL}/v1/billing/create-portal-session`, {
         method: "POST",
@@ -46,14 +59,16 @@ export default function BillingPage() {
         body: JSON.stringify({ returnUrl: window.location.href }),
       });
       const data = await res.json();
-      if (data.url) {
-        setPortalUrl(data.url);
+      if (res.ok && data.url) {
+        // O portal do Stripe não pode ser embutido em iframe (frame-ancestors).
+        window.location.href = data.url;
+        return;
       }
-    } catch (err) {
-      alert("Erro ao redirecionar para o Stripe Portal");
-    } finally {
-      setIsSyncing(false);
+      setPortalError(data.message || "Não foi possível abrir o portal de cobrança.");
+    } catch {
+      setPortalError("Erro de rede ao abrir o portal de cobrança.");
     }
+    setIsSyncing(false);
   };
 
   const handleUpgrade = async () => {
@@ -90,6 +105,14 @@ export default function BillingPage() {
           <Button onClick={() => setUpgradeOpen(true)}>Fazer upgrade</Button>
         </div>
       </div>
+      {portalError && (
+        <p
+          role="alert"
+          className="rounded-lg border border-amber-800/50 bg-amber-950/40 p-3 text-sm text-amber-300"
+        >
+          {portalError}
+        </p>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="p-6 bg-neutral-900 border-neutral-800 shadow-xl">
@@ -156,16 +179,32 @@ export default function BillingPage() {
                       {inv.id}
                     </span>
                     <span className="text-neutral-500 text-[10px]">
-                      {new Date(inv.date || "2026-07-31").toLocaleDateString()}
+                      {new Date(inv.date).toLocaleDateString()}
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-semibold text-white">
-                      ${(inv.amount / 100).toFixed(2)} USD
+                      {formatMoney(inv.amount, inv.currency)}
                     </span>
-                    <span className="px-2 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-800/50 rounded text-[10px] font-mono font-semibold uppercase">
+                    <span
+                      className={`px-2 py-0.5 rounded border text-[10px] font-mono font-semibold uppercase ${
+                        inv.status === "paid"
+                          ? "bg-emerald-950 text-emerald-400 border-emerald-800/50"
+                          : "bg-amber-950 text-amber-400 border-amber-800/50"
+                      }`}
+                    >
                       {inv.status}
                     </span>
+                    {inv.url && (
+                      <a
+                        href={inv.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:underline"
+                      >
+                        Ver
+                      </a>
+                    )}
                   </div>
                 </div>
               ))
@@ -226,21 +265,6 @@ export default function BillingPage() {
             )}
           </CardContent>
         </Card>
-      )}
-      {portalUrl && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-black/80 p-4 md:p-10">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-white font-semibold">Stripe Customer Portal</p>
-            <Button variant="outline" onClick={() => setPortalUrl(null)}>
-              Fechar
-            </Button>
-          </div>
-          <iframe
-            title="Stripe Customer Portal"
-            src={portalUrl}
-            className="h-full w-full rounded-xl border border-neutral-700 bg-white"
-          />
-        </div>
       )}
       {upgradeOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/70">
