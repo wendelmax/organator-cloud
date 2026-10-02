@@ -1,14 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, Card, Input } from "@organator/ui";
 import { publicApiUrl } from "../../../lib/public-env";
+import { formatPlanPrice, planHighlights, type PublicPlan } from "../../../lib/plans";
 
 const API_URL = publicApiUrl();
 
 export function RegisterClient() {
   const [step, setStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
+  // Planos ativos cadastrados no painel: o preço exibido é o mesmo cobrado no
+  // checkout (antes os valores eram fixos na página).
+  const [plans, setPlans] = useState<PublicPlan[] | null>(null);
+  const [plansError, setPlansError] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API_URL}/v1/billing/plans`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
+      .then((data: PublicPlan[]) => setPlans(data.filter((plan) => plan.price > 0)))
+      .catch(() => setPlansError(true));
+  }, []);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -30,7 +42,7 @@ export function RegisterClient() {
         body: JSON.stringify({
           email: formData.email,
           tenantName: formData.tenantName,
-          plan: plan || 'Pro'
+          plan
         })
       });
       const data = await res.json();
@@ -101,39 +113,31 @@ export function RegisterClient() {
 
           <form onSubmit={handleStripeRedirect}>
             <div className="space-y-4">
-              <label className="block cursor-pointer">
-                <input type="radio" name="plan" value="Pro" className="peer sr-only" defaultChecked />
-                <Card className="p-6 bg-neutral-900 border-neutral-800 peer-checked:border-blue-500 peer-checked:ring-1 peer-checked:ring-blue-500 transition-all hover:bg-neutral-800">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="text-lg font-bold text-white">Pro</h3>
-                      <p className="text-sm text-neutral-400">Até 5 microsserviços provisionados</p>
+              {plansError && (
+                <p className="text-sm text-red-300">Não foi possível carregar os planos. Tente novamente em instantes.</p>
+              )}
+              {!plans && !plansError && <p className="text-sm text-neutral-400">Carregando planos...</p>}
+              {plans?.length === 0 && (
+                <p className="text-sm text-neutral-400">Nenhum plano pago disponível no momento.</p>
+              )}
+              {plans?.map((plan, index) => (
+                <label key={plan.slug} className="block cursor-pointer">
+                  <input type="radio" name="plan" value={plan.slug} className="peer sr-only" defaultChecked={index === 0} />
+                  <Card className="p-6 bg-neutral-900 border-neutral-800 peer-checked:border-blue-500 peer-checked:ring-1 peer-checked:ring-blue-500 transition-all hover:bg-neutral-800">
+                    <div className="flex justify-between items-center gap-4">
+                      <div>
+                        <h3 className="text-lg font-bold text-white">{plan.name}</h3>
+                        <p className="text-sm text-neutral-400">
+                          {plan.description || planHighlights(plan.quotas).join(" · ")}
+                        </p>
+                      </div>
+                      <span className="text-xl font-bold text-white whitespace-nowrap">{formatPlanPrice(plan)}</span>
                     </div>
-                    <div className="text-right">
-                      <span className="text-2xl font-bold text-white">$49</span>
-                      <span className="text-sm text-neutral-400">/mês</span>
-                    </div>
-                  </div>
-                </Card>
-              </label>
+                  </Card>
+                </label>
+              ))}
 
-              <label className="block cursor-pointer">
-                <input type="radio" name="plan" value="Enterprise" className="peer sr-only" />
-                <Card className="p-6 bg-neutral-900 border-neutral-800 peer-checked:border-blue-500 peer-checked:ring-1 peer-checked:ring-blue-500 transition-all hover:bg-neutral-800">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="text-lg font-bold text-white">Enterprise</h3>
-                      <p className="text-sm text-neutral-400">Nuvens ilimitadas e Docker VPS</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-2xl font-bold text-white">$199</span>
-                      <span className="text-sm text-neutral-400">/mês</span>
-                    </div>
-                  </div>
-                </Card>
-              </label>
-
-              <Button type="submit" size="lg" className="w-full py-6 text-lg mt-6" disabled={isProcessing}>
+              <Button type="submit" size="lg" className="w-full py-6 text-lg mt-6" disabled={isProcessing || !plans?.length}>
                 {isProcessing ? "Gerando Checkout..." : "Pagar via Stripe"}
               </Button>
               <p className="text-xs text-center text-neutral-500 mt-4">

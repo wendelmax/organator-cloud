@@ -246,7 +246,7 @@ describe('BillingService — Stripe sessions', () => {
   it('getSubscription works without tenant (defaults, zero usage)', async () => {
     const result = await service.getSubscription('');
     expect(result).toMatchObject({
-      plan: 'Pro',
+      plan: null,
       price: 0,
       status: 'active',
       usage: { MICROSERVICE: 0, DEPLOYMENT: 0, SEATS: 0, APIS: 0 },

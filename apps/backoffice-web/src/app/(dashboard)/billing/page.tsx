@@ -42,10 +42,11 @@ export default function BillingPage() {
   useEffect(() => {
     if (!token) return;
     fetch(`${API_URL}/v1/billing/subscription`, { headers: authHeaders })
-      .then((res) => res.json())
+      // Erro (ex.: 403 para quem não é OWNER/ADMIN/BILLING) não é assinatura.
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => setSubscription(data))
       .catch(() =>
-        setSubscription({ plan: "Pro", status: "active", invoices: [] }),
+        setSubscription(null),
       );
   }, [token]);
 
@@ -125,7 +126,7 @@ export default function BillingPage() {
             <div className="flex justify-between items-center p-3 bg-neutral-950 rounded-lg border border-neutral-800">
               <span className="text-neutral-400 text-sm">Plano Ativo</span>
               <span className="font-bold text-indigo-400 text-base">
-                {subscription?.plan || "Pro"}
+                {subscription?.plan ?? "—"}
               </span>
             </div>
             <div className="flex justify-between items-center p-3 bg-neutral-950 rounded-lg border border-neutral-800">
@@ -151,7 +152,7 @@ export default function BillingPage() {
             <div className="flex justify-between items-center p-3 bg-neutral-950 rounded-lg border border-neutral-800">
               <span className="text-neutral-400 text-sm">Status da Conta</span>
               <span className="px-2.5 py-1 bg-emerald-950 text-emerald-400 border border-emerald-800/50 rounded-full text-xs font-mono font-medium">
-                {subscription?.status || "ativo"}
+                {subscription?.status ?? "—"}
               </span>
             </div>
           </CardContent>
