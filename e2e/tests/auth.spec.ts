@@ -81,3 +81,58 @@ test.describe("Recuperação de senha", () => {
     await expect(page.getByText(/Pagamento confirmado/)).toBeVisible();
   });
 });
+
+// Fluxo real: o e-mail sai da API para o Mailpit do docker compose.
+const MAILPIT_URL = process.env.MAILPIT_URL ?? "http://localhost:8025";
+
+async function waitForResetLink(to: string, since: number): Promise<string> {
+  for (let i = 0; i < 30; i++) {
+    const res = await fetch(`${MAILPIT_URL}/api/v1/search?query=${encodeURIComponent(`to:${to}`)}`);
+    const { messages = [] } = (await res.json()) as {
+      messages?: { ID: string; Created: string }[];
+    };
+    const fresh = messages.find((m) => Date.parse(m.Created) >= since - 1000);
+    if (fresh) {
+      const message = (await (await fetch(`${MAILPIT_URL}/api/v1/message/${fresh.ID}`)).json()) as {
+        Text: string;
+      };
+      const link = /https?:\/\/\S+\/reset-password\?token=[\w-]+/.exec(message.Text)?.[0];
+      if (link) return link;
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  throw new Error(`no reset e-mail for ${to} in Mailpit`);
+}
+
+test.describe("Recuperação de senha por e-mail", () => {
+  test("pede o link, recebe o e-mail, define a senha e entra com ela", async ({ page }) => {
+    const email = "forgetful@organator.app";
+    const newPassword = `Nova${Date.now()}!`;
+    const since = Date.now();
+
+    await page.goto("/forgot-password");
+    await page.getByLabel("Email").fill(email);
+    await page.getByRole("button", { name: "Enviar link" }).click();
+    await expect(page.getByText(/Se existir uma conta para/)).toBeVisible();
+
+    const link = await waitForResetLink(email, since);
+    await page.goto(link);
+    await page.getByLabel("Nova senha", { exact: true }).fill(newPassword);
+    await page.getByLabel("Confirme a nova senha").fill(newPassword);
+    await page.getByRole("button", { name: "Definir senha" }).click();
+    await expect(page.getByText(/Senha definida/)).toBeVisible();
+
+    // O mesmo link não vale de novo.
+    await page.goto(link);
+    await page.getByLabel("Nova senha", { exact: true }).fill(newPassword);
+    await page.getByLabel("Confirme a nova senha").fill(newPassword);
+    await page.getByRole("button", { name: "Definir senha" }).click();
+    await expect(page.getByText("Link inválido ou expirado")).toBeVisible();
+
+    await page.goto("/login");
+    await page.getByPlaceholder("admin@organator.app").fill(email);
+    await page.getByPlaceholder("••••••••").fill(newPassword);
+    await page.getByRole("button", { name: "Entrar", exact: true }).click();
+    await page.waitForURL("**/services", { timeout: 20_000 });
+  });
+});
