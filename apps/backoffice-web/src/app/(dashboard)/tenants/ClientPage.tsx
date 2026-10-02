@@ -687,6 +687,7 @@ export function TenantsClient({
           <div className="space-y-2">
             <label className="text-sm font-medium text-neutral-200">Senha (opcional)</label>
             <Input name="password" type="password" placeholder="Min. 8 caracteres (opcional)" />
+            <p className="text-xs text-neutral-500">Sem senha, o membro recebe por e-mail um link para criar a própria.</p>
           </div>
           <div className="pt-4 flex justify-end gap-2">
             <Button variant="ghost" type="button" onClick={() => setIsMemberModalOpen(false)}>

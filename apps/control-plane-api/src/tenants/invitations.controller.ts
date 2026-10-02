@@ -37,6 +37,7 @@ export class InvitationsController {
       body.email,
       body.role || 'MEMBER',
       req.user.userId,
+      req.user.role,
     );
   }
 

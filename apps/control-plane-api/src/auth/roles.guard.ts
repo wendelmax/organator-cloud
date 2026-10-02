@@ -20,6 +20,31 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   VIEWER: ['VIEWER'],
 };
 
+/** Papéis que existem dentro de um tenant (PLATFORM_ADMIN é só da plataforma). */
+export const TENANT_ROLES = [
+  'OWNER',
+  'ADMIN',
+  'BILLING',
+  'MEMBER',
+  'DEVELOPER',
+  'VIEWER',
+];
+
+/**
+ * Pode `actorRole` atribuir `role` a alguém do tenant? Só papéis de tenant e
+ * dentro do próprio alcance: um ADMIN não cria OWNER e ninguém cria
+ * PLATFORM_ADMIN pela gestão de membros/convites.
+ */
+export function canAssignRole(
+  actorRole: string | undefined,
+  role: string,
+): boolean {
+  const target = String(role || '').toUpperCase();
+  if (!TENANT_ROLES.includes(target)) return false;
+  const granted = ROLE_PERMISSIONS[String(actorRole || '').toUpperCase()] || [];
+  return granted.includes(target);
+}
+
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
