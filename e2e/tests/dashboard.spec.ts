@@ -6,9 +6,14 @@ test.describe("Dashboard", () => {
   test("página inicial mostra cards de visão geral", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-    await expect(page.getByText("Total Tenants")).toBeVisible();
-    await expect(page.getByText("Microserviços")).toBeVisible();
-    await expect(page.getByText("Receita (Stripe)")).toBeVisible();
+    // Números reais do tenant (antes: valores fixos e uma receita inventada).
+    for (const label of ["Microsserviços", "Deploys", "Membros"]) {
+      const card = page.locator("div.rounded-xl", { has: page.getByRole("heading", { name: label, exact: true }) });
+      await expect(card.locator("p")).toHaveText(/^\d+$/);
+    }
+    await expect(page.getByText("Receita (Stripe)")).toHaveCount(0);
+    // Total de tenants é só para o admin da plataforma.
+    await expect(page.getByText("Total de Tenants")).toHaveCount(0);
   });
 
   test("sidebar de navegação lista todas as seções", async ({ page }) => {
