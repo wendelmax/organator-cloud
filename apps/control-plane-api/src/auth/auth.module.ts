@@ -11,6 +11,7 @@ import { RolesGuard } from './roles.guard';
 import { AuditModule } from '../audit/audit.module';
 import { readSecurityConfig } from '../common/security.config';
 import { MfaPolicyService } from './mfa-policy.service';
+import { PasswordResetModule } from './password-reset.module';
 
 const securityConfig = readSecurityConfig();
 
@@ -26,6 +27,7 @@ export const jwtConstants = {
       signOptions: { expiresIn: '1d' },
     }),
     AuditModule,
+    PasswordResetModule,
   ],
   controllers: [AuthController],
   providers: [

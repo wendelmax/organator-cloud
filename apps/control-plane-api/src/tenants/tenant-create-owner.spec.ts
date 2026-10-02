@@ -4,8 +4,10 @@ describe('TenantsService.createTenant — owner assignment', () => {
   const tenant = { id: 't-new', slug: 'acme', plan: 'free' };
   let prisma: any;
   let service: TenantsService;
+  let passwordReset: { sendActivation: jest.Mock };
 
   beforeEach(() => {
+    passwordReset = { sendActivation: jest.fn() };
     prisma = {
       user: { findUnique: jest.fn() },
       tenant: {
@@ -19,6 +21,8 @@ describe('TenantsService.createTenant — owner assignment', () => {
       {} as never,
       { record: jest.fn().mockResolvedValue(undefined) } as never,
       {} as never,
+      undefined,
+      passwordReset as never,
     );
   });
 
@@ -53,6 +57,22 @@ describe('TenantsService.createTenant — owner assignment', () => {
       mustChangePassword: true,
     });
     expect(prisma.tenantMembership.upsert).not.toHaveBeenCalled();
+  });
+
+  it('e-mails the new owner a link to set the password', async () => {
+    prisma.user.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'owner-1' });
+
+    await service.createTenant('Acme', 'free', 'new-owner@acme.com');
+
+    expect(passwordReset.sendActivation).toHaveBeenCalledWith('owner-1');
+  });
+
+  it('does not send an activation to an existing user', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: 'admin-1' });
+    await service.createTenant('Acme', 'free', 'ops@organator.app');
+    expect(passwordReset.sendActivation).not.toHaveBeenCalled();
   });
 
   it('creates the tenant without users when no owner e-mail is given', async () => {

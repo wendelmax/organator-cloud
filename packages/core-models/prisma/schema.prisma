@@ -197,6 +197,7 @@ model User {
 
   mfaChallenges       MfaChallenge[]
   mfaRecoveryCodes    MfaRecoveryCode[]
+  passwordResetTokens PasswordResetToken[]
   sessions            UserSession[]
   memberships         TenantMembership[]
 }
@@ -266,6 +267,21 @@ model TenantSecurityPolicy {
   updatedAt    DateTime @updatedAt
 
   @@map("tenant_security_policies")
+}
+
+// Token de uso único para definir/redefinir a senha (recuperação ou ativação
+// da conta criada sem senha conhecida). Só o SHA-256 do token é armazenado.
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose   String    @default("reset") // reset | activation
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
 }
 
 model MfaChallenge {

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { publicSsoEnabled } from "../../../lib/public-env";
@@ -12,6 +13,15 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const ssoEnabled = publicSsoEnabled();
+  const [checkoutDone, setCheckoutDone] = useState(false);
+
+  // Retorno do checkout do Stripe (success_url): a conta foi criada e o link
+  // para definir a senha foi enviado por e-mail.
+  useEffect(() => {
+    setCheckoutDone(
+      new URLSearchParams(window.location.search).get("success") === "true",
+    );
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,6 +54,13 @@ export default function LoginPage() {
         <h1 className="text-3xl font-bold text-center text-white">Organator</h1>
         <p className="text-sm text-center text-neutral-400">Entre com as suas credenciais para gerenciar sua infraestrutura</p>
         
+        {checkoutDone && (
+          <div className="p-3 bg-emerald-950/50 border border-emerald-700 text-emerald-200 text-sm rounded-lg">
+            Pagamento confirmado! Enviamos para o seu e-mail um link para definir a
+            senha de acesso.
+          </div>
+        )}
+
         {error && (
           <div className="p-3 bg-red-900/50 border border-red-500 text-red-200 text-sm rounded-lg">
             {error}
@@ -81,6 +98,12 @@ export default function LoginPage() {
             {isSubmitting ? "Entrando..." : "Entrar"}
           </button>
         </form>
+
+        <p className="text-sm text-center">
+          <Link href="/forgot-password" className="text-blue-400 hover:underline">
+            Esqueceu a senha?
+          </Link>
+        </p>
 
         {ssoEnabled && (
           <>

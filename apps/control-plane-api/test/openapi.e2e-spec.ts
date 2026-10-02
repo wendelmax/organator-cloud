@@ -7,6 +7,7 @@ import { AuthController } from './../src/auth/auth.controller';
 import { AuthService } from './../src/auth/auth.service';
 import { MfaService } from './../src/auth/mfa.service';
 import { MfaPolicyService } from './../src/auth/mfa-policy.service';
+import { PasswordResetService } from './../src/auth/password-reset.service';
 import { AuditService } from './../src/audit/audit.service';
 import { ApiKeysController } from './../src/api-keys/api-keys.controller';
 import { ApiKeysService } from './../src/api-keys/api-keys.service';
@@ -34,6 +35,7 @@ describe('OpenAPI documentation (e2e)', () => {
         { provide: AuthService, useValue: {} },
         { provide: MfaService, useValue: {} },
         { provide: MfaPolicyService, useValue: {} },
+        { provide: PasswordResetService, useValue: {} },
         { provide: AuditService, useValue: {} },
         { provide: ApiKeysService, useValue: {} },
       ],
