@@ -135,12 +135,12 @@ describe('handleDeployMicroservice', () => {
     const lines: string[] = [];
 
     await handleDeployMicroservice(
-      fakeJob({ serviceId: 's2', provider: 'VPS', vpsHost: 'deploy@10.0.0.5' }),
+      fakeJob({ serviceId: 's2', provider: 'VPS', vpsHost: 'deploy@10.0.0.5', image: 'ghcr.io/acme/api:1' }),
       null,
       async (_d, _j, msg) => void lines.push(msg),
     );
 
-    assert.deepEqual(deploy.mock.calls[0].arguments, ['nginx:alpine', 'service-s2', { PORT: '80' }, 'service-s2.organator.local']);
+    assert.deepEqual(deploy.mock.calls[0].arguments, ['ghcr.io/acme/api:1', 'service-s2', { PORT: '80' }, 'service-s2.organator.local']);
     assert.match(lines[1], /implantada com sucesso em 10\.0\.0\.5\. Resultado: container-id/);
   });
 
@@ -160,11 +160,27 @@ describe('handleDeployMicroservice', () => {
     assert.ok(lines.at(-1)!.startsWith('[Deploy] Falhou: '));
   });
 
+  test('fails a VPS deploy without an image instead of publishing a default one', async () => {
+    const deploy = mock.method(VPSClient.prototype, 'deployDockerContainer', async () => 'ok');
+    const statuses: string[] = [];
+    await assert.rejects(
+      handleDeployMicroservice(
+        fakeJob({ serviceId: 's6', provider: 'DOCKER_VPS', vpsHost: 'root@h' }),
+        'dep-6',
+        async () => {},
+        async (_d, status) => void statuses.push(status),
+      ),
+      /sem imagem Docker/,
+    );
+    assert.equal(deploy.mock.callCount(), 0);
+    assert.deepEqual(statuses, ['RUNNING', 'FAILED']);
+  });
+
   test('records RUNNING then SUCCESS on a successful deploy', async () => {
     mock.method(VPSClient.prototype, 'deployDockerContainer', async () => 'ok');
     const statuses: string[] = [];
     await handleDeployMicroservice(
-      fakeJob({ serviceId: 's4', provider: 'VPS', vpsHost: 'root@h' }),
+      fakeJob({ serviceId: 's4', provider: 'VPS', vpsHost: 'root@h', image: 'nginx:alpine' }),
       'dep-4',
       async () => {},
       async (_d, status) => void statuses.push(status),

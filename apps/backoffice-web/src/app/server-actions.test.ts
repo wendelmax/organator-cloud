@@ -66,7 +66,7 @@ describe('services actions', () => {
 
     assert.match(url, /\/v1\/services$/);
     assert.equal(init.headers.Authorization, 'Bearer jwt-1');
-    assert.deepEqual(body, { tenantId: 't1', name: 'api', cloudProvider: 'VERCEL', repositoryUrl: 'acme/api' });
+    assert.deepEqual(body, { name: 'api', cloudProvider: 'VERCEL', repositoryUrl: 'acme/api' });
     assert.deepEqual(revalidated, ['/services']);
   });
 

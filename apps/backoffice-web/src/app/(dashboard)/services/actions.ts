@@ -10,15 +10,15 @@ const API_URL = serverApiUrl();
 export async function createService(formData: FormData) {
   const session = await getServerSession(authOptions);
   const token = (session as any)?.accessToken;
-  const tenantId = (session as any)?.user?.tenantId || (session as any)?.tenantId;
 
   if (!token) throw new Error("Unauthorized");
 
+  // O tenant vem da sessão na API; só os campos do serviço vão no corpo.
   const payload = {
-    tenantId: tenantId || "default-tenant",
     name: formData.get("name"),
     cloudProvider: formData.get("cloudProvider"),
     repositoryUrl: formData.get("repository") || formData.get("repositoryUrl"),
+    image: formData.get("image") || undefined,
     vpsHost: formData.get("vpsHost") || undefined,
   };
 

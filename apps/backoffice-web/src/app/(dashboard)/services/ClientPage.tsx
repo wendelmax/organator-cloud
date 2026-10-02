@@ -96,8 +96,11 @@ export function ServicesClient({ initialServices }: { initialServices: Service[]
           {cloudProvider === "VPS" && (
             <div className="space-y-2 p-3 bg-neutral-900 border border-neutral-800 rounded-lg">
               <label className="text-sm font-medium text-neutral-200">Configuração VPS</label>
-              <Input name="vpsHost" placeholder="Ex: root@192.168.1.10" />
-              <p className="text-xs text-neutral-500 mt-1">A chave SSH será gerada automaticamente.</p>
+              <Input name="image" required placeholder="Imagem Docker. Ex: ghcr.io/sua-org/auth-api:1.0.0" />
+              <Input name="vpsHost" placeholder="Destino. Ex: deploy@192.168.1.10" />
+              <p className="text-xs text-neutral-500 mt-1">
+                A chave SSH vem das credenciais VPS cadastradas em Provedores. Sem destino, usa o host dessas credenciais.
+              </p>
             </div>
           )}
 

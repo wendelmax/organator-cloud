@@ -59,6 +59,7 @@ export class ServicesService {
     name: string,
     cloudProvider: string,
     repository: string,
+    vps: { image?: string; vpsHost?: string } = {},
   ) {
     return this.prisma.microservice.create({
       data: {
@@ -66,6 +67,8 @@ export class ServicesService {
         name,
         cloudProvider,
         repository,
+        image: vps.image ?? null,
+        vpsHost: vps.vpsHost ?? null,
       },
     });
   }
@@ -144,6 +147,8 @@ export class ServicesService {
           serviceId: service.id,
           provider: service.cloudProvider,
           repo: service.repository,
+          image: service.image,
+          vpsHost: service.vpsHost,
           deploymentId: deployment.id,
           environment,
           ...(credentials ? { credentials } : {}),

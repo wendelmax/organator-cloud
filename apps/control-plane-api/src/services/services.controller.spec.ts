@@ -103,6 +103,7 @@ describe('ServicesController', () => {
         'api',
         'AWS',
         'r',
+        {},
       );
     });
   });
@@ -121,7 +122,38 @@ describe('ServicesController', () => {
         'a',
         'VERCEL',
         'url',
+        {},
       );
+    });
+
+    it('stores the image and host of a VPS service (DOCKER_VPS is an alias)', async () => {
+      await controller.create(human, {
+        name: 'api',
+        cloudProvider: 'DOCKER_VPS',
+        repository: 'r',
+        image: 'ghcr.io/acme/api:1',
+        vpsHost: 'deploy@10.0.0.5',
+      } as any);
+      expect(svc.createService).toHaveBeenCalledWith(
+        't-human',
+        'api',
+        'VPS',
+        'r',
+        {
+          image: 'ghcr.io/acme/api:1',
+          vpsHost: 'deploy@10.0.0.5',
+        },
+      );
+    });
+
+    it('requires an image for VPS services', async () => {
+      await expect(
+        controller.create(human, {
+          name: 'api',
+          cloudProvider: 'VPS',
+          repository: 'r',
+        } as any),
+      ).rejects.toThrow(/image is required/);
     });
 
     it('requires a repository', async () => {
