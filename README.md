@@ -32,6 +32,7 @@ Chega de provisionar bancos de dados e domínios manualmente para clientes *Ente
 | Deploy de serviços na Vercel e em VPS via SSH/Docker | Integrado com as APIs reais (na VPS, publica a imagem Docker cadastrada no serviço); falhas marcam o deploy como `FAILED` |
 | Deploy na AWS | Ainda não automatizado: o deploy falha com mensagem explícita |
 | Drivers de infraestrutura do tenant (rede, DNS, banco dedicado em nuvem) | **Simulados**: registram as fases, mas não criam recursos |
+| Backups e restore por tenant | **Só metadados**: o registro de backup não copia dados e o restore falha com mensagem explícita. Proteja os dados com o backup do PostgreSQL (snapshots/PITR do banco gerenciado) |
 
 Com `PROVIDER_SIMULATION=true` (padrão no `docker compose`), falta de credenciais
 ou falhas dos provedores viram resultados simulados para demonstração. Em

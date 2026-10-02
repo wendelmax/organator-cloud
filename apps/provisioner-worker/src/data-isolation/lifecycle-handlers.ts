@@ -28,13 +28,20 @@ export async function handleBackupTenantInfra(job: Job, prisma: PrismaClient): P
   return { success: true, backupId: backup.id };
 }
 
+/**
+ * Os backups registrados hoje guardam só metadados (sem cópia dos dados), então
+ * não há o que restaurar: o job falha de forma explícita em vez de reportar um
+ * restore que não aconteceu. A proteção dos dados é o backup do PostgreSQL.
+ */
 export async function handleRestoreTenantInfra(job: Job, prisma: PrismaClient): Promise<{ success: boolean }> {
-  const { tenantId, backupId } = job.data;
+  const { backupId } = job.data;
   const backup = await prisma.tenantBackup.findUnique({ where: { id: backupId } });
   if (!backup || backup.status !== 'COMPLETED') {
     throw new Error(`Backup ${backupId} invalid or incomplete`);
   }
-  return { success: true };
+  throw new Error(
+    `Restore is not supported yet: backup ${backupId} holds metadata only. Restore the tenant from your PostgreSQL backups.`,
+  );
 }
 
 export async function handleCloneTenantEnvironment(job: Job, prisma: PrismaClient): Promise<{ success: boolean; targetTenantId: string }> {

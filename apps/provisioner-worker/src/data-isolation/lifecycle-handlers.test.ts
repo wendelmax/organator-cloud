@@ -16,13 +16,13 @@ describe('lifecycle-handlers', () => {
     assert.equal(res.success, true);
   });
 
-  test('returns success true for valid restore job execution', async () => {
+  test('fails restore explicitly because backups hold metadata only', async () => {
     const mockPrisma: any = {
       tenantBackup: { findUnique: async () => ({ id: 'b-1', status: 'COMPLETED' }) },
     };
     const mockJob: any = { data: { tenantId: 't-1', backupId: 'b-1' } };
-    const res = await handleRestoreTenantInfra(mockJob, mockPrisma);
-    assert.equal(res.success, true);
+    // Backups guardam só metadados: o restore falha explicitamente.
+    await assert.rejects(handleRestoreTenantInfra(mockJob, mockPrisma), /Restore is not supported yet/);
   });
 
   describe('offboarding', () => {

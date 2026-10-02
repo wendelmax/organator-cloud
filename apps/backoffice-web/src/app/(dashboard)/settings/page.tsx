@@ -14,7 +14,6 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { DataIsolationCard } from "./data-isolation-card";
 import { GracePeriodBanner } from "./grace-period-banner";
-import { BackupsTab } from "./backups-tab";
 import { HealthDashboard } from "./health-dashboard";
 import { TelemetryDashboard } from "./telemetry-dashboard";
 import { publicApiUrl } from "../../../lib/public-env";
@@ -154,7 +153,6 @@ export default function SettingsPage() {
           </Link>
         ))}
       </div>
-      {tenant?.id && <BackupsTab tenantId={tenant.id} />}
     </div>
   );
 }
