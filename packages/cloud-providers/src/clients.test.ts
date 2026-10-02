@@ -75,8 +75,8 @@ describe('AWSClient', () => {
 
 describe('VPSClient', () => {
   test('skips real SSH for demo/missing keys', async () => {
-    assert.equal(await new VPSClient('h').execCommand('  uptime  '), '[Mock SSH Output] Executed: uptime');
-    assert.match(await new VPSClient('h', 22, 'root', encryptSecret('mock-key')).execCommand('ls'), /Mock SSH Output/);
+    assert.equal(await new VPSClient('h').execCommand('  uptime  '), '[Simulated SSH] Executed: uptime');
+    assert.match(await new VPSClient('h', 22, 'root', encryptSecret('mock-key')).execCommand('ls'), /Simulated SSH/);
   });
 
   test('builds a docker run command with envs and Traefik routing labels', async () => {
@@ -131,7 +131,48 @@ describe('VPSClient', () => {
     });
     assert.equal(
       await client.deployDockerContainer('img', 'c', {}, 'd.com'),
-      '[Mock Container Deploy] c deployed on d.com',
+      '[Simulated] c deployed on d.com',
     );
+  });
+});
+
+describe('without provider simulation (production)', () => {
+  const original = process.env.PROVIDER_SIMULATION;
+  beforeEach(() => {
+    process.env.PROVIDER_SIMULATION = 'false';
+  });
+  afterEach(() => {
+    if (original === undefined) delete process.env.PROVIDER_SIMULATION;
+    else process.env.PROVIDER_SIMULATION = original;
+  });
+
+  test('Vercel API errors propagate instead of becoming a fake deployment', async () => {
+    mock.method(axios, 'post', async () => {
+      throw new Error('401 Unauthorized');
+    });
+    const client = new VercelClient('tok');
+    await assert.rejects(client.createProject('app', 'r'), /Vercel] create project app failed: 401/);
+    await assert.rejects(client.injectEnvVar('p', 'K', 'V'), /Vercel] set env var K failed/);
+    await assert.rejects(client.createDeployment('p'), /Vercel] deploy p failed/);
+  });
+
+  test('AWS errors propagate instead of returning a fake instance id', async () => {
+    mock.method(EC2Client.prototype, 'send', async () => {
+      throw new Error('AuthFailure');
+    });
+    await assert.rejects(
+      new AWSClient('us-east-1', 'a', 'b').createEC2Instance('ami-1', 't3.micro'),
+      /AWS] run EC2 instance failed: AuthFailure/,
+    );
+  });
+
+  test('VPS refuses to run without an SSH key and propagates deploy failures', async () => {
+    await assert.rejects(new VPSClient('h').execCommand('uptime'), /no SSH private key configured for h/);
+
+    const client = new VPSClient('h');
+    mock.method(client, 'execCommand', async () => {
+      throw new Error('command exited with code 1');
+    });
+    await assert.rejects(client.deployDockerContainer('img', 'c', {}, 'd.com'), /deploy container c failed/);
   });
 });

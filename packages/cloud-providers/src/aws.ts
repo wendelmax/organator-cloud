@@ -1,5 +1,6 @@
 import { EC2Client, RunInstancesCommand } from '@aws-sdk/client-ec2';
 import { decryptSecret } from './crypto';
+import { simulateOrThrow } from './simulation';
 
 export class AWSClient {
   private ec2: any;
@@ -29,8 +30,7 @@ export class AWSClient {
       const response = await this.ec2.send(command);
       return response.Instances?.[0]?.InstanceId || `i-${Date.now()}`;
     } catch (err: any) {
-      console.warn(`[AWS SDK Warning] Falling back to mock instance ID due to: ${err.message}`);
-      return `i-ec2-${Date.now()}`;
+      return simulateOrThrow('AWS', 'run EC2 instance', err, () => `i-ec2-${Date.now()}`);
     }
   }
 }

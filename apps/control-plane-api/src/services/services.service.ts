@@ -119,6 +119,16 @@ export class ServicesService {
         });
       } catch (err) {
         console.warn('Could not trigger BullMQ job:', err);
+        // Sem job na fila ninguém vai processar este deploy: registrar a falha
+        // em vez de deixá-lo PENDING para sempre.
+        return this.prisma.deployment.update({
+          where: { id: deployment.id },
+          data: {
+            status: 'FAILED',
+            logs: `${deployment.logs ?? ''}Não foi possível enfileirar o deploy: ${(err as Error).message}
+`,
+          },
+        });
       }
     }
 
