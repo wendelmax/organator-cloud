@@ -53,6 +53,12 @@ controlPlaneApi:
       valueFrom: { secretKeyRef: { name: organator-stripe, key: STRIPE_SECRET_KEY } }
     - name: STRIPE_WEBHOOK_SECRET
       valueFrom: { secretKeyRef: { name: organator-stripe, key: STRIPE_WEBHOOK_SECRET } }
+    # E-mails transacionais (recuperação de senha e ativação da conta do dono).
+    # Sem SMTP_URL os e-mails são descartados em produção.
+    - name: SMTP_URL
+      valueFrom: { secretKeyRef: { name: organator-smtp, key: SMTP_URL } }
+    - name: MAIL_FROM
+      value: "Organator <no-reply@suaempresa.com>"
 ```
 
 ### Banco e Redis gerenciados (recomendado em produção)

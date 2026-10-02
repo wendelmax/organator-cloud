@@ -19,6 +19,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { PasswordResetService } from '../auth/password-reset.service';
 
 export type TenantStatus = 'active' | 'suspended' | 'archived';
 
@@ -44,6 +45,8 @@ export class TenantsService {
     @Optional()
     @InjectQueue('provisioner')
     private readonly provisionerQueue?: Queue,
+    @Optional()
+    private readonly passwordReset?: PasswordResetService,
   ) {}
 
   async createTenant(
@@ -116,6 +119,16 @@ export class TenantsService {
         },
         update: { role: 'OWNER', status: 'active' },
       });
+    }
+
+    // O dono novo nasce com senha aleatória: recebe por e-mail o link para
+    // defini-la (sem isso só entraria via SSO).
+    if (!admin && adminEmail && this.passwordReset) {
+      const owner = await this.prisma.user.findUnique({
+        where: { email: adminEmail },
+        select: { id: true },
+      });
+      if (owner) await this.passwordReset.sendActivation(owner.id);
     }
 
     await this.auditService.record({

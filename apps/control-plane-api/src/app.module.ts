@@ -20,6 +20,7 @@ import { PlacementModule } from './placement/placement.module';
 import { DomainsModule } from './domains/domains.module';
 import { DataIsolationModule } from './data-isolation/data-isolation.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { MailModule } from './mail/mail.module';
 import { HealthModule } from './health/health.module';
 
 @Module({
@@ -34,6 +35,7 @@ import { HealthModule } from './health/health.module';
       },
     }),
     PrismaModule,
+    MailModule,
     HealthModule,
     TenantsModule,
     ServicesModule,

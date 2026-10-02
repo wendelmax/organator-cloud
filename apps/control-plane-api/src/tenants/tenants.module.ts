@@ -8,6 +8,7 @@ import { TenantStateGuard } from './tenant-state.guard';
 import { EntitlementsModule } from '../entitlements/entitlements.module';
 import { AuditModule } from '../audit/audit.module';
 import { ApiKeysModule } from '../api-keys/api-keys.module';
+import { PasswordResetModule } from '../auth/password-reset.module';
 import { jwtConstants } from '../auth/auth.module';
 import { BullModule } from '@nestjs/bullmq';
 import { InvitationsService } from './invitations.service';
@@ -18,6 +19,7 @@ import { InvitationsController } from './invitations.controller';
     EntitlementsModule,
     AuditModule,
     ApiKeysModule,
+    PasswordResetModule,
     BullModule.registerQueue({ name: 'provisioner' }),
     JwtModule.register({
       secret: jwtConstants.secret,

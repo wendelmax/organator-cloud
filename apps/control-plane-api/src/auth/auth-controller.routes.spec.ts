@@ -8,6 +8,7 @@ describe('AuthController — routes', () => {
   let mfa: any;
   let audit: any;
   let mfaPolicy: any;
+  let passwordReset: any;
   let controller: AuthController;
   // Formato real de req.user produzido por JwtStrategy/OidcStrategy (não há `sub`).
   const req = {
@@ -44,7 +45,36 @@ describe('AuthController — routes', () => {
     };
     audit = { record: jest.fn().mockResolvedValue(undefined) };
     mfaPolicy = { get: jest.fn(), update: jest.fn() };
-    controller = new AuthController(auth, mfa, audit, mfaPolicy);
+    passwordReset = {
+      requestReset: jest.fn().mockResolvedValue(undefined),
+      resetPassword: jest.fn().mockResolvedValue({ success: true }),
+    };
+    controller = new AuthController(auth, mfa, audit, mfaPolicy, passwordReset);
+  });
+
+  describe('password recovery (public routes)', () => {
+    it('answers the same way whether or not the e-mail exists', async () => {
+      await expect(
+        controller.forgotPassword(req, { email: 'o@acme.com' }),
+      ).resolves.toEqual({ accepted: true });
+      expect(passwordReset.requestReset).toHaveBeenCalledWith(
+        'o@acme.com',
+        '10.0.0.1',
+      );
+      await expect(controller.forgotPassword(req, {})).resolves.toEqual({
+        accepted: true,
+      });
+    });
+
+    it('resets the password with the e-mailed token', async () => {
+      await expect(
+        controller.resetPassword({ token: 'tok', password: 'NewPass123' }),
+      ).resolves.toEqual({ success: true });
+      expect(passwordReset.resetPassword).toHaveBeenCalledWith(
+        'tok',
+        'NewPass123',
+      );
+    });
   });
 
   describe('login', () => {
@@ -209,7 +239,13 @@ describe('AuthController — routes', () => {
 
   it('keeps login, refresh and mfa/verify public and everything else behind JwtAuthGuard', () => {
     const p = AuthController.prototype as any;
-    for (const m of ['login', 'refresh', 'mfaVerify']) {
+    for (const m of [
+      'login',
+      'refresh',
+      'mfaVerify',
+      'forgotPassword',
+      'resetPassword',
+    ]) {
       expect(Reflect.getMetadata(GUARDS_METADATA, p[m])).toBeUndefined();
     }
     for (const m of [

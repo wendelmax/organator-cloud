@@ -54,3 +54,30 @@ test.describe("Autenticação", () => {
     await expect(page.getByRole("heading", { name: "Catálogo de Serviços" })).toBeVisible();
   });
 });
+
+test.describe("Recuperação de senha", () => {
+  test("pedido de link não revela se o e-mail tem conta", async ({ page }) => {
+    await page.goto("/login");
+    await page.getByRole("link", { name: "Esqueceu a senha?" }).click();
+    await page.waitForURL("**/forgot-password");
+
+    await page.getByLabel("Email").fill("ninguem@exemplo.com");
+    await page.getByRole("button", { name: "Enviar link" }).click();
+    await expect(page.getByText(/Se existir uma conta para/)).toBeVisible();
+  });
+
+  test("link inválido é recusado e oferece um novo", async ({ page }) => {
+    await page.goto("/reset-password?token=invalido");
+    await page.getByLabel("Nova senha", { exact: true }).fill("NovaSenha123");
+    await page.getByLabel("Confirme a nova senha").fill("NovaSenha123");
+    await page.getByRole("button", { name: "Definir senha" }).click();
+
+    await expect(page.getByText("Link inválido ou expirado")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Pedir um novo link" })).toBeVisible();
+  });
+
+  test("retorno do checkout explica o próximo passo", async ({ page }) => {
+    await page.goto("/login?success=true");
+    await expect(page.getByText(/Pagamento confirmado/)).toBeVisible();
+  });
+});

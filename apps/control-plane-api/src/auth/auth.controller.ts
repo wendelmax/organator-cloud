@@ -9,6 +9,7 @@ import {
   Put,
   Param,
   Delete,
+  HttpCode,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -16,6 +17,7 @@ import { AllowPasswordChange } from './allow-password-change.decorator';
 import { MfaService } from './mfa.service';
 import { AuditService } from '../audit/audit.service';
 import { MfaPolicyService } from './mfa-policy.service';
+import { PasswordResetService } from './password-reset.service';
 
 @Controller('v1/auth')
 export class AuthController {
@@ -24,6 +26,7 @@ export class AuthController {
     private readonly mfaService: MfaService,
     private readonly auditService: AuditService,
     private readonly mfaPolicyService: MfaPolicyService,
+    private readonly passwordReset: PasswordResetService,
   ) {}
 
   @Post('login')
@@ -150,6 +153,22 @@ export class AuthController {
       changes: {},
     });
     return result;
+  }
+
+  /** Sempre 202: a resposta não revela se o e-mail tem conta. */
+  @Post('password/forgot')
+  @HttpCode(202)
+  async forgotPassword(@Req() req: any, @Body() body: { email?: string }) {
+    await this.passwordReset.requestReset(body?.email ?? '', req.ip);
+    return { accepted: true };
+  }
+
+  @Post('password/reset')
+  resetPassword(@Body() body: { token?: string; password?: string }) {
+    return this.passwordReset.resetPassword(
+      body?.token ?? '',
+      body?.password ?? '',
+    );
   }
 
   // ---- MFA (TOTP app-level) ----
