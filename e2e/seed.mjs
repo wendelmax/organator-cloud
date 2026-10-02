@@ -17,6 +17,8 @@ export const E2E_USERS = {
   owner: { email: 'owner@organator.app', password: 'Owner1234!' },
   // Admin da plataforma pronto para uso (sem troca de senha pendente).
   ops: { email: 'ops@organator.app', password: 'Ops12345!' },
+  // Usado só no teste de recuperação de senha (troca a própria senha).
+  forgetful: { email: 'forgetful@organator.app', password: 'Forget1234!' },
 };
 
 const PLANS = [
@@ -83,6 +85,18 @@ async function main() {
     where: { tenantId_userId: { tenantId: acme.id, userId: owner.id } },
     create: { tenantId: acme.id, userId: owner.id, role: 'OWNER', status: 'active' },
     update: { role: 'OWNER', status: 'active' },
+  });
+
+  const forgetful = await upsertUser(E2E_USERS.forgetful, {
+    name: 'Forgetful Member',
+    role: 'MEMBER',
+    tenantId: acme.id,
+    mustChangePassword: false,
+  });
+  await prisma.tenantMembership.upsert({
+    where: { tenantId_userId: { tenantId: acme.id, userId: forgetful.id } },
+    create: { tenantId: acme.id, userId: forgetful.id, role: 'MEMBER', status: 'active' },
+    update: { role: 'MEMBER', status: 'active' },
   });
 
   console.log('[e2e seed] plans, platform admin and acme owner ready');
