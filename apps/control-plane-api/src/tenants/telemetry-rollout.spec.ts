@@ -32,7 +32,18 @@ describe('Telemetry & Rollout API', () => {
         { provide: EntitlementsService, useValue: {} },
         { provide: AuditService, useValue: {} },
         { provide: TenantLifecycleService, useValue: {} },
-        { provide: getQueueToken('provisioner'), useValue: {} },
+        {
+          provide: getQueueToken('provisioner'),
+          useValue: {
+            getJobCounts: jest.fn().mockResolvedValue({
+              waiting: 2,
+              active: 1,
+              delayed: 0,
+              completed: 40,
+              failed: 3,
+            }),
+          },
+        },
       ],
     }).compile();
 
@@ -43,6 +54,15 @@ describe('Telemetry & Rollout API', () => {
   it('gets provisioner telemetry', async () => {
     const res = await controller.getProvisionerTelemetry();
     expect(res.circuitBreakers).toEqual([{ provider: 'AWS', state: 'CLOSED' }]);
+    // Contagens reais da fila (antes eram sempre 0).
+    expect(res).toMatchObject({
+      queueAvailable: true,
+      waitingJobs: 2,
+      activeJobs: 1,
+      delayedJobs: 0,
+      completedJobs: 40,
+      failedJobs: 3,
+    });
     expect(prismaMock.providerCircuitBreaker.findMany).toHaveBeenCalled();
   });
 

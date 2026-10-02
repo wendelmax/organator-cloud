@@ -925,12 +925,25 @@ export class TenantsService {
     return summary;
   }
 
+  /** Situação da fila do provisioner (contagens reais do BullMQ). */
   async getProvisionerTelemetry() {
     const circuits = await this.prisma.providerCircuitBreaker.findMany();
+    const counts = this.provisionerQueue
+      ? await this.provisionerQueue.getJobCounts(
+          'waiting',
+          'active',
+          'delayed',
+          'completed',
+          'failed',
+        )
+      : {};
     return {
-      activeJobs: 0,
-      completedJobs: 0,
-      failedJobs: 0,
+      queueAvailable: Boolean(this.provisionerQueue),
+      waitingJobs: counts.waiting ?? 0,
+      activeJobs: counts.active ?? 0,
+      delayedJobs: counts.delayed ?? 0,
+      completedJobs: counts.completed ?? 0,
+      failedJobs: counts.failed ?? 0,
       circuitBreakers: circuits,
     };
   }
