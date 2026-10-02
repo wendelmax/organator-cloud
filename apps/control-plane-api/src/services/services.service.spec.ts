@@ -134,15 +134,27 @@ describe('ServicesService', () => {
       );
     });
 
-    it('still returns the deployment when enqueueing fails', async () => {
+    it('marks the deployment FAILED when enqueueing fails (never stuck PENDING)', async () => {
       prisma.microservice.findUnique.mockResolvedValue(svc);
       queue.add.mockRejectedValue(new Error('redis down'));
+      prisma.deployment.update = jest.fn(({ data }) =>
+        Promise.resolve({ id: 'dep-1', ...data }),
+      );
       const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
       await expect(service.triggerDeploy('svc-1')).resolves.toMatchObject({
         id: 'dep-1',
+        status: 'FAILED',
       });
-      expect(warn).toHaveBeenCalled();
+      expect(prisma.deployment.update).toHaveBeenCalledWith({
+        where: { id: 'dep-1' },
+        data: {
+          status: 'FAILED',
+          logs: expect.stringContaining(
+            'Não foi possível enfileirar o deploy: redis down',
+          ),
+        },
+      });
       warn.mockRestore();
     });
 

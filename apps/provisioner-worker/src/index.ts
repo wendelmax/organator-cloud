@@ -8,7 +8,11 @@ import { handleReconcilePlanMigration, handleApplyDowngradeReconciliation } from
 import { handleBackupTenantInfra, handleRestoreTenantInfra, handleCloneTenantEnvironment, handleOffboardTenantInfra } from './data-isolation/lifecycle-handlers.js';
 import { handleCollectTenantMetrics, handlePromoteTenantEnvironment } from './data-isolation/health-metrics-handler.js';
 import { handleDeployRollout } from './infrastructure/rollout-handler.js';
-import { createDeployLogger, handleDeployMicroservice } from './deploy/deploy-microservice.js';
+import {
+  createDeployLogger,
+  createDeploymentStatusUpdater,
+  handleDeployMicroservice,
+} from './deploy/deploy-microservice.js';
 import { loadDataIsolationConfig } from './data-isolation/config.js';
 
 // Falha no boot se o isolamento de dados estiver ligado e mal configurado.
@@ -26,6 +30,7 @@ const REDIS_PORT = Number(process.env.REDIS_PORT) || 6379;
 const connection = { host: REDIS_HOST, port: REDIS_PORT };
 const redisPublisher = new Redis({ host: REDIS_HOST, port: REDIS_PORT });
 const appendLog = createDeployLogger(prisma, redisPublisher);
+const setDeploymentStatus = createDeploymentStatusUpdater(prisma);
 
 console.log(`[Provisioner Worker] Inicializando e conectando ao Redis em ${REDIS_HOST}:${REDIS_PORT}...`);
 
@@ -45,7 +50,8 @@ const worker = createProvisionerWorker({
     'collect-tenant-metrics': (job: Job) => handleCollectTenantMetrics(job, prisma),
     'promote-tenant-environment': (job: Job) => handlePromoteTenantEnvironment(job, prisma),
     'deploy-rollout': (job: Job) => handleDeployRollout(job, prisma),
-    'deploy-microservice': (job: Job) => handleDeployMicroservice(job, job.data.deploymentId || null, appendLog),
+    'deploy-microservice': (job: Job) =>
+      handleDeployMicroservice(job, job.data.deploymentId || null, appendLog, setDeploymentStatus),
   }
 });
 

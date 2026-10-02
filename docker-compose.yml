@@ -73,6 +73,9 @@ services:
       - DATA_ISOLATION_ADMIN_URL=${DATA_ISOLATION_ADMIN_URL:-postgresql://organator:password@postgres:5432/organator_db}
       - DATA_ISOLATION_ROLLBACK_HOURS=${DATA_ISOLATION_ROLLBACK_HOURS:-24}
       - DATA_ISOLATION_TABLES=${DATA_ISOLATION_TABLES:-}
+      # Demo local: sem credenciais de Vercel/AWS/VPS os deploys usam resultados
+      # simulados. Em produção (padrão) uma falha do provedor falha o deploy.
+      - PROVIDER_SIMULATION=${PROVIDER_SIMULATION:-true}
     depends_on:
       migrate:
         condition: service_completed_successfully

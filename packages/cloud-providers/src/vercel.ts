@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { decryptSecret } from './crypto';
+import { simulateOrThrow } from './simulation';
 
 export class VercelClient {
   private apiToken: string;
@@ -28,8 +29,7 @@ export class VercelClient {
       const res = await axios.post(url, { name, gitRepository: { type: 'github', repo: gitRepositoryUrl } }, { headers: this.headers });
       return res.data;
     } catch (err: any) {
-      console.warn(`[Vercel SDK Warning] Fallback project creation for ${name}`);
-      return { id: `prj_${name}`, name };
+      return simulateOrThrow('Vercel', `create project ${name}`, err, () => ({ id: `prj_${name}`, name }));
     }
   }
 
@@ -40,7 +40,7 @@ export class VercelClient {
       await axios.post(url, { key, value, type: 'encrypted', target: ['production'] }, { headers: this.headers });
       return true;
     } catch (err: any) {
-      return true;
+      return simulateOrThrow('Vercel', `set env var ${key}`, err, () => true);
     }
   }
 
@@ -51,7 +51,7 @@ export class VercelClient {
       const res = await axios.post(url, { name: projectId, project: projectId }, { headers: this.headers });
       return res.data?.url || `https://${projectId}.vercel.app`;
     } catch (err: any) {
-      return `https://${projectId}.vercel.app`;
+      return simulateOrThrow('Vercel', `deploy ${projectId}`, err, () => `https://${projectId}.vercel.app`);
     }
   }
 }

@@ -21,6 +21,22 @@ Chega de provisionar bancos de dados e domínios manualmente para clientes *Ente
 - **Observabilidade Integrada:** Preparado para OpenTelemetry nativo.
 - **Developer Portal:** Central de documentação (Swagger/Redoc) embarcada para os desenvolvedores que integram com o seu SaaS.
 
+## 📋 Estado das integrações
+
+| Área | Estado |
+| --- | --- |
+| Autenticação (senha, MFA/TOTP, SSO/OIDC, API keys), convites e recuperação de senha por e-mail | Implementado e testado (unitários + E2E) |
+| Cobrança com Stripe (checkout por assinatura, webhooks idempotentes, portal, faturas, cancelamento no offboarding) | Implementado e testado (unitários + E2E) |
+| Ciclo de vida do tenant (onboarding, past_due, suspensão, offboarding) e audit log | Implementado e testado (unitários + E2E) |
+| Isolamento de dados no PostgreSQL (SHARED / SCHEMA / DATABASE, com migração entre modos) | Implementado e testado contra PostgreSQL real (`DATA_ISOLATION_*`) |
+| Deploy de serviços na Vercel e em VPS via SSH/Docker | Integrado com as APIs reais (a VPS ainda publica uma imagem fixa, `nginx:alpine`); falhas marcam o deploy como `FAILED` |
+| Deploy na AWS | Ainda não automatizado: o deploy falha com mensagem explícita |
+| Drivers de infraestrutura do tenant (rede, DNS, banco dedicado em nuvem) | **Simulados**: registram as fases, mas não criam recursos |
+
+Com `PROVIDER_SIMULATION=true` (padrão no `docker compose`), falta de credenciais
+ou falhas dos provedores viram resultados simulados para demonstração. Em
+produção (`NODE_ENV=production` sem a variável) toda falha é reportada.
+
 ## 🏗 Arquitetura (Turborepo)
 
 O projeto é um monorepo escalável:

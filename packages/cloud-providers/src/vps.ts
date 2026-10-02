@@ -1,4 +1,5 @@
 import { Client } from 'ssh2';
+import { providerSimulationEnabled, simulateOrThrow } from './simulation';
 import { decryptSecret } from './crypto';
 
 const DOCKER_IMAGE_RE = /^[a-z0-9]+(?:[._\/:@-][a-zA-Z0-9]+)*$/;
@@ -27,8 +28,11 @@ export class VPSClient {
   async execCommand(command: string): Promise<string> {
     return new Promise((resolve, reject) => {
       if (!this.privateKey || this.privateKey === 'mock-key') {
-        console.warn(`[VPS SDK Warning] Using mock key or missing SSH private key for host ${this.host}. Skipping real SSH execution.`);
-        return resolve(`[Mock SSH Output] Executed: ${command.trim()}`);
+        if (!providerSimulationEnabled()) {
+          return reject(new Error(`[VPS] no SSH private key configured for ${this.host}`));
+        }
+        console.warn(`[VPS] No SSH private key for ${this.host}; PROVIDER_SIMULATION is on, skipping real SSH execution.`);
+        return resolve(`[Simulated SSH] Executed: ${command.trim()}`);
       }
 
       const conn = new Client();
@@ -42,8 +46,9 @@ export class VPSClient {
           let output = '';
           stream.on('close', (code: any) => {
             conn.end();
+            // Comando remoto falhou (ex.: docker pull): é falha do deploy.
             if (code !== 0 && code !== null) {
-              console.warn(`[VPS SDK Warning] Command exited with code ${code}`);
+              return reject(new Error(`[VPS] command exited with code ${code} on ${this.host}: ${output.trim().slice(-500)}`));
             }
             resolve(output);
           }).on('data', (data: any) => {
@@ -53,8 +58,11 @@ export class VPSClient {
           });
         });
       }).on('error', (err) => {
-        console.warn(`[VPS SDK Warning] SSH connection error to ${this.host}: ${err.message}`);
-        resolve(`[Mock SSH Fallback Output] Execution bypassed due to connection error: ${err.message}`);
+        try {
+          resolve(simulateOrThrow('VPS', `SSH connection to ${this.host}`, err, () => `[Simulated SSH] Execution bypassed: ${err.message}`));
+        } catch (failure) {
+          reject(failure);
+        }
       }).connect({
         host: this.host,
         port: this.port,
@@ -94,11 +102,9 @@ export class VPSClient {
     ].join(' && ');
 
     try {
-      const result = await this.execCommand(command);
-      return result;
+      return await this.execCommand(command);
     } catch (err: any) {
-      console.warn(`[VPS SDK Warning] Error during container deploy: ${err.message}`);
-      return `[Mock Container Deploy] ${containerName} deployed on ${domain}`;
+      return simulateOrThrow('VPS', `deploy container ${containerName}`, err, () => `[Simulated] ${containerName} deployed on ${domain}`);
     }
   }
 }

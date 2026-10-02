@@ -2,7 +2,12 @@ import test, { describe, mock, beforeEach, afterEach, after } from 'node:test';
 import assert from 'node:assert/strict';
 import Tasklets from '@wendelmax/tasklets';
 import { VercelClient, VPSClient } from '@organator/cloud-providers';
-import { sanitizeLogLine, createDeployLogger, handleDeployMicroservice } from './deploy-microservice.js';
+import {
+  sanitizeLogLine,
+  createDeployLogger,
+  createDeploymentStatusUpdater,
+  handleDeployMicroservice,
+} from './deploy-microservice.js';
 
 after(() => Tasklets.shutdown());
 
@@ -139,9 +144,64 @@ describe('handleDeployMicroservice', () => {
     assert.match(lines[1], /implantada com sucesso em 10\.0\.0\.5\. Resultado: container-id/);
   });
 
-  test('only logs the start for other providers', async () => {
+  test('fails providers without automated deploy instead of reporting success', async () => {
     const lines: string[] = [];
-    await handleDeployMicroservice(fakeJob({ serviceId: 's3', provider: 'AWS' }), null, async (_d, _j, m) => void lines.push(m));
-    assert.deepEqual(lines, ['[Deploy] Serviço s3 -> Nuvem: AWS']);
+    const statuses: string[] = [];
+    await assert.rejects(
+      handleDeployMicroservice(
+        fakeJob({ serviceId: 's3', provider: 'AWS' }),
+        'dep-3',
+        async (_d, _j, m) => void lines.push(m),
+        async (_d, status) => void statuses.push(status),
+      ),
+      /não suportado para o provedor AWS/,
+    );
+    assert.deepEqual(statuses, ['RUNNING', 'FAILED']);
+    assert.ok(lines.at(-1)!.startsWith('[Deploy] Falhou: '));
+  });
+
+  test('records RUNNING then SUCCESS on a successful deploy', async () => {
+    mock.method(VPSClient.prototype, 'deployDockerContainer', async () => 'ok');
+    const statuses: string[] = [];
+    await handleDeployMicroservice(
+      fakeJob({ serviceId: 's4', provider: 'VPS', vpsHost: 'root@h' }),
+      'dep-4',
+      async () => {},
+      async (_d, status) => void statuses.push(status),
+    );
+    assert.deepEqual(statuses, ['RUNNING', 'SUCCESS']);
+  });
+
+  test('records FAILED and rethrows when the provider fails (job is marked failed)', async () => {
+    mock.method(VercelClient.prototype, 'createProject', async () => {
+      throw new Error('[Vercel] create project service-s5 failed: 401');
+    });
+    const statuses: string[] = [];
+    const lines: string[] = [];
+    await assert.rejects(
+      handleDeployMicroservice(
+        fakeJob({ serviceId: 's5', provider: 'VERCEL', repo: 'r' }),
+        'dep-5',
+        async (_d, _j, m) => void lines.push(m),
+        async (_d, status) => void statuses.push(status),
+      ),
+      /401/,
+    );
+    assert.deepEqual(statuses, ['RUNNING', 'FAILED']);
+    assert.ok(!lines.some((l) => l.includes('Build completo')));
+  });
+});
+
+describe('createDeploymentStatusUpdater', () => {
+  test('updates the deployment status and tolerates database errors', async () => {
+    const updates: any[] = [];
+    const ok = createDeploymentStatusUpdater({ deployment: { update: async (a: any) => void updates.push(a) } } as any);
+    await ok('dep-1', 'SUCCESS');
+    await ok(null, 'SUCCESS');
+    assert.deepEqual(updates, [{ where: { id: 'dep-1' }, data: { status: 'SUCCESS' } }]);
+
+    mock.method(console, 'warn', () => {});
+    const broken = createDeploymentStatusUpdater({ deployment: { update: async () => { throw new Error('db'); } } } as any);
+    await assert.doesNotReject(broken('dep-1', 'FAILED'));
   });
 });

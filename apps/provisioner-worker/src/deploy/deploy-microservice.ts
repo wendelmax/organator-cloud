@@ -64,21 +64,54 @@ export function createDeployLogger(prisma: PrismaClient, redisPublisher: Redis):
   };
 }
 
-export async function handleDeployMicroservice(job: Job, deploymentId: string | null, appendLog: AppendLog) {
+export type DeploymentStatus = 'RUNNING' | 'SUCCESS' | 'FAILED';
+export type SetDeploymentStatus = (deploymentId: string | null, status: DeploymentStatus) => Promise<void>;
+
+/** Grava o status do deploy (PENDING -> RUNNING -> SUCCESS | FAILED). */
+export function createDeploymentStatusUpdater(prisma: PrismaClient): SetDeploymentStatus {
+  return async (deploymentId, status) => {
+    if (!deploymentId) return;
+    try {
+      await prisma.deployment.update({ where: { id: deploymentId }, data: { status } });
+    } catch (e: any) {
+      console.warn(`[Prisma Status Warning] ${e.message}`);
+    }
+  };
+}
+
+const noStatus: SetDeploymentStatus = async () => {};
+
+export async function handleDeployMicroservice(
+  job: Job,
+  deploymentId: string | null,
+  appendLog: AppendLog,
+  setStatus: SetDeploymentStatus = noStatus,
+) {
   const { serviceId, provider, repo, vpsHost } = job.data;
   const creds = job.data.credentials?.secrets || {};
   const config = job.data.credentials?.config || {};
+  await setStatus(deploymentId, 'RUNNING');
   await appendLog(deploymentId, job, `[Deploy] Serviço ${serviceId} -> Nuvem: ${provider}`);
-  if (provider === 'VERCEL') {
-    const vercel = new VercelClient(creds.apiToken || process.env.VERCEL_TOKEN || 'mock-token');
-    const project = await vercel.createProject(`service-${serviceId}`, repo);
-    await vercel.injectEnvVar(project.id, 'SERVICE_ID', String(serviceId));
-    const url = await vercel.createDeployment(project.id);
-    await appendLog(deploymentId, job, `[Vercel] Build completo: ${url}`);
-  } else if (provider === 'VPS') {
-    const [user, host] = (vpsHost || config.host || 'root@localhost').split('@');
-    const vps = new VPSClient(host, Number(config.port) || 22, user, creds.privateKey || process.env.SSH_PRIVATE_KEY || 'mock-key');
-    const result = await vps.deployDockerContainer('nginx:alpine', `service-${serviceId}`, { PORT: '80' }, `service-${serviceId}.organator.local`);
-    await appendLog(deploymentId, job, `[SSH VPS] Imagem docker implantada com sucesso em ${host}. Resultado: ${result}`);
+  try {
+    if (provider === 'VERCEL') {
+      const vercel = new VercelClient(creds.apiToken || process.env.VERCEL_TOKEN || 'mock-token');
+      const project = await vercel.createProject(`service-${serviceId}`, repo);
+      await vercel.injectEnvVar(project.id, 'SERVICE_ID', String(serviceId));
+      const url = await vercel.createDeployment(project.id);
+      await appendLog(deploymentId, job, `[Vercel] Build completo: ${url}`);
+    } else if (provider === 'VPS') {
+      const [user, host] = (vpsHost || config.host || 'root@localhost').split('@');
+      const vps = new VPSClient(host, Number(config.port) || 22, user, creds.privateKey || process.env.SSH_PRIVATE_KEY || 'mock-key');
+      const result = await vps.deployDockerContainer('nginx:alpine', `service-${serviceId}`, { PORT: '80' }, `service-${serviceId}.organator.local`);
+      await appendLog(deploymentId, job, `[SSH VPS] Imagem docker implantada com sucesso em ${host}. Resultado: ${result}`);
+    } else {
+      // Sem deploy automatizado para este provedor: não reportar sucesso.
+      throw new Error(`Deploy automatizado não suportado para o provedor ${provider}`);
+    }
+  } catch (err) {
+    await appendLog(deploymentId, job, `[Deploy] Falhou: ${(err as Error).message}`, 'FAILED');
+    await setStatus(deploymentId, 'FAILED');
+    throw err;
   }
+  await setStatus(deploymentId, 'SUCCESS');
 }
