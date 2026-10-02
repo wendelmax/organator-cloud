@@ -41,3 +41,18 @@ test.describe("Convites", () => {
     await expect(page.getByText(new RegExp(`Aceito`)).first()).toBeVisible();
   });
 });
+
+test.describe("Convites — erros da API", () => {
+  test("mostra o motivo quando a API recusa o convite", async ({ page }) => {
+    const email = `duplicado${Date.now()}@acme.com`;
+    await page.goto("/invitations");
+    await page.getByPlaceholder("email@empresa.com").fill(email);
+    await page.getByRole("button", { name: "Convidar" }).click();
+    await expect(page.locator("code").filter({ hasText: "/accept-invite?token=" })).toBeVisible();
+
+    // Segundo convite para o mesmo e-mail: 409 com a mensagem da API no painel.
+    await page.getByPlaceholder("email@empresa.com").fill(email);
+    await page.getByRole("button", { name: "Convidar" }).click();
+    await expect(page.getByRole("status")).toContainText("Invitation already pending");
+  });
+});
