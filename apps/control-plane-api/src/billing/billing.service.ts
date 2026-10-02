@@ -117,7 +117,7 @@ export class BillingService {
       APIS: apiDocs,
     };
     return {
-      plan: tenant?.plan || 'Pro',
+      plan: tenant?.plan ?? null,
       price: plan?.price ?? 0,
       currency: plan?.currency ?? 'usd',
       cycle: plan?.cycle ?? 'monthly',

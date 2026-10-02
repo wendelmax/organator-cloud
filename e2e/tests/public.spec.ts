@@ -15,7 +15,12 @@ test.describe("Páginas públicas", () => {
     await expect(page.getByText("Escolha um Plano")).toBeVisible();
     await expect(page.getByText("Pro", { exact: true })).toBeVisible();
     await expect(page.getByText("Enterprise", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Pagar via Stripe" })).toBeVisible();
+    // Preços vêm dos planos cadastrados (e2e/seed.mjs), os mesmos cobrados no checkout.
+    await expect(page.getByText(/US\$\s49,00\/mês/)).toBeVisible();
+    await expect(page.getByText(/US\$\s199,00\/mês/)).toBeVisible();
+    // O plano gratuito não passa pelo checkout pago.
+    await expect(page.getByText("Free", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Pagar via Stripe" })).toBeEnabled();
   });
 
   test("viewer de documentação (Redoc) renderiza", async ({ page }) => {
