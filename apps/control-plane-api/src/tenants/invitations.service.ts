@@ -9,6 +9,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { MailService } from '../mail/mail.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 
@@ -24,6 +25,7 @@ export class InvitationsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     @Optional() private readonly mail?: MailService,
+    @Optional() private readonly entitlements?: EntitlementsService,
   ) {}
 
   /**
@@ -237,6 +239,22 @@ export class InvitationsService {
       );
     }
     const passwordHash = existing ? null : await bcrypt.hash(password!, 12);
+
+    // O convite pode ter sido enviado com assento livre e o plano ter enchido
+    // depois: checar a cota antes de consumir o convite.
+    const alreadyMember = existing
+      ? await this.prisma.tenantMembership.findUnique({
+          where: {
+            tenantId_userId: {
+              tenantId: invitation.tenantId,
+              userId: existing.id,
+            },
+          },
+        })
+      : null;
+    if (!alreadyMember) {
+      await this.entitlements?.checkQuota(invitation.tenantId, 'SEATS');
+    }
 
     const accepted = await this.prisma.$transaction(async (tx) => {
       const consumed = await tx.tenantInvitation.updateMany({

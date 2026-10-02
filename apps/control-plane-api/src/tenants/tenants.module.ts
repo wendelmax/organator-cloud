@@ -6,6 +6,7 @@ import { TenantsService } from './tenants.service';
 import { TenantLifecycleService } from './tenant-lifecycle.service';
 import { TenantStateGuard } from './tenant-state.guard';
 import { EntitlementsModule } from '../entitlements/entitlements.module';
+import { SaasModule } from '../saas/saas.module';
 import { AuditModule } from '../audit/audit.module';
 import { ApiKeysModule } from '../api-keys/api-keys.module';
 import { PasswordResetModule } from '../auth/password-reset.module';
@@ -17,6 +18,7 @@ import { InvitationsController } from './invitations.controller';
 @Module({
   imports: [
     EntitlementsModule,
+    SaasModule,
     AuditModule,
     ApiKeysModule,
     PasswordResetModule,

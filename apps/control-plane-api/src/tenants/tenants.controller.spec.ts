@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TenantsController } from './tenants.controller';
 import { TenantsService } from './tenants.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { BadRequestException } from '@nestjs/common';
 
 describe('TenantsController', () => {
@@ -35,6 +36,8 @@ describe('TenantsController', () => {
       providers: [
         { provide: TenantsService, useValue: mockTenantsService },
         { provide: EntitlementsService, useValue: mockEntitlementsService },
+        // QuotaGuard (cota de assentos em POST /members).
+        { provide: PrismaService, useValue: {} },
       ],
     }).compile();
 

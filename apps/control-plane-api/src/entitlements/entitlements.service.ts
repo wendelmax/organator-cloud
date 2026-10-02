@@ -225,12 +225,22 @@ export class EntitlementsService {
         });
       }
       case 'SEATS':
-        return this.prisma.user.count({ where: { tenantId } });
+        // Usuários do tenant: tenant de origem ou membership ativa (convidados
+        // de outros tenants também ocupam assento).
+        return this.prisma.user.count({
+          where: {
+            OR: [
+              { tenantId },
+              { memberships: { some: { tenantId, status: 'active' } } },
+            ],
+          },
+        });
       case 'APIS':
         return this.prisma.apiDoc.count({
           where: { microservice: { tenantId } },
         });
       case 'DOMAINS':
+        return this.prisma.domain.count({ where: { tenantId } });
       case 'GB_STORAGE':
         return 0;
       default:

@@ -13,6 +13,8 @@ import { ScopeGuard } from '../api-keys/scope.guard';
 import { Scopes } from '../api-keys/scopes.decorator';
 import { API_KEY_SCOPES } from '../api-keys/api-keys.types';
 import { DocsService } from './docs.service';
+import { QuotaGuard } from '../saas/quota.guard';
+import { CheckQuota } from '../saas/quota.decorator';
 import {
   canActOnAnyTenant,
   effectiveTenantFor,
@@ -26,7 +28,8 @@ const scopeOf = (req: any): string | null =>
 export class DocsController {
   constructor(private readonly docsService: DocsService) {}
 
-  @UseGuards(JwtAuthGuard, ScopeGuard)
+  @UseGuards(JwtAuthGuard, ScopeGuard, QuotaGuard)
+  @CheckQuota('APIS')
   @Scopes(API_KEY_SCOPES.DOCS_WRITE)
   @Post()
   async create(

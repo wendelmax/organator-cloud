@@ -10,6 +10,8 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { DomainsService } from './domains.service';
+import { QuotaGuard } from '../saas/quota.guard';
+import { CheckQuota } from '../saas/quota.decorator';
 
 @UseGuards(JwtAuthGuard)
 @Controller('v1/domains')
@@ -17,6 +19,8 @@ export class DomainsController {
   constructor(private readonly domains: DomainsService) {}
 
   @Post()
+  @UseGuards(QuotaGuard)
+  @CheckQuota('DOMAINS')
   create(
     @Req() req: any,
     @Body()

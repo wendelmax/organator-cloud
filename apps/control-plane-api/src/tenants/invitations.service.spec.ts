@@ -305,6 +305,24 @@ describe('InvitationsService lifecycle', () => {
       );
     });
 
+    it('refuses to accept when the plan has no seats left, keeping the invitation', async () => {
+      const entitlements = {
+        checkQuota: jest.fn().mockRejectedValue(new Error('QUOTA_EXCEEDED')),
+      };
+      const limited = new InvitationsService(
+        prisma,
+        audit as any,
+        mail as any,
+        entitlements as any,
+      );
+
+      await expect(limited.accept('tok', 'Dev', 'Secret123')).rejects.toThrow(
+        'QUOTA_EXCEEDED',
+      );
+      expect(entitlements.checkQuota).toHaveBeenCalledWith('tenant-2', 'SEATS');
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
     it('requires a password before consuming the invitation', async () => {
       await expect(service.accept('tok', 'Dev', 'short')).rejects.toThrow(
         BadRequestException,
