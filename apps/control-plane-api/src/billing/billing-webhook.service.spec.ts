@@ -19,6 +19,7 @@ describe('BillingWebhookService', () => {
     },
     tenant: {
       findUnique: jest.fn(),
+      update: jest.fn(),
     },
     billingPlan: {
       findUnique: jest.fn(),
@@ -84,6 +85,7 @@ describe('BillingWebhookService', () => {
           object: {
             metadata: { tenantName: 'Acme', plan: 'pro' },
             customer_email: 'owner@acme.com',
+            customer: 'cus_real',
           },
         },
       });
@@ -93,7 +95,7 @@ describe('BillingWebhookService', () => {
         'Acme',
         'pro',
         'owner@acme.com',
-        expect.objectContaining({ state: 'onboarding' }),
+        expect.objectContaining({ state: 'onboarding', stripeId: 'cus_real' }),
       );
       expect(mockLifecycle.restoreActive).toHaveBeenCalledWith(
         'tenant-1',
@@ -118,6 +120,61 @@ describe('BillingWebhookService', () => {
       expect(mockPrisma.webhookEvent.update).toHaveBeenCalledWith({
         where: { eventId: 'evt-checkout' },
         data: expect.objectContaining({ tenantId: 'tenant-1' }),
+      });
+    });
+
+    describe('upgrade of an existing tenant (metadata.tenantId)', () => {
+      const upgrade = (plan = 'pro', customer: unknown = 'cus_new') => ({
+        id: 'evt-upgrade',
+        type: 'checkout.session.completed',
+        data: {
+          object: { metadata: { tenantId: 'tenant-1', plan }, customer },
+        },
+      });
+
+      it('links the Stripe customer and changes the plan without creating a tenant', async () => {
+        mockPrisma.tenant.findUnique.mockResolvedValue({
+          id: 'tenant-1',
+          plan: 'free',
+          stripeId: null,
+        });
+
+        const result = await service.process(upgrade());
+
+        expect(result).toEqual({
+          received: true,
+          tenantId: 'tenant-1',
+          upgraded: true,
+        });
+        expect(mockPrisma.tenant.update).toHaveBeenCalledWith({
+          where: { id: 'tenant-1' },
+          data: { stripeId: 'cus_new' },
+        });
+        expect(mockTenants.changePlan).toHaveBeenCalledWith('tenant-1', 'pro');
+        expect(mockTenants.createTenant).not.toHaveBeenCalled();
+        expect(mockQueue.add).not.toHaveBeenCalled();
+      });
+
+      it('leaves an already linked customer and the same plan untouched', async () => {
+        mockPrisma.tenant.findUnique.mockResolvedValue({
+          id: 'tenant-1',
+          plan: 'Pro',
+          stripeId: 'cus_new',
+        });
+
+        await service.process(upgrade('pro'));
+
+        expect(mockPrisma.tenant.update).not.toHaveBeenCalled();
+        expect(mockTenants.changePlan).not.toHaveBeenCalled();
+      });
+
+      it('reports an unknown tenant', async () => {
+        mockPrisma.tenant.findUnique.mockResolvedValue(null);
+
+        const result = await service.process(upgrade());
+
+        expect(result).toEqual({ received: true, error: 'Unknown tenant' });
+        expect(mockTenants.changePlan).not.toHaveBeenCalled();
       });
     });
 

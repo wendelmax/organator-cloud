@@ -50,7 +50,13 @@ export class TenantsService {
     name: string,
     plan?: string,
     adminEmail?: string,
-    opts: { state?: TenantState; actorId?: string; actorEmail?: string } = {},
+    opts: {
+      state?: TenantState;
+      actorId?: string;
+      actorEmail?: string;
+      /** Customer do Stripe (checkout); null até haver cobrança real. */
+      stripeId?: string | null;
+    } = {},
   ) {
     const slug = normalizeSlug(name);
     const state = opts.state || 'active';
@@ -74,7 +80,7 @@ export class TenantsService {
         status: legacyStatusFor(state),
         state,
         stateChangedAt: new Date(),
-        stripeId: `cus_simulated_${Date.now()}`,
+        stripeId: opts.stripeId ?? null,
         // Usuário existente vira OWNER via membership (abaixo): `connect`
         // trocaria o tenant de origem dele — o admin da plataforma que cria um
         // tenant pelo painel sairia do tenant da plataforma.

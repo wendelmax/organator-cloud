@@ -79,6 +79,13 @@ export class BillingWebhookService {
   ): Promise<Record<string, unknown>> {
     const session = event.data.object;
     const { metadata, customer_email } = session;
+    const customerId =
+      typeof session.customer === 'string' ? session.customer : null;
+
+    // Upgrade de um tenant existente (BillingService.createUpgradeSession).
+    if (metadata?.tenantId) {
+      return this.handleUpgradeCompleted(event, metadata, customerId);
+    }
 
     if (!metadata?.tenantName) {
       await this.recordEvent(event, null);
@@ -89,7 +96,13 @@ export class BillingWebhookService {
       metadata.tenantName,
       metadata.plan,
       customer_email || 'customer@example.com',
-      { state: 'onboarding', actorEmail: customer_email || null },
+      {
+        state: 'onboarding',
+        actorEmail: customer_email || null,
+        // Sem o customer real, os eventos seguintes da assinatura (invoice,
+        // subscription.*) não encontram o tenant.
+        stripeId: customerId,
+      },
     );
 
     // Pagamento confirmado: onboarding -> active.
@@ -112,6 +125,36 @@ export class BillingWebhookService {
 
     await this.recordEvent(event, tenant.id);
     return { received: true, tenantId: tenant.id };
+  }
+
+  private async handleUpgradeCompleted(
+    event: any,
+    metadata: { tenantId: string; plan?: string },
+    customerId: string | null,
+  ): Promise<Record<string, unknown>> {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: metadata.tenantId },
+    });
+    if (!tenant) {
+      await this.recordEvent(event, null);
+      return { received: true, error: 'Unknown tenant' };
+    }
+
+    if (customerId && tenant.stripeId !== customerId) {
+      await this.prisma.tenant.update({
+        where: { id: tenant.id },
+        data: { stripeId: customerId },
+      });
+    }
+    if (
+      metadata.plan &&
+      metadata.plan.toLowerCase() !== tenant.plan.toLowerCase()
+    ) {
+      await this.tenantsService.changePlan(tenant.id, metadata.plan);
+    }
+
+    await this.recordEvent(event, tenant.id);
+    return { received: true, tenantId: tenant.id, upgraded: true };
   }
 
   private async handlePaymentFailed(

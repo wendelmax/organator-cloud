@@ -86,36 +86,46 @@ describe('OnboardingController', () => {
   });
 
   describe('checkout', () => {
-    it('uses the configured Stripe price of the plan', async () => {
+    const signup = { tenantName: 'Acme', email: 'o@acme.com' };
+
+    it('opens a subscription checkout with the configured Stripe price', async () => {
+      process.env.BACKOFFICE_URL = 'https://app.example.com/';
       plans.getBySlug.mockResolvedValue({
         price: 9900,
         stripePriceId: 'price_pro',
       });
       const result = await controller.createCheckoutSession({
+        ...signup,
         plan: 'PRO',
-        tenantName: 'Acme',
-        email: 'o@acme.com',
       });
 
       expect(plans.getBySlug).toHaveBeenCalledWith('pro');
-      expect(createSession).toHaveBeenCalledWith(
-        expect.objectContaining({
-          line_items: [{ price: 'price_pro', quantity: 1 }],
-          mode: 'payment',
-          metadata: { tenantName: 'Acme', plan: 'pro' },
-          customer_email: 'o@acme.com',
-        }),
-      );
+      expect(createSession).toHaveBeenCalledWith({
+        mode: 'subscription',
+        line_items: [{ price: 'price_pro', quantity: 1 }],
+        success_url: 'https://app.example.com/login?success=true',
+        cancel_url: 'https://app.example.com/register?canceled=true',
+        metadata: { tenantName: 'Acme', plan: 'pro' },
+        subscription_data: { metadata: { tenantName: 'Acme', plan: 'pro' } },
+        customer_email: 'o@acme.com',
+      });
       expect(result).toEqual({ url: 'https://checkout.stripe/s1' });
     });
 
-    it('builds inline price data from the plan price when no Stripe price is set', async () => {
-      plans.getBySlug.mockResolvedValue({ price: 2500 });
-      await controller.createCheckoutSession({ plan: 'starter' });
+    it('builds a recurring inline price when the plan has no real Stripe price', async () => {
+      plans.getBySlug.mockResolvedValue({
+        price: 2500,
+        currency: 'brl',
+        cycle: 'yearly',
+        stripePriceId: 'price_simulated_starter',
+      });
+      await controller.createCheckoutSession({ ...signup, plan: 'starter' });
       const item = createSession.mock.calls[0][0].line_items[0];
+      expect(item.price).toBeUndefined();
       expect(item.price_data).toMatchObject({
-        currency: 'usd',
+        currency: 'brl',
         unit_amount: 2500,
+        recurring: { interval: 'year' },
       });
     });
 
@@ -123,18 +133,33 @@ describe('OnboardingController', () => {
       ['enterprise', 19900],
       ['pro', 4900],
     ])(
-      'falls back to default pricing for unknown plan %s',
+      'falls back to default monthly pricing for unknown plan %s',
       async (plan, amount) => {
-        await controller.createCheckoutSession({ plan });
-        expect(
-          createSession.mock.calls[0][0].line_items[0].price_data.unit_amount,
-        ).toBe(amount);
+        await controller.createCheckoutSession({ ...signup, plan });
+        const { price_data } = createSession.mock.calls[0][0].line_items[0];
+        expect(price_data.unit_amount).toBe(amount);
+        expect(price_data.recurring).toEqual({ interval: 'month' });
       },
     );
 
     it('defaults to the free plan', async () => {
-      await controller.createCheckoutSession({});
+      await controller.createCheckoutSession(signup);
       expect(plans.getBySlug).toHaveBeenCalledWith('free');
     });
+
+    it.each([
+      [{}],
+      [{ tenantName: '  ', email: 'o@acme.com' }],
+      [{ tenantName: 'Acme', email: 'not-an-email' }],
+      [{ tenantName: 'Acme' }],
+    ])(
+      'rejects incomplete signups without calling Stripe (%j)',
+      async (body) => {
+        await expect(controller.createCheckoutSession(body)).rejects.toThrow(
+          BadRequestException,
+        );
+        expect(createSession).not.toHaveBeenCalled();
+      },
+    );
   });
 });
