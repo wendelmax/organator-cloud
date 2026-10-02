@@ -28,3 +28,27 @@ test.describe("Registro de serviço em VPS", () => {
     await expect(header.getByText("VPS", { exact: true })).toBeVisible();
   });
 });
+
+test.describe("Deploy pelo painel", () => {
+  // Antes o botão do card não fazia nada e não havia como iniciar um deploy.
+  test("owner inicia deploys pelo card e pela página do serviço", async ({ page }) => {
+    const name = `web-${Date.now()}`;
+    await page.goto("/services");
+    await page.getByRole("button", { name: "Registrar Serviço" }).click();
+    await page.locator('input[name="name"]').fill(name);
+    await page.locator('input[name="repository"]').fill("github.com/acme/web");
+    await page.getByRole("button", { name: "Salvar" }).click();
+    await expect(page.getByText(name, { exact: true })).toBeVisible();
+
+    // Card do serviço -> "Fazer deploy" leva à página com o histórico.
+    const card = page.locator("div.rounded-xl", { has: page.getByText(name, { exact: true }) }).last();
+    await card.getByRole("button", { name: "Fazer deploy" }).click();
+    await page.waitForURL(/\/services\/[0-9a-f-]{36}$/);
+    await expect(page.getByText("PENDING")).toHaveCount(1);
+
+    // Na página do serviço, um novo deploy em staging entra no topo.
+    await page.getByLabel("Ambiente").selectOption("staging");
+    await page.getByRole("button", { name: "Fazer deploy" }).click();
+    await expect(page.getByText("PENDING")).toHaveCount(2);
+  });
+});
