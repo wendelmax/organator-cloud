@@ -1,7 +1,9 @@
 // Config compartilhada entre os testes unitários e e2e da API.
-// O ts-jest pode ser instalado na raiz do monorepo (hoisting do npm) e, de lá,
-// resolveria o TypeScript da raiz em vez do desta app. Fixamos o compilador
-// resolvido a partir deste diretório para usar sempre o TypeScript da API.
+// O ts-jest pode ser instalado na raiz do monorepo (hoisting do npm). A opção
+// `compiler` faz o language service usar o TypeScript desta app, mas partes do
+// ts-jest fazem require("typescript") direto e podem pegar o da raiz — por isso
+// o tsconfig da API também precisa ser válido no TypeScript 5.x (sem
+// opções que exijam ignoreDeprecations do TS 6).
 const compiler = require.resolve('typescript', { paths: [__dirname] });
 
 /** @type {import('jest').Config} */
