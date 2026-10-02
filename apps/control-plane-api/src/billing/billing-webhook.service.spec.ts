@@ -13,7 +13,9 @@ describe('BillingWebhookService', () => {
   const mockPrisma = {
     webhookEvent: {
       findUnique: jest.fn(),
-      create: jest.fn(),
+      create: jest.fn().mockResolvedValue({}),
+      update: jest.fn().mockResolvedValue({}),
+      delete: jest.fn().mockResolvedValue({}),
     },
     tenant: {
       findUnique: jest.fn(),
@@ -52,7 +54,9 @@ describe('BillingWebhookService', () => {
   });
 
   it('should dedupe duplicate events by event id', async () => {
-    mockPrisma.webhookEvent.findUnique.mockResolvedValue({ id: 'evt-1' });
+    mockPrisma.webhookEvent.create.mockRejectedValueOnce(
+      Object.assign(new Error('Unique constraint failed'), { code: 'P2002' }),
+    );
 
     const result = await service.process({
       id: 'evt-1',
@@ -66,7 +70,6 @@ describe('BillingWebhookService', () => {
 
   describe('checkout.session.completed', () => {
     it('should create tenant in onboarding then activate and provision', async () => {
-      mockPrisma.webhookEvent.findUnique.mockResolvedValue(null);
       mockTenants.createTenant.mockResolvedValue({
         id: 'tenant-1',
         slug: 'acme',
@@ -110,14 +113,15 @@ describe('BillingWebhookService', () => {
         data: expect.objectContaining({
           eventId: 'evt-checkout',
           type: 'checkout.session.completed',
-          tenantId: 'tenant-1',
         }),
+      });
+      expect(mockPrisma.webhookEvent.update).toHaveBeenCalledWith({
+        where: { eventId: 'evt-checkout' },
+        data: expect.objectContaining({ tenantId: 'tenant-1' }),
       });
     });
 
     it('should ignore checkout without tenantName', async () => {
-      mockPrisma.webhookEvent.findUnique.mockResolvedValue(null);
-
       const result = await service.process({
         id: 'evt-checkout',
         type: 'checkout.session.completed',
@@ -134,7 +138,6 @@ describe('BillingWebhookService', () => {
 
   describe('invoice.payment_failed', () => {
     it('should transition to past_due', async () => {
-      mockPrisma.webhookEvent.findUnique.mockResolvedValue(null);
       mockPrisma.tenant.findUnique.mockResolvedValue({ id: 'tenant-1' });
 
       const result = await service.process({
@@ -151,7 +154,6 @@ describe('BillingWebhookService', () => {
     });
 
     it('should ignore unknown customer', async () => {
-      mockPrisma.webhookEvent.findUnique.mockResolvedValue(null);
       mockPrisma.tenant.findUnique.mockResolvedValue(null);
 
       const result = await service.process({
@@ -167,7 +169,6 @@ describe('BillingWebhookService', () => {
 
   describe('customer.subscription.deleted', () => {
     it('should suspend the tenant', async () => {
-      mockPrisma.webhookEvent.findUnique.mockResolvedValue(null);
       mockPrisma.tenant.findUnique.mockResolvedValue({ id: 'tenant-1' });
 
       const result = await service.process({
@@ -186,7 +187,6 @@ describe('BillingWebhookService', () => {
 
   describe('customer.subscription.updated', () => {
     it('should restore active and sync plan from price', async () => {
-      mockPrisma.webhookEvent.findUnique.mockResolvedValue(null);
       mockPrisma.tenant.findUnique.mockResolvedValue({
         id: 'tenant-1',
         plan: 'free',
@@ -217,7 +217,6 @@ describe('BillingWebhookService', () => {
     });
 
     it('should suspend on unpaid status', async () => {
-      mockPrisma.webhookEvent.findUnique.mockResolvedValue(null);
       mockPrisma.tenant.findUnique.mockResolvedValue({
         id: 'tenant-1',
         plan: 'free',
@@ -241,9 +240,59 @@ describe('BillingWebhookService', () => {
     });
   });
 
-  it('should record and ignore unknown event types', async () => {
-    mockPrisma.webhookEvent.findUnique.mockResolvedValue(null);
+  it('processes concurrent deliveries of the same event only once', async () => {
+    const claimed = new Set<string>();
+    mockPrisma.webhookEvent.create.mockImplementation(async ({ data }) => {
+      if (claimed.has(data.eventId)) {
+        throw Object.assign(new Error('Unique constraint failed'), {
+          code: 'P2002',
+        });
+      }
+      claimed.add(data.eventId);
+      return {};
+    });
+    mockPrisma.billingPlan.findUnique.mockResolvedValue(null);
+    mockTenants.createTenant.mockResolvedValue({
+      id: 'tenant-1',
+      slug: 'acme',
+      plan: 'pro',
+    });
+    const event = {
+      id: 'evt-race',
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          metadata: { tenantName: 'Acme', plan: 'pro' },
+          customer_email: 'owner@acme.com',
+        },
+      },
+    };
 
+    const results = await Promise.all([
+      service.process(event),
+      service.process(event),
+    ]);
+
+    expect(mockTenants.createTenant).toHaveBeenCalledTimes(1);
+    expect(results).toContainEqual({ received: true, duplicate: true });
+  });
+
+  it('releases the event when processing fails so the Stripe retry can succeed', async () => {
+    mockPrisma.tenant.findUnique.mockRejectedValueOnce(new Error('db down'));
+
+    await expect(
+      service.process({
+        id: 'evt-fail',
+        type: 'invoice.payment_failed',
+        data: { object: { customer: 'cus_1' } },
+      }),
+    ).rejects.toThrow('db down');
+    expect(mockPrisma.webhookEvent.delete).toHaveBeenCalledWith({
+      where: { eventId: 'evt-fail' },
+    });
+  });
+
+  it('should record and ignore unknown event types', async () => {
     const result = await service.process({
       id: 'evt-other',
       type: 'charge.refunded',
