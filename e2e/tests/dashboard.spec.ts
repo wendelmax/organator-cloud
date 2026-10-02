@@ -66,6 +66,14 @@ test.describe("Billing", () => {
     await expect(page.getByText("Assinatura Atual")).toBeVisible();
     await expect(page.getByRole("button", { name: "Abrir Stripe Customer Portal" })).toBeVisible();
   });
+
+  test("explica quando a organização ainda não tem conta de cobrança", async ({ page }) => {
+    // O tenant do seed nunca passou por checkout: não há customer no Stripe.
+    await page.goto("/billing");
+    await page.getByRole("button", { name: "Abrir Stripe Customer Portal" }).click();
+    await expect(page.getByText(/no billing account yet/)).toBeVisible();
+    await expect(page).toHaveURL(/\/billing$/);
+  });
 });
 
 test.describe("Developer Portal", () => {
