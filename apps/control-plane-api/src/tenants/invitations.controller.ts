@@ -13,6 +13,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { InvitationsService } from './invitations.service';
+import { QuotaGuard } from '../saas/quota.guard';
+import { CheckQuota } from '../saas/quota.decorator';
 
 @Controller('v1/tenant-invitations')
 export class InvitationsController {
@@ -25,8 +27,9 @@ export class InvitationsController {
     return this.invitations.list(req.user.tenantId);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, QuotaGuard)
   @Roles('OWNER', 'ADMIN', 'PLATFORM_ADMIN')
+  @CheckQuota('SEATS')
   @Post()
   create(@Req() req: any, @Body() body: { email: string; role?: string }) {
     return this.invitations.create(

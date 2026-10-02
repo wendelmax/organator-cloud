@@ -28,6 +28,9 @@ describe('EntitlementsService', () => {
     apiDoc: {
       count: jest.fn(),
     },
+    domain: {
+      count: jest.fn(),
+    },
   };
 
   beforeEach(async () => {
@@ -146,6 +149,53 @@ describe('EntitlementsService', () => {
   });
 
   describe('checkQuota', () => {
+    const hardPlan = () => {
+      mockPrisma.tenant.findUnique.mockResolvedValue({
+        id: 'tenant-1',
+        plan: 'free',
+      });
+      mockPrisma.billingPlan.findUnique.mockResolvedValue(
+        mockPlanData({ limitTypes: {} }),
+      );
+      mockPrisma.tenantEntitlementOverride.findUnique.mockResolvedValue(null);
+    };
+
+    it('counts seats by home tenant or active membership', async () => {
+      hardPlan();
+      mockPrisma.user.count.mockResolvedValue(3);
+
+      await expect(service.checkQuota('tenant-1', 'SEATS')).rejects.toThrow(
+        HttpException,
+      );
+      expect(mockPrisma.user.count).toHaveBeenCalledWith({
+        where: {
+          OR: [
+            { tenantId: 'tenant-1' },
+            {
+              memberships: { some: { tenantId: 'tenant-1', status: 'active' } },
+            },
+          ],
+        },
+      });
+    });
+
+    it('counts the tenant domains (usage used to be always 0)', async () => {
+      hardPlan();
+      mockPrisma.domain.count.mockResolvedValue(1);
+
+      const error = await service
+        .checkQuota('tenant-1', 'DOMAINS')
+        .catch((e) => e);
+      expect(error.getResponse()).toMatchObject({
+        resource: 'DOMAINS',
+        limit: 1,
+        usage: 1,
+      });
+      expect(mockPrisma.domain.count).toHaveBeenCalledWith({
+        where: { tenantId: 'tenant-1' },
+      });
+    });
+
     it('throws 402 with quota, usage and limitType when limit reached', async () => {
       mockPrisma.tenant.findUnique.mockResolvedValue({
         id: 'tenant-1',

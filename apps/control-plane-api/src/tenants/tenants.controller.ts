@@ -14,6 +14,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { TenantsService } from './tenants.service';
+import { QuotaGuard } from '../saas/quota.guard';
+import { CheckQuota } from '../saas/quota.decorator';
 import { EntitlementsService } from '../entitlements/entitlements.service';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -256,6 +258,8 @@ export class TenantsController {
 
   @Post('members')
   @Roles('OWNER', 'ADMIN')
+  @UseGuards(QuotaGuard)
+  @CheckQuota('SEATS')
   async addMember(
     @Req() req: any,
     @Body()
