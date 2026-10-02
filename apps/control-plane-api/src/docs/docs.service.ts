@@ -14,9 +14,14 @@ export class DocsService {
       isPublic?: boolean;
     },
     tenantId: string,
+    // null = pode anexar a serviço de qualquer tenant (admin da plataforma).
+    scope: string | null = tenantId,
   ) {
-    let microservice = await this.prisma.microservice.findUnique({
-      where: { id: data.microserviceId },
+    let microservice = await this.prisma.microservice.findFirst({
+      where: {
+        id: data.microserviceId,
+        ...(scope !== null ? { tenantId: scope } : {}),
+      },
     });
     if (!microservice) {
       microservice = await this.prisma.microservice.findFirst({
@@ -43,7 +48,14 @@ export class DocsService {
     });
   }
 
-  async getDocsByService(microserviceId: string) {
+  /** Docs (inclusive privados) de um serviço visível no escopo; senão 404. */
+  async getDocsByService(microserviceId: string, scope: string | null = null) {
+    if (scope !== null) {
+      const service = await this.prisma.microservice.findFirst({
+        where: { id: microserviceId, tenantId: scope },
+      });
+      if (!service) throw new NotFoundException('Service not found');
+    }
     return this.prisma.apiDoc.findMany({
       where: { microserviceId },
       orderBy: { createdAt: 'desc' },
@@ -57,9 +69,19 @@ export class DocsService {
     });
   }
 
-  async toggleVisibility(id: string, isPublic: boolean) {
-    const doc = await this.prisma.apiDoc.findUnique({ where: { id } });
-    if (!doc) throw new NotFoundException(`ApiDoc with ID ${id} not found`);
+  async toggleVisibility(
+    id: string,
+    isPublic: boolean,
+    scope: string | null = null,
+  ) {
+    const doc = await this.prisma.apiDoc.findUnique({
+      where: { id },
+      include: { microservice: { select: { tenantId: true } } },
+    });
+    // De outro tenant: 404, como se não existisse.
+    if (!doc || (scope !== null && doc.microservice?.tenantId !== scope)) {
+      throw new NotFoundException(`ApiDoc with ID ${id} not found`);
+    }
     return this.prisma.apiDoc.update({
       where: { id },
       data: { isPublic },

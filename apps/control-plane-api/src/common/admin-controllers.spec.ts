@@ -300,11 +300,13 @@ describe('DocsController', () => {
 
     await controller.create(owner, body);
     await controller.getPublic();
-    await controller.getByService('s');
-    await controller.toggleVisibility('d', true);
+    await controller.getByService(owner, 's');
+    await controller.toggleVisibility(owner, 'd', true);
 
-    expect(svc.createDoc).toHaveBeenCalledWith(body, 't1');
-    expect(svc.toggleVisibility).toHaveBeenCalledWith('d', true);
+    // Tudo restrito ao tenant de quem chama.
+    expect(svc.createDoc).toHaveBeenCalledWith(body, 't1', 't1');
+    expect(svc.getDocsByService).toHaveBeenCalledWith('s', 't1');
+    expect(svc.toggleVisibility).toHaveBeenCalledWith('d', true, 't1');
     expect(
       Reflect.getMetadata(
         GUARDS_METADATA,
