@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { apiErrorMessage } from "../../../lib/api-error";
 import { useSession } from "next-auth/react";
 import { publicApiUrl } from "../../../lib/public-env";
 import {
@@ -20,6 +21,7 @@ export default function InvitationsPage() {
   const [items, setItems] = useState<any[]>([]);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("MEMBER");
+  const [error, setError] = useState<string | null>(null);
   const [delivery, setDelivery] = useState<{
     token: string;
     emailed: boolean;
@@ -43,7 +45,12 @@ export default function InvitationsPage() {
       headers,
       body: JSON.stringify({ email, role }),
     });
-    if (!response.ok) return alert("Não foi possível criar o convite");
+    setError(null);
+    // Ex.: limite de assentos do plano (402) ou convite já pendente (409).
+    if (!response.ok) {
+      setError(await apiErrorMessage(response, "Não foi possível criar o convite."));
+      return;
+    }
     const result = await response.json();
     setDelivery({ token: result.token, emailed: !!result.emailed });
     setEmail("");
@@ -62,7 +69,11 @@ export default function InvitationsPage() {
       `${API_URL}/v1/tenant-invitations/${id}/resend`,
       { method: "POST", headers },
     );
-    if (!response.ok) return alert("Não foi possível reenviar o convite");
+    setError(null);
+    if (!response.ok) {
+      setError(await apiErrorMessage(response, "Não foi possível reenviar o convite."));
+      return;
+    }
     const result = await response.json();
     setDelivery({ token: result.token, emailed: !!result.emailed });
     await load();
@@ -83,6 +94,11 @@ export default function InvitationsPage() {
           Gerencie o acesso de novos membros da organização.
         </p>
       </div>
+      {error && (
+        <p role="status" className="rounded-lg border border-red-800/60 bg-red-950/40 p-3 text-sm text-red-300">
+          {error}
+        </p>
+      )}
       {delivery && (
         <Card className="border-amber-700 bg-amber-950/30">
           <CardContent className="p-5">

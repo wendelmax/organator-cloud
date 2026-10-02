@@ -33,9 +33,17 @@ export function ServicesClient({ initialServices }: { initialServices: Service[]
     router.push(`/services/${serviceId}`);
   }
 
+  const [createError, setCreateError] = useState<string | null>(null);
+
   async function handleCreate(formData: FormData) {
+    setCreateError(null);
     startTransition(async () => {
-      await createService(formData);
+      const result = await createService(formData);
+      if (!result.success) {
+        // Mantém o modal aberto com o motivo (ex.: limite do plano atingido).
+        setCreateError(result.error);
+        return;
+      }
       setIsModalOpen(false);
     });
   }
@@ -100,6 +108,11 @@ export function ServicesClient({ initialServices }: { initialServices: Service[]
         description="Configure um repositório e selecione a nuvem de destino."
       >
         <form action={handleCreate} className="space-y-4">
+          {createError && (
+            <p role="status" className="rounded-lg border border-red-800/60 bg-red-950/40 p-3 text-sm text-red-300">
+              {createError}
+            </p>
+          )}
           <div className="space-y-2">
             <label className="text-sm font-medium text-neutral-200">Nome do Serviço</label>
             <Input name="name" required placeholder="Ex: Auth API" />

@@ -45,7 +45,10 @@ describe('authentication guard', () => {
   test('every mutating action refuses to run without a session token', async () => {
     currentSession = null;
     const f = mockFetch();
-    await assert.rejects(services.createService(form({ name: 'x' })), /Unauthorized/);
+    assert.deepEqual(await services.createService(form({ name: 'x' })), {
+      success: false,
+      error: 'Sessão expirada. Entre novamente.',
+    });
     await assert.rejects(plans.createPlan(form({ name: 'x' })), /Unauthorized/);
     await assert.rejects(plans.togglePlan('pro'), /Unauthorized/);
     assert.deepEqual(await tenants.createTenant(form({ name: 'x' })), {
@@ -71,8 +74,11 @@ describe('services actions', () => {
   });
 
   test('createService surfaces API failures and does not revalidate', async () => {
-    mockFetch(403);
-    await assert.rejects(services.createService(form({ name: 'api' })), /Failed to create service/);
+    mockFetch(402, { code: 'QUOTA_EXCEEDED', message: 'Limite do plano atingido. Faça upgrade para continuar.' });
+    assert.deepEqual(await services.createService(form({ name: 'api' })), {
+      success: false,
+      error: 'Limite do plano atingido. Faça upgrade para continuar.',
+    });
     assert.deepEqual(revalidated, []);
   });
 });
