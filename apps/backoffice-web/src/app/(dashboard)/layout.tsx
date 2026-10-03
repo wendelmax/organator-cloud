@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { publicApiUrl } from "../../lib/public-env";
@@ -14,6 +14,16 @@ export default function DashboardLayout({
   const { data: session, status, update } = useSession();
   const router = useRouter();
   const isPlatformAdmin = (session?.user as any)?.role === "PLATFORM_ADMIN";
+  const impersonatedBy = (session?.user as any)?.impersonatedBy as string | undefined;
+
+  // Encerra a sessão de suporte na API (revoga e audita) e volta ao login.
+  async function endSupportSession() {
+    await fetch(`${publicApiUrl()}/v1/auth/impersonate/stop`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${(session as any)?.accessToken}` },
+    }).catch(() => undefined);
+    await signOut({ callbackUrl: "/login" });
+  }
   const token = (session as any)?.accessToken;
   const [tenants, setTenants] = useState<any[]>([]);
   const [switching, setSwitching] = useState(false);
@@ -69,6 +79,8 @@ export default function DashboardLayout({
   useEffect(() => {
     if (status !== "authenticated" || !token) return;
     if ((session?.user as any)?.mustChangePassword) return;
+    // Suporte não aceita termos em nome do usuário (a API bloqueia).
+    if ((session?.user as any)?.impersonatedBy) return;
     fetch(`${apiUrl}/v1/compliance/consents`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -199,7 +211,28 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-8 overflow-y-auto">{children}</main>
+      <main className="flex-1 p-8 overflow-y-auto">
+        {impersonatedBy && (
+          <div
+            role="alert"
+            className="mb-6 flex flex-col gap-3 rounded-lg border border-amber-600 bg-amber-950/60 p-4 text-sm text-amber-100 md:flex-row md:items-center md:justify-between"
+          >
+            <span>
+              <strong>Sessão de suporte:</strong> você está acessando como{" "}
+              <strong>{(session?.user as any)?.actingAs}</strong> (por {impersonatedBy}). Tudo o que
+              fizer fica registrado na auditoria.
+            </span>
+            <button
+              type="button"
+              onClick={() => void endSupportSession()}
+              className="rounded-md border border-amber-500 px-3 py-1.5 font-medium hover:bg-amber-900"
+            >
+              Encerrar sessão de suporte
+            </button>
+          </div>
+        )}
+        {children}
+      </main>
     </div>
   );
 }
