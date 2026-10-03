@@ -14,6 +14,8 @@ export default function DashboardLayout({
   const { data: session, status, update } = useSession();
   const router = useRouter();
   const isPlatformAdmin = (session?.user as any)?.role === "PLATFORM_ADMIN";
+  // SUPPORT vê as páginas da plataforma em modo leitura (a API recusa escritas).
+  const isPlatformStaff = isPlatformAdmin || (session?.user as any)?.role === "SUPPORT";
   const impersonatedBy = (session?.user as any)?.impersonatedBy as string | undefined;
 
   // Encerra a sessão de suporte na API (revoga e audita) e volta ao login.
@@ -185,7 +187,7 @@ export default function DashboardLayout({
           >
             Billing (Stripe)
           </Link>
-          {isPlatformAdmin ? (
+          {isPlatformStaff ? (
             <>
               <Link
                 href="/billing/plans"

@@ -39,3 +39,18 @@ describe('effectiveTenantFor', () => {
     expect(canActOnAnyTenant({})).toBe(false);
   });
 });
+
+describe('canActOnAnyTenant — SUPPORT', () => {
+  it('reads any tenant but cannot write to one', () => {
+    const support = (method: string) => ({
+      method,
+      user: { role: 'SUPPORT', tenantId: 't-platform' },
+    });
+    expect(canActOnAnyTenant(support('GET'))).toBe(true);
+    expect(canActOnAnyTenant(support('POST'))).toBe(false);
+    expect(effectiveTenantFor(support('GET'), 't-9')).toBe('t-9');
+    expect(() => effectiveTenantFor(support('POST'), 't-9')).toThrow(
+      ForbiddenException,
+    );
+  });
+});

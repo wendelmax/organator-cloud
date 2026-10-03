@@ -34,8 +34,8 @@ export class AuthController {
   ) {}
 
   /** Suporte: assume a sessão de um usuário por até 30 min (auditado). */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('PLATFORM_ADMIN')
+  // SUPPORT também (é POST): a checagem de papel fica no serviço.
+  @UseGuards(JwtAuthGuard)
   @Post('impersonate')
   impersonate(
     @Req() req: any,

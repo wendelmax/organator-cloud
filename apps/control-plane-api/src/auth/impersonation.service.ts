@@ -34,7 +34,10 @@ export class ImpersonationService {
     input: { userId?: string; reason?: string },
     context: { ip?: string | null; userAgent?: string | null } = {},
   ) {
-    if (admin.role !== 'PLATFORM_ADMIN' || admin.impersonatorId) {
+    if (
+      !['PLATFORM_ADMIN', 'SUPPORT'].includes(String(admin.role)) ||
+      admin.impersonatorId
+    ) {
       // Impersonação em cadeia nunca: só o admin, na própria sessão.
       throw new ForbiddenException(
         'Only a platform admin can start a support session',
@@ -54,8 +57,8 @@ export class ImpersonationService {
       include: { tenant: { select: { state: true } } },
     });
     if (!target) throw new NotFoundException('User not found');
-    if (target.role === 'PLATFORM_ADMIN') {
-      throw new ForbiddenException('Platform admins cannot be impersonated');
+    if (['PLATFORM_ADMIN', 'SUPPORT'].includes(target.role)) {
+      throw new ForbiddenException('Platform staff cannot be impersonated');
     }
     if (['offboarding', 'deleted'].includes(target.tenant?.state ?? '')) {
       throw new ForbiddenException(

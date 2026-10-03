@@ -8,6 +8,12 @@ export function canActOnAnyTenant(req: any): boolean {
   const user = req?.user;
   if (!user) return false;
   if (user.apiKeyAuth) return !user.tenantId;
+  if (user.role === 'SUPPORT') {
+    // Suporte lê qualquer tenant, mas nunca escreve.
+    return ['GET', 'HEAD', 'OPTIONS'].includes(
+      String(req.method || 'GET').toUpperCase(),
+    );
+  }
   return user.role === 'PLATFORM_ADMIN';
 }
 

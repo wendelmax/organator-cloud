@@ -123,3 +123,29 @@ describe('canAssignRole', () => {
     expect(canAssignRole(undefined, 'VIEWER')).toBe(false);
   });
 });
+
+describe('SUPPORT role (#103)', () => {
+  const guard = new RolesGuard({
+    getAllAndOverride: () => ['PLATFORM_ADMIN'],
+  } as any);
+  const ctx = (role: string, method: string) =>
+    ({
+      getHandler: () => undefined,
+      getClass: () => undefined,
+      switchToHttp: () => ({ getRequest: () => ({ method, user: { role } }) }),
+    }) as any;
+
+  it('reads platform routes but never writes', () => {
+    expect(guard.canActivate(ctx('SUPPORT', 'GET'))).toBe(true);
+    expect(guard.canActivate(ctx('SUPPORT', 'HEAD'))).toBe(true);
+    for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
+      expect(guard.canActivate(ctx('SUPPORT', method))).toBe(false);
+    }
+  });
+
+  it('is granted only by a platform admin', () => {
+    expect(canAssignRole('PLATFORM_ADMIN', 'SUPPORT')).toBe(true);
+    expect(canAssignRole('OWNER', 'SUPPORT')).toBe(false);
+    expect(canAssignRole('SUPPORT', 'SUPPORT')).toBe(false);
+  });
+});

@@ -6,7 +6,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { lastValueFrom, of, throwError } from 'rxjs';
-import { ROLES_KEY } from './roles.decorator';
+import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { JwtAuthGuard } from './jwt-auth.guard';
 import { AuthController } from './auth.controller';
 import {
   ImpersonationService,
@@ -168,13 +169,29 @@ describe('ImpersonationService', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('only platform admins can start it', () => {
+  it('lets SUPPORT start it too, but never on platform staff', async () => {
+    const support = {
+      userId: 'sup-1',
+      email: 'help@organator.app',
+      role: 'SUPPORT',
+    };
+    await expect(
+      service.start(support, { userId: 'u1', reason: 'Ticket #42' }),
+    ).resolves.toMatchObject({ access_token: 'jwt-imp' });
+
+    prisma.user.findUnique.mockResolvedValue({ ...target, role: 'SUPPORT' });
+    await expect(
+      service.start(admin, { userId: 'u1', reason: 'Ticket #42' }),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('requires an authenticated session on the route (role checked in the service)', () => {
     expect(
       Reflect.getMetadata(
-        ROLES_KEY,
+        GUARDS_METADATA,
         (AuthController.prototype as any).impersonate,
       ),
-    ).toEqual(['PLATFORM_ADMIN']);
+    ).toEqual([JwtAuthGuard]);
   });
 });
 
