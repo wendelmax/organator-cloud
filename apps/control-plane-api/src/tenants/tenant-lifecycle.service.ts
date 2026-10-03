@@ -141,11 +141,15 @@ export class TenantLifecycleService {
     tenantId: string,
     opts: TransitionOptions = {},
   ): Promise<any> {
-    const graceEndsAt = new Date(Date.now() + this.gracePeriodMs);
+    // O prazo vem do caso de cobrança (#97); sem ele, conta a partir de agora.
+    // Retentativas do Stripe disparam payment_failed de novo e não podem
+    // empurrar a graça para frente.
+    const graceEndsAt =
+      opts.graceEndsAt ?? new Date(Date.now() + this.gracePeriodMs);
     return this.transition(tenantId, 'past_due', {
       ...opts,
       graceEndsAt,
-      reason: 'invoice.payment_failed',
+      reason: opts.reason ?? 'invoice.payment_failed',
     });
   }
 
@@ -169,7 +173,7 @@ export class TenantLifecycleService {
     return this.transition(tenantId, 'suspended', {
       ...opts,
       suspendedAt: new Date(),
-      reason: 'customer.subscription.deleted',
+      reason: opts.reason ?? 'customer.subscription.deleted',
     });
   }
 

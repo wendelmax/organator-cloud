@@ -42,6 +42,45 @@ describe('TenantLifecycleService', () => {
     service = module.get<TenantLifecycleService>(TenantLifecycleService);
   });
 
+  describe('enterPastDue / markSuspended (#97)', () => {
+    it('uses the dunning case deadline instead of restarting the grace', async () => {
+      mockPrisma.tenant.findUnique.mockResolvedValue({
+        id: 't1',
+        state: 'active',
+      });
+      mockPrisma.tenant.update.mockResolvedValue({
+        id: 't1',
+        state: 'past_due',
+      });
+      const deadline = new Date('2026-12-01T00:00:00Z');
+
+      await service.enterPastDue('t1', { graceEndsAt: deadline });
+
+      expect(
+        mockPrisma.tenant.update.mock.calls[0][0].data.graceEndsAt,
+      ).toEqual(deadline);
+    });
+
+    it('keeps the reason given by the caller in the audit trail', async () => {
+      mockPrisma.tenant.findUnique.mockResolvedValue({
+        id: 't1',
+        state: 'past_due',
+      });
+      mockPrisma.tenant.update.mockResolvedValue({
+        id: 't1',
+        state: 'suspended',
+      });
+
+      await service.markSuspended('t1', { reason: 'dunning.grace_expired' });
+
+      expect(mockAudit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          changes: expect.objectContaining({ reason: 'dunning.grace_expired' }),
+        }),
+      );
+    });
+  });
+
   describe('transition', () => {
     it('should apply a valid transition and keep status in sync', async () => {
       mockPrisma.tenant.findUnique.mockResolvedValue(baseTenant);
