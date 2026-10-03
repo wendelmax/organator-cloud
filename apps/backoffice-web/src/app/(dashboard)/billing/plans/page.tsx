@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "../../../../lib/auth";
 import { PlansClient } from "./ClientPage";
+import { CouponsCard } from "./coupons-card";
 import { serverApiUrl } from "../../../../lib/public-env";
 
 const API_URL = serverApiUrl();
@@ -25,5 +26,10 @@ export default async function BillingPlansPage() {
   }
 
   const plans = token ? await getPlans(token) : [];
-  return <PlansClient initialPlans={plans} />;
+  return (
+    <div className="space-y-8">
+      <PlansClient initialPlans={plans} />
+      <CouponsCard />
+    </div>
+  );
 }

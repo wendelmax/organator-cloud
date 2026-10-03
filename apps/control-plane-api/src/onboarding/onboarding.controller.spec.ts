@@ -142,6 +142,59 @@ describe('OnboardingController', () => {
       },
     );
 
+    it('applies a valid coupon as a Stripe promotion code and tags the session', async () => {
+      const coupons = {
+        findApplicable: jest.fn().mockResolvedValue({
+          code: 'LANCAMENTO20',
+          stripePromotionCodeId: 'promo_1',
+        }),
+      };
+      plans.getBySlug.mockResolvedValue({
+        price: 4900,
+        stripePriceId: 'price_pro',
+      });
+      const withCoupons = new OnboardingController(
+        webhook,
+        plans,
+        {} as any,
+        {} as any,
+        {} as any,
+        coupons as any,
+      );
+
+      await withCoupons.createCheckoutSession({
+        ...signup,
+        plan: 'pro',
+        coupon: ' lancamento20 ',
+      });
+
+      expect(coupons.findApplicable).toHaveBeenCalledWith(
+        'LANCAMENTO20',
+        'pro',
+      );
+      expect(createSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          discounts: [{ promotion_code: 'promo_1' }],
+          metadata: {
+            tenantName: 'Acme',
+            plan: 'pro',
+            couponCode: 'LANCAMENTO20',
+          },
+        }),
+      );
+
+      coupons.findApplicable.mockRejectedValueOnce(
+        new BadRequestException('Cupom inválido: expirado'),
+      );
+      await expect(
+        withCoupons.createCheckoutSession({
+          ...signup,
+          plan: 'pro',
+          coupon: 'OLD',
+        }),
+      ).rejects.toThrow('expirado');
+    });
+
     it('defaults to the free plan', async () => {
       await controller.createCheckoutSession(signup);
       expect(plans.getBySlug).toHaveBeenCalledWith('free');

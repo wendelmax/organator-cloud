@@ -6,12 +6,16 @@ import {
   Headers,
   BadRequestException,
   HttpCode,
+  Get,
+  Param,
+  Query,
 } from '@nestjs/common';
 import { BillingPlansService } from '../billing/billing-plans.service';
 import { BillingWebhookService } from '../billing/billing-webhook.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { AuditService } from '../audit/audit.service';
+import { CouponsService } from '../billing/coupons.service';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /** Mesma resposta exista ou não a conta: o endpoint não revela e-mails. */
@@ -34,7 +38,14 @@ export class OnboardingController {
     private readonly prisma: PrismaService,
     private readonly tenants: TenantsService,
     private readonly audit: AuditService,
+    private readonly coupons: CouponsService,
   ) {}
+
+  /** Público: valida o cupom para o plano e devolve o desconto (para o cadastro). */
+  @Get('coupons/:code')
+  validateCoupon(@Param('code') code: string, @Query('plan') plan?: string) {
+    return this.coupons.validate(code, String(plan || 'free').toLowerCase());
+  }
 
   /**
    * Cadastro self-service em plano gratuito (os pagos passam pelo checkout).
@@ -154,7 +165,27 @@ export class OnboardingController {
           quantity: 1,
         };
 
-    const metadata = { tenantName, plan: planSlug };
+    // Cupom (#95): validado aqui e aplicado como promotion code do Stripe; o
+    // uso é registrado pelo webhook do checkout concluído.
+    const couponCode =
+      typeof body?.coupon === 'string' && body.coupon.trim()
+        ? body.coupon.trim().toUpperCase()
+        : null;
+    let discounts: Stripe.Checkout.SessionCreateParams.Discount[] | undefined;
+    if (couponCode) {
+      const coupon = await this.coupons.findApplicable(couponCode, planSlug);
+      if (!coupon.stripePromotionCodeId) {
+        throw new BadRequestException(
+          'Cupom inválido: indisponível no checkout',
+        );
+      }
+      discounts = [{ promotion_code: coupon.stripePromotionCodeId }];
+    }
+    const metadata = {
+      tenantName,
+      plan: planSlug,
+      ...(couponCode ? { couponCode } : {}),
+    };
     const backoffice = (
       process.env.BACKOFFICE_URL || 'http://localhost:3000'
     ).replace(/\/+$/, '');
@@ -168,6 +199,7 @@ export class OnboardingController {
       metadata,
       subscription_data: { metadata },
       customer_email: email,
+      ...(discounts ? { discounts } : {}),
     });
     return { url: session.url };
   }
