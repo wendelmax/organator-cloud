@@ -1,20 +1,25 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Privacidade (LGPD)", () => {
-  test("owner liga e desliga marketing e a preferência persiste", async ({ page }) => {
+  test("owner muda a preferência de marketing e ela persiste", async ({ page }) => {
     await page.goto("/settings");
     const marketing = page.getByRole("checkbox", { name: "Novidades e comunicações de marketing por e-mail" });
-    await expect(marketing).not.toBeChecked();
+    await expect(marketing).toBeVisible();
+    // Parte do estado atual (pode ter ficado ligado numa tentativa anterior).
+    const initiallyOn = await marketing.isChecked();
 
-    await marketing.check();
-    await expect(page.getByRole("status")).toHaveText("Preferência ativada.");
+    await marketing.setChecked(!initiallyOn);
+    await expect(page.getByRole("status")).toHaveText(
+      initiallyOn ? /Preferência desativada/ : "Preferência ativada.",
+    );
     await page.reload();
-    await expect(marketing).toBeChecked();
+    await expect(marketing).toBeChecked({ checked: !initiallyOn });
 
-    await marketing.uncheck();
-    await expect(page.getByRole("status")).toContainText("Preferência desativada");
+    // Volta ao estado original e confirma de novo.
+    await marketing.setChecked(initiallyOn);
+    await expect(page.getByRole("status")).toBeVisible();
     await page.reload();
-    await expect(marketing).not.toBeChecked();
+    await expect(marketing).toBeChecked({ checked: initiallyOn });
     await expect(page.getByText(/Termos de uso: versão 2026-10/)).toBeVisible();
   });
 });

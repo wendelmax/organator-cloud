@@ -40,8 +40,13 @@ export function PrivacyCard() {
 
   if (!status) return null;
 
-  async function toggle(purpose: string, granted: boolean) {
+  async function toggle(purpose: "marketing" | "analytics", granted: boolean) {
     setMessage(null);
+    // Otimista: a caixa reflete a escolha na hora; volta se a API recusar.
+    const previous = status;
+    setStatus((current) =>
+      current ? { ...current, preferences: { ...current.preferences, [purpose]: granted } } : current,
+    );
     const res = await fetch(`${API_URL}/v1/compliance/consents`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -51,6 +56,7 @@ export function PrivacyCard() {
       setStatus(await res.json());
       setMessage(granted ? "Preferência ativada." : "Preferência desativada: vale a partir de agora.");
     } else {
+      setStatus(previous);
       setMessage(await apiErrorMessage(res, "Não foi possível salvar a preferência."));
     }
   }
