@@ -5,9 +5,21 @@ import {
   Req,
   Headers,
   BadRequestException,
+  HttpCode,
 } from '@nestjs/common';
 import { BillingPlansService } from '../billing/billing-plans.service';
 import { BillingWebhookService } from '../billing/billing-webhook.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { TenantsService } from '../tenants/tenants.service';
+import { AuditService } from '../audit/audit.service';
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** Mesma resposta exista ou não a conta: o endpoint não revela e-mails. */
+const SIGNUP_ACCEPTED = {
+  accepted: true,
+  message:
+    'Se o e-mail puder ser usado, enviamos um link para ativar a conta e definir a senha.',
+};
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_123', {
@@ -19,7 +31,60 @@ export class OnboardingController {
   constructor(
     private readonly billingWebhook: BillingWebhookService,
     private readonly plansService: BillingPlansService,
+    private readonly prisma: PrismaService,
+    private readonly tenants: TenantsService,
+    private readonly audit: AuditService,
   ) {}
+
+  /**
+   * Cadastro self-service em plano gratuito (os pagos passam pelo checkout).
+   * Cria o tenant e envia ao dono o link de ativação, que também comprova o
+   * e-mail. Um e-mail que já tem conta recebe a mesma resposta, sem criar nada.
+   */
+  @Post('signup')
+  @HttpCode(202)
+  async signup(
+    @Req() req: any,
+    @Body() body: { tenantName?: string; email?: string; plan?: string },
+  ) {
+    const tenantName =
+      typeof body?.tenantName === 'string' ? body.tenantName.trim() : '';
+    const email = typeof body?.email === 'string' ? body.email.trim() : '';
+    if (!tenantName || !EMAIL_RE.test(email)) {
+      throw new BadRequestException(
+        'tenantName and a valid email are required',
+      );
+    }
+    const plan = await this.plansService.getBySlug(
+      String(body.plan || 'free').toLowerCase(),
+    );
+    if (!plan || plan.status !== 'active' || plan.price > 0) {
+      throw new BadRequestException(
+        'Este plano exige pagamento: use o checkout.',
+      );
+    }
+
+    if (await this.prisma.user.findUnique({ where: { email } })) {
+      return SIGNUP_ACCEPTED;
+    }
+    const tenant = await this.tenants.createTenant(
+      tenantName,
+      plan.slug,
+      email,
+      {
+        actorEmail: email,
+      },
+    );
+    await this.audit.record({
+      actorEmail: email,
+      ip: req?.ip ?? null,
+      action: 'onboarding.free_signup',
+      resourceType: 'Tenant',
+      resourceId: tenant.id,
+      changes: { plan: plan.slug },
+    });
+    return SIGNUP_ACCEPTED;
+  }
 
   @Post('webhook')
   async handleStripeWebhook(

@@ -12,7 +12,11 @@ describe('TenantsService.createTenant — owner assignment', () => {
       user: { findUnique: jest.fn() },
       tenant: {
         create: jest.fn().mockResolvedValue(tenant),
-        findUnique: jest.fn().mockResolvedValue(tenant),
+        // 1ª chamada: checagem de slug livre; depois, o tenant criado.
+        findUnique: jest
+          .fn()
+          .mockResolvedValueOnce(null)
+          .mockResolvedValue(tenant),
       },
       tenantMembership: { upsert: jest.fn().mockResolvedValue({}) },
     };
@@ -79,5 +83,13 @@ describe('TenantsService.createTenant — owner assignment', () => {
     await service.createTenant('Acme', 'free');
     expect(prisma.tenant.create.mock.calls[0][0].data.users).toBeUndefined();
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('refuses a name whose address (slug) is already taken, before creating anything', async () => {
+    prisma.tenant.findUnique.mockReset().mockResolvedValue(tenant);
+    await expect(
+      service.createTenant('Acme', 'free', 'x@acme.com'),
+    ).rejects.toThrow(/Já existe uma organização com o endereço "acme"/);
+    expect(prisma.tenant.create).not.toHaveBeenCalled();
   });
 });

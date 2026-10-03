@@ -8,6 +8,7 @@ import { API_KEY_PREFIX } from '../api-keys/api-keys.types';
 const PUBLIC_PATHS = [
   '/v1/onboarding/webhook',
   '/v1/onboarding/checkout',
+  '/v1/onboarding/signup',
   '/v1/auth/login',
   '/v1/auth/password/',
   '/v1/tenant-invitations/accept',
