@@ -18,6 +18,8 @@ export function RegisterClient() {
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [signupDone, setSignupDone] = useState(false);
+  const [coupon, setCoupon] = useState("");
+  const [couponInfo, setCouponInfo] = useState<{ ok: boolean; text: string } | null>(null);
   const selectedPlan = plans?.find((plan) => plan.slug === selectedSlug) ?? null;
   const isFreePlan = selectedPlan ? selectedPlan.price === 0 : false;
 
@@ -38,6 +40,26 @@ export function RegisterClient() {
     tenantName: '',
   });
 
+  // Mostra o desconto do cupom para o plano escolhido antes do checkout.
+  async function checkCoupon() {
+    if (!coupon.trim() || !selectedPlan) return setCouponInfo(null);
+    const res = await fetch(
+      `${API_URL}/v1/onboarding/coupons/${encodeURIComponent(coupon.trim())}?plan=${selectedPlan.slug}`,
+    );
+    if (!res.ok) {
+      setCouponInfo({ ok: false, text: await apiErrorMessage(res, "Cupom inválido.") });
+      return;
+    }
+    const data = await res.json();
+    const off =
+      data.percentOff !== null
+        ? `${data.percentOff}% de desconto`
+        : `${(data.amountOff / 100).toFixed(2)} ${data.currency.toUpperCase()} de desconto`;
+    const period =
+      data.duration === "forever" ? "em todas as cobranças" : data.duration === "repeating" ? `por ${data.durationInMonths} mês(es)` : "na primeira cobrança";
+    setCouponInfo({ ok: true, text: `Cupom ${data.code}: ${off} ${period}.` });
+  }
+
   // Plano pago -> checkout do Stripe; gratuito -> cadastro direto com link de
   // ativação por e-mail.
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -45,7 +67,12 @@ export function RegisterClient() {
     if (!selectedPlan) return;
     setIsProcessing(true);
     setSubmitError(null);
-    const payload = { email: formData.email, tenantName: formData.tenantName, plan: selectedPlan.slug };
+    const payload = {
+      email: formData.email,
+      tenantName: formData.tenantName,
+      plan: selectedPlan.slug,
+      ...(coupon.trim() && !isFreePlan ? { coupon: coupon.trim() } : {}),
+    };
 
     try {
       const res = await fetch(`${API_URL}/v1/onboarding/${isFreePlan ? "signup" : "checkout"}`, {
@@ -163,6 +190,25 @@ export function RegisterClient() {
                 </label>
               ))}
 
+              {!isFreePlan && selectedPlan && (
+                <div className="space-y-1">
+                  <Input
+                    aria-label="Cupom de desconto"
+                    placeholder="Cupom de desconto (opcional)"
+                    value={coupon}
+                    onChange={(e) => {
+                      setCoupon(e.target.value);
+                      setCouponInfo(null);
+                    }}
+                    onBlur={() => void checkCoupon()}
+                  />
+                  {couponInfo && (
+                    <p className={`text-xs ${couponInfo.ok ? "text-emerald-300" : "text-red-300"}`}>
+                      {couponInfo.text}
+                    </p>
+                  )}
+                </div>
+              )}
               {submitError && (
                 <p role="status" className="text-sm text-red-300">{submitError}</p>
               )}

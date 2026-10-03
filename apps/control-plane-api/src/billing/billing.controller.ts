@@ -12,6 +12,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { BillingService } from './billing.service';
 import { CreditsService } from './credits.service';
+import { CouponsService, type CouponInput } from './coupons.service';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('v1/billing')
@@ -19,7 +20,27 @@ export class BillingController {
   constructor(
     private readonly billingService: BillingService,
     private readonly credits: CreditsService,
+    private readonly coupons: CouponsService,
   ) {}
+
+  @Get('coupons')
+  @Roles('PLATFORM_ADMIN')
+  listCoupons() {
+    return this.coupons.list();
+  }
+
+  /** Cria o cupom (e o promotion code no Stripe, quando configurado). */
+  @Post('coupons')
+  @Roles('PLATFORM_ADMIN')
+  createCoupon(@Req() req: any, @Body() body: CouponInput) {
+    return this.coupons.create(body ?? {}, req.user.userId);
+  }
+
+  @Post('coupons/:code/deactivate')
+  @Roles('PLATFORM_ADMIN')
+  deactivateCoupon(@Req() req: any, @Param('code') code: string) {
+    return this.coupons.deactivate(code, req.user.userId);
+  }
 
   /** Saldo e extrato de créditos do próprio tenant. */
   @Get('credits')

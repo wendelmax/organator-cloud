@@ -9,6 +9,7 @@ const PUBLIC_PATHS = [
   '/v1/onboarding/webhook',
   '/v1/onboarding/checkout',
   '/v1/onboarding/signup',
+  '/v1/onboarding/coupons/',
   '/v1/auth/login',
   '/v1/auth/password/',
   '/v1/tenant-invitations/accept',

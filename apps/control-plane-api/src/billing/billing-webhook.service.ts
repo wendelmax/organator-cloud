@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
@@ -6,6 +6,7 @@ import { TenantsService } from '../tenants/tenants.service';
 import { TenantLifecycleService } from '../tenants/tenant-lifecycle.service';
 import { IamService } from '../iam/iam.service';
 import { AuditService } from '../audit/audit.service';
+import { CouponsService } from './coupons.service';
 
 /**
  * Orquestra o ciclo de vida do tenant dirigido por eventos de pagamento (#46).
@@ -24,6 +25,7 @@ export class BillingWebhookService {
     private readonly iamService: IamService,
     private readonly auditService: AuditService,
     @InjectQueue('provisioner') private readonly provisionerQueue: Queue,
+    @Optional() private readonly coupons?: CouponsService,
   ) {}
 
   async process(event: any): Promise<Record<string, unknown>> {
@@ -116,6 +118,13 @@ export class BillingWebhookService {
       tenant.slug,
       customer_email || 'customer@example.com',
     );
+
+    if (metadata.couponCode) {
+      await this.coupons?.redeem(metadata.couponCode, {
+        tenantId: tenant.id,
+        checkoutSessionId: session.id ?? null,
+      });
+    }
 
     await this.provisionerQueue.add('deploy-tenant-infra', {
       tenantId: tenant.id,

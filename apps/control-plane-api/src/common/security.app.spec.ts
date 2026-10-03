@@ -2,6 +2,7 @@ import {
   configureAppSecurity,
   createFastifyAdapter,
   readSecurityConfig,
+  hasNoBody,
 } from './security.config';
 
 describe('security config — parsing and app wiring', () => {
@@ -95,6 +96,15 @@ describe('security config — parsing and app wiring', () => {
     expect(fastify.initialConfig.bodyLimit).toBe(1_048_576);
   });
 
+  describe('hasNoBody', () => {
+    it('detects requests without a body', () => {
+      expect(hasNoBody({})).toBe(true);
+      expect(hasNoBody({ 'content-length': '0' })).toBe(true);
+      expect(hasNoBody({ 'content-length': '12' })).toBe(false);
+      expect(hasNoBody({ 'transfer-encoding': 'chunked' })).toBe(false);
+    });
+  });
+
   describe('configureAppSecurity', () => {
     const registered: any[] = [];
     const app: any = {
@@ -103,6 +113,13 @@ describe('security config — parsing and app wiring', () => {
       ),
       enableCors: jest.fn(),
       useGlobalPipes: jest.fn(),
+      // Hook que ignora Content-Type de requisições sem corpo.
+      hooks: [] as unknown[],
+      getHttpAdapter: () => ({
+        getInstance: () => ({
+          addHook: (name: string, fn: unknown) => app.hooks.push([name, fn]),
+        }),
+      }),
     };
 
     beforeAll(async () => {
@@ -125,6 +142,21 @@ describe('security config — parsing and app wiring', () => {
       expect(opts.max({ url: '/v1/auth/login' })).toBe(50);
       expect(opts.timeWindow({ url: '/health' })).toBe(60_000);
       expect(opts.keyGenerator({ ip: '1.2.3.4' })).toBe('1.2.3.4');
+    });
+
+    it('drops the Content-Type of body-less requests before parsing', () => {
+      const [name, hook] = app.hooks[0];
+      expect(name).toBe('onRequest');
+      const bodyless = { headers: { 'content-type': 'application/json' } };
+      const withBody = {
+        headers: { 'content-type': 'application/json', 'content-length': '2' },
+      };
+      const done = jest.fn();
+      hook(bodyless, {}, done);
+      hook(withBody, {}, done);
+      expect(bodyless.headers['content-type']).toBeUndefined();
+      expect(withBody.headers['content-type']).toBe('application/json');
+      expect(done).toHaveBeenCalledTimes(2);
     });
 
     it('restricts CORS to the configured origins', () => {

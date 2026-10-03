@@ -84,11 +84,33 @@ export function createFastifyAdapter(
   });
 }
 
+/**
+ * Requisição sem corpo (sem content-length > 0 nem transfer-encoding)? Clientes
+ * costumam mandar `Content-Type: application/json` em DELETE/POST sem corpo, e
+ * o Fastify responde 400 (FST_ERR_CTP_EMPTY_JSON_BODY).
+ */
+export function hasNoBody(headers: Record<string, unknown>): boolean {
+  if (headers['transfer-encoding']) return false;
+  const length = headers['content-length'];
+  return length === undefined || Number(length) === 0;
+}
+
 export async function configureAppSecurity(
   app: NestFastifyApplication,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<SecurityConfig> {
   const config = readSecurityConfig(env);
+
+  // Sem corpo, o Content-Type não tem o que descrever: ignora em vez de 400.
+  app
+    .getHttpAdapter()
+    .getInstance()
+    .addHook('onRequest', (request, _reply, done) => {
+      if (request.headers['content-type'] && hasNoBody(request.headers)) {
+        delete request.headers['content-type'];
+      }
+      done();
+    });
 
   await app.register(helmet, {
     contentSecurityPolicy: config.isProduction,

@@ -3,6 +3,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { BillingController } from './billing.controller';
 import { BillingService } from './billing.service';
 import { CreditsService } from './credits.service';
+import { CouponsService } from './coupons.service';
 import { BillingPlansController } from './billing-plans.controller';
 import { BillingPlansService } from './billing-plans.service';
 import { BillingWebhookService } from './billing-webhook.service';
@@ -27,7 +28,13 @@ import { EntitlementsModule } from '../entitlements/entitlements.module';
     BillingPlansService,
     BillingWebhookService,
     CreditsService,
+    CouponsService,
   ],
-  exports: [BillingService, BillingPlansService, BillingWebhookService],
+  exports: [
+    BillingService,
+    BillingPlansService,
+    BillingWebhookService,
+    CouponsService,
+  ],
 })
 export class BillingModule {}

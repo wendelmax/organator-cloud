@@ -178,6 +178,46 @@ describe('BillingWebhookService', () => {
       });
     });
 
+    it('records the coupon use of a completed signup checkout', async () => {
+      const coupons = { redeem: jest.fn() };
+      const withCoupons = new BillingWebhookService(
+        mockPrisma as any,
+        mockTenants as any,
+        mockLifecycle as any,
+        mockIam as any,
+        mockAudit as any,
+        mockQueue as any,
+        coupons as any,
+      );
+      mockTenants.createTenant.mockResolvedValue({
+        id: 'tenant-1',
+        slug: 'acme',
+        plan: 'pro',
+      });
+
+      await withCoupons.process({
+        id: 'evt-coupon',
+        type: 'checkout.session.completed',
+        data: {
+          object: {
+            id: 'cs_9',
+            metadata: {
+              tenantName: 'Acme',
+              plan: 'pro',
+              couponCode: 'LANCAMENTO20',
+            },
+            customer_email: 'owner@acme.com',
+            customer: 'cus_1',
+          },
+        },
+      });
+
+      expect(coupons.redeem).toHaveBeenCalledWith('LANCAMENTO20', {
+        tenantId: 'tenant-1',
+        checkoutSessionId: 'cs_9',
+      });
+    });
+
     it('should ignore checkout without tenantName', async () => {
       const result = await service.process({
         id: 'evt-checkout',
