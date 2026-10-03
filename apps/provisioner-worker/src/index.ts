@@ -14,6 +14,7 @@ import {
   handleDeployMicroservice,
 } from './deploy/deploy-microservice.js';
 import { loadDataIsolationConfig } from './data-isolation/config.js';
+import { handleGenerateDataExport } from './compliance/data-export-handler.js';
 
 // Falha no boot se o isolamento de dados estiver ligado e mal configurado.
 const dataIsolation = loadDataIsolationConfig();
@@ -49,6 +50,7 @@ const worker = createProvisionerWorker({
     'offboard-tenant-infra': (job: Job) => handleOffboardTenantInfra(job, prisma),
     'promote-tenant-environment': (job: Job) => handlePromoteTenantEnvironment(job, prisma),
     'deploy-rollout': (job: Job) => handleDeployRollout(job, prisma),
+    'generate-data-export': (job: Job) => handleGenerateDataExport(job, prisma),
     'deploy-microservice': (job: Job) =>
       handleDeployMicroservice(job, job.data.deploymentId || null, appendLog, setDeploymentStatus),
   }

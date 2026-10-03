@@ -32,6 +32,7 @@ Chega de provisionar bancos de dados e domínios manualmente para clientes *Ente
 | Deploy de serviços na Vercel e em VPS via SSH/Docker | Integrado com as APIs reais (na VPS, publica a imagem Docker cadastrada no serviço); falhas marcam o deploy como `FAILED` |
 | Deploy na AWS | Ainda não automatizado: o deploy falha com mensagem explícita |
 | Drivers de infraestrutura do tenant (rede, DNS, banco dedicado em nuvem) | **Simulados**: registram as fases, mas não criam recursos |
+| Exportação dos dados do titular (LGPD art. 18-V) | Implementado: pedido pelo painel, arquivo JSON gerado pelo worker, download só pelo próprio titular por 7 dias e apagado depois |
 | Métricas de saúde por tenant (CPU, memória, rede, DNS) | **Não coletadas**: não há coletor; o painel não exibe indicadores de saúde |
 | Backups e restore por tenant | **Só metadados**: o registro de backup não copia dados e o restore falha com mensagem explícita. Proteja os dados com o backup do PostgreSQL (snapshots/PITR do banco gerenciado) |
 

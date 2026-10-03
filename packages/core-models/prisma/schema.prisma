@@ -201,6 +201,7 @@ model User {
   mfaRecoveryCodes    MfaRecoveryCode[]
   passwordResetTokens PasswordResetToken[]
   passwordHistory     PasswordHistory[]
+  dataExports         DataExport[]
   sessions            UserSession[]
   memberships         TenantMembership[]
 }
@@ -313,6 +314,23 @@ model PasswordHistory {
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+// Exportação dos dados pessoais do titular (LGPD art. 18-V, #109). O conteúdo
+// fica aqui até expirar (sem bucket de objetos na plataforma) e é apagado depois.
+model DataExport {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      String    @default("PENDING") // PENDING | READY | FAILED | EXPIRED
+  content     Json?
+  error       String?
+  expiresAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([status, expiresAt])
 }
 
 model MfaChallenge {
