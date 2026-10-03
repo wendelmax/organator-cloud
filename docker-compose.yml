@@ -51,6 +51,8 @@ services:
       # E-mails vão para o Mailpit (http://localhost:8025) por padrão.
       - SMTP_URL=${SMTP_URL:-smtp://mailpit:1025}
       - MAIL_FROM=${MAIL_FROM:-Organator <no-reply@organator.local>}
+      # Limite global por IP (o padrão da API é 100/min); o E2E do CI aumenta.
+      - RATE_LIMIT_MAX=${RATE_LIMIT_MAX:-100}
     ports:
       - "3000:3000"
     depends_on:

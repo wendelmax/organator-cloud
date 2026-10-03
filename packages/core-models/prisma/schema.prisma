@@ -336,6 +336,19 @@ model DataExport {
   @@index([status, expiresAt])
 }
 
+// Prova de conformidade do direito ao esquecimento (LGPD art. 18, #108). Não
+// guarda dado pessoal: só o SHA-256 do e-mail apagado e o que foi feito.
+model ErasureRecord {
+  id          String   @id @default(uuid())
+  subjectHash String // sha256 do e-mail normalizado
+  requestedBy String? // null = o próprio titular
+  reason      String   @default("subject_request") // subject_request | admin_request
+  summary     Json     @default("{}") // contagens por fonte apagada/anonimizada
+  performedAt DateTime @default(now())
+
+  @@index([subjectHash])
+}
+
 model MfaChallenge {
   id         String   @id @default(uuid())
   tokenHash  String   @unique

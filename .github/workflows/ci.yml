@@ -217,6 +217,10 @@ jobs:
         run: npm ci
 
       - name: Start the stack
+        # A suíte roda em paralelo a partir de um único IP: com o limite padrão
+        # (100/min) as requisições finais recebem 429.
+        env:
+          RATE_LIMIT_MAX: '5000'
         run: docker compose up -d --build postgres redis migrate control-plane-api backoffice-web
 
       - name: Wait for API and panel
