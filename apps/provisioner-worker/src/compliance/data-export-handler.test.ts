@@ -28,6 +28,7 @@ function fakePrisma(overrides: { user?: any; request?: any } = {}) {
     apiKey: { findMany: capture('apiKeys', [{ name: 'ci', prefix: 'sk_ab12' }]) },
     tenantInvitation: { findMany: capture('invitations', []) },
     auditLog: { findMany: capture('activity', [{ action: 'auth.login_succeeded' }]) },
+    consent: { findMany: capture('consents', [{ purpose: 'terms', version: '2026-10' }]) },
     dataExport: {
       findUnique: async () =>
         'request' in overrides ? overrides.request : { id: 'e1', userId: 'u1', status: 'PENDING' },
@@ -46,6 +47,8 @@ describe('buildUserExport', () => {
     assert.equal(doc.profile.email, 'owner@acme.com');
     assert.deepEqual(doc.memberships, [{ role: 'OWNER' }]);
     assert.deepEqual(doc.activity, [{ action: 'auth.login_succeeded' }]);
+    assert.deepEqual(doc.consents, [{ purpose: 'terms', version: '2026-10' }]);
+    assert.deepEqual(selects.consents.where, { userId: 'u1' });
     // Escopo do titular.
     assert.deepEqual(selects.sessions.where, { userId: 'u1' });
     assert.deepEqual(selects.apiKeys.where, { createdBy: 'u1' });

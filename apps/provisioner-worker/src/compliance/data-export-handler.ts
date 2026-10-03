@@ -30,7 +30,7 @@ export async function buildUserExport(
   });
   if (!user) throw new Error(`User ${userId} not found`);
 
-  const [memberships, sessions, apiKeys, invitations, activity] = await Promise.all([
+  const [memberships, sessions, apiKeys, invitations, activity, consents] = await Promise.all([
     prisma.tenantMembership.findMany({
       where: { userId },
       select: {
@@ -87,6 +87,11 @@ export async function buildUserExport(
         createdAt: true,
       },
     }),
+    prisma.consent.findMany({
+      where: { userId },
+      orderBy: { grantedAt: 'desc' },
+      select: { purpose: true, version: true, grantedAt: true, revokedAt: true },
+    }),
   ]);
 
   return {
@@ -98,6 +103,7 @@ export async function buildUserExport(
     apiKeys,
     invitations,
     activity,
+    consents,
   };
 }
 

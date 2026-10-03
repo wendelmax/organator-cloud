@@ -202,6 +202,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   passwordHistory     PasswordHistory[]
   dataExports         DataExport[]
+  consents            Consent[]
   sessions            UserSession[]
   memberships         TenantMembership[]
 }
@@ -347,6 +348,22 @@ model ErasureRecord {
   performedAt DateTime @default(now())
 
   @@index([subjectHash])
+}
+
+// Consentimentos do titular por finalidade e versão (LGPD/GDPR, #107). Cada
+// concessão é um registro; revogar preenche revokedAt (histórico auditável).
+model Consent {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose   String // terms | privacy | marketing | analytics
+  version   String // versão do documento aceito (TERMS_VERSION / PRIVACY_POLICY_VERSION)
+  grantedAt DateTime  @default(now())
+  revokedAt DateTime?
+  ip        String?
+  userAgent String?
+
+  @@index([userId, purpose, revokedAt])
 }
 
 model MfaChallenge {
