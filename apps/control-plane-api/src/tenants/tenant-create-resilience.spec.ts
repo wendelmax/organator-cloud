@@ -8,7 +8,11 @@ describe('TenantsService.createTenant — provisioning queue outage', () => {
       user: { findUnique: jest.fn().mockResolvedValue(null) },
       tenant: {
         create: jest.fn().mockResolvedValue(tenant),
-        findUnique: jest.fn().mockResolvedValue(tenant),
+        // 1ª chamada: checagem de slug livre; depois, o tenant criado.
+        findUnique: jest
+          .fn()
+          .mockResolvedValueOnce(null)
+          .mockResolvedValue(tenant),
       },
     };
     const audit = { record: jest.fn().mockResolvedValue(undefined) };

@@ -65,6 +65,15 @@ export class TenantsService {
     } = {},
   ) {
     const slug = normalizeSlug(name);
+    if (!slug) {
+      throw new BadRequestException('Informe um nome de organização válido');
+    }
+    // Antes caía na unique constraint do Prisma (500).
+    if (await this.prisma.tenant.findUnique({ where: { slug } })) {
+      throw new ConflictException(
+        `Já existe uma organização com o endereço "${slug}". Escolha outro nome.`,
+      );
+    }
     const state = opts.state || 'active';
     if (!VALID_STATES.includes(state)) {
       throw new BadRequestException(

@@ -163,3 +163,82 @@ describe('OnboardingController', () => {
     );
   });
 });
+
+describe('OnboardingController — free signup', () => {
+  let plans: any;
+  let prisma: any;
+  let tenants: any;
+  let audit: any;
+  let controller: OnboardingController;
+  const body = { tenantName: 'Acme', email: 'owner@acme.com', plan: 'free' };
+  const accepted = {
+    accepted: true,
+    message:
+      'Se o e-mail puder ser usado, enviamos um link para ativar a conta e definir a senha.',
+  };
+
+  beforeEach(() => {
+    plans = {
+      getBySlug: jest
+        .fn()
+        .mockResolvedValue({ slug: 'free', status: 'active', price: 0 }),
+    };
+    prisma = { user: { findUnique: jest.fn().mockResolvedValue(null) } };
+    tenants = { createTenant: jest.fn().mockResolvedValue({ id: 't-new' }) };
+    audit = { record: jest.fn() };
+    controller = new OnboardingController(
+      {} as any,
+      plans,
+      prisma,
+      tenants,
+      audit,
+    );
+  });
+
+  it('creates the tenant on a free plan; the owner gets the activation e-mail', async () => {
+    await expect(controller.signup({ ip: '1.2.3.4' }, body)).resolves.toEqual(
+      accepted,
+    );
+    expect(tenants.createTenant).toHaveBeenCalledWith(
+      'Acme',
+      'free',
+      'owner@acme.com',
+      { actorEmail: 'owner@acme.com' },
+    );
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'onboarding.free_signup',
+        resourceId: 't-new',
+      }),
+    );
+  });
+
+  it('answers the same for an e-mail that already has an account, creating nothing', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: 'u-1' });
+    await expect(controller.signup({}, body)).resolves.toEqual(accepted);
+    expect(tenants.createTenant).not.toHaveBeenCalled();
+  });
+
+  it('sends paid, inactive or unknown plans to the checkout', async () => {
+    for (const plan of [
+      { slug: 'pro', status: 'active', price: 4900 },
+      { slug: 'free', status: 'inactive', price: 0 },
+      null,
+    ]) {
+      plans.getBySlug.mockResolvedValueOnce(plan);
+      await expect(controller.signup({}, body)).rejects.toThrow(
+        BadRequestException,
+      );
+    }
+    expect(tenants.createTenant).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [{ email: 'owner@acme.com' }],
+    [{ tenantName: 'Acme', email: 'nope' }],
+  ])('rejects incomplete signups (%j)', async (incomplete) => {
+    await expect(controller.signup({}, incomplete)).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+});

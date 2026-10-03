@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button, Card, Input } from "@organator/ui";
 import { publicApiUrl } from "../../../lib/public-env";
 import { formatPlanPrice, planHighlights, type PublicPlan } from "../../../lib/plans";
+import { apiErrorMessage } from "../../../lib/api-error";
 
 const API_URL = publicApiUrl();
 
@@ -14,11 +15,20 @@ export function RegisterClient() {
   // checkout (antes os valores eram fixos na página).
   const [plans, setPlans] = useState<PublicPlan[] | null>(null);
   const [plansError, setPlansError] = useState(false);
+  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [signupDone, setSignupDone] = useState(false);
+  const selectedPlan = plans?.find((plan) => plan.slug === selectedSlug) ?? null;
+  const isFreePlan = selectedPlan ? selectedPlan.price === 0 : false;
 
   useEffect(() => {
     fetch(`${API_URL}/v1/billing/plans`)
       .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
-      .then((data: PublicPlan[]) => setPlans(data.filter((plan) => plan.price > 0)))
+      .then((data: PublicPlan[]) => {
+        setPlans(data);
+        // Pré-seleciona o primeiro plano pago (o gratuito continua disponível).
+        setSelectedSlug((data.find((plan) => plan.price > 0) ?? data[0])?.slug ?? null);
+      })
       .catch(() => setPlansError(true));
   }, []);
   const [formData, setFormData] = useState({
@@ -28,34 +38,41 @@ export function RegisterClient() {
     tenantName: '',
   });
 
-  const handleStripeRedirect = async (e: React.FormEvent<HTMLFormElement>) => {
+  // Plano pago -> checkout do Stripe; gratuito -> cadastro direto com link de
+  // ativação por e-mail.
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!selectedPlan) return;
     setIsProcessing(true);
-    
-    const form = e.currentTarget;
-    const plan = (form.elements.namedItem('plan') as RadioNodeList).value;
+    setSubmitError(null);
+    const payload = { email: formData.email, tenantName: formData.tenantName, plan: selectedPlan.slug };
 
     try {
-      const res = await fetch(`${API_URL}/v1/onboarding/checkout`, {
+      const res = await fetch(`${API_URL}/v1/onboarding/${isFreePlan ? "signup" : "checkout"}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: formData.email,
-          tenantName: formData.tenantName,
-          plan
-        })
+        body: JSON.stringify(payload),
       });
+      if (!res.ok) {
+        setSubmitError(await apiErrorMessage(res, "Não foi possível concluir o cadastro."));
+        setIsProcessing(false);
+        return;
+      }
+      if (isFreePlan) {
+        setSignupDone(true);
+        setIsProcessing(false);
+        return;
+      }
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;
-      } else {
-        alert("Erro ao criar checkout");
-        setIsProcessing(false);
+        return;
       }
-    } catch (err) {
-      alert("Erro de rede");
-      setIsProcessing(false);
+      setSubmitError("Não foi possível iniciar o checkout.");
+    } catch {
+      setSubmitError("Erro de rede. Tente novamente.");
     }
+    setIsProcessing(false);
   };
 
   return (
@@ -111,18 +128,25 @@ export function RegisterClient() {
             <h2 className="text-xl font-bold text-white">Escolha um Plano</h2>
           </div>
 
-          <form onSubmit={handleStripeRedirect}>
+          <form onSubmit={handleSubmit}>
             <div className="space-y-4">
               {plansError && (
                 <p className="text-sm text-red-300">Não foi possível carregar os planos. Tente novamente em instantes.</p>
               )}
               {!plans && !plansError && <p className="text-sm text-neutral-400">Carregando planos...</p>}
               {plans?.length === 0 && (
-                <p className="text-sm text-neutral-400">Nenhum plano pago disponível no momento.</p>
+                <p className="text-sm text-neutral-400">Nenhum plano disponível no momento.</p>
               )}
-              {plans?.map((plan, index) => (
+              {plans?.map((plan) => (
                 <label key={plan.slug} className="block cursor-pointer">
-                  <input type="radio" name="plan" value={plan.slug} className="peer sr-only" defaultChecked={index === 0} />
+                  <input
+                    type="radio"
+                    name="plan"
+                    value={plan.slug}
+                    className="peer sr-only"
+                    checked={selectedSlug === plan.slug}
+                    onChange={() => setSelectedSlug(plan.slug)}
+                  />
                   <Card className="p-6 bg-neutral-900 border-neutral-800 peer-checked:border-blue-500 peer-checked:ring-1 peer-checked:ring-blue-500 transition-all hover:bg-neutral-800">
                     <div className="flex justify-between items-center gap-4">
                       <div>
@@ -131,15 +155,28 @@ export function RegisterClient() {
                           {plan.description || planHighlights(plan.quotas).join(" · ")}
                         </p>
                       </div>
-                      <span className="text-xl font-bold text-white whitespace-nowrap">{formatPlanPrice(plan)}</span>
+                      <span className="text-xl font-bold text-white whitespace-nowrap">
+                        {plan.price === 0 ? "Grátis" : formatPlanPrice(plan)}
+                      </span>
                     </div>
                   </Card>
                 </label>
               ))}
 
-              <Button type="submit" size="lg" className="w-full py-6 text-lg mt-6" disabled={isProcessing || !plans?.length}>
-                {isProcessing ? "Gerando Checkout..." : "Pagar via Stripe"}
-              </Button>
+              {submitError && (
+                <p role="status" className="text-sm text-red-300">{submitError}</p>
+              )}
+              {signupDone ? (
+                <p role="status" className="p-4 rounded-lg border border-emerald-700 bg-emerald-950/40 text-emerald-200 text-sm">
+                  Conta criada! Enviamos para <strong>{formData.email}</strong> um link para ativar a conta e definir a senha.
+                </p>
+              ) : (
+                <Button type="submit" size="lg" className="w-full py-6 text-lg mt-6" disabled={isProcessing || !selectedPlan}>
+                  {isProcessing
+                    ? isFreePlan ? "Criando conta..." : "Gerando Checkout..."
+                    : isFreePlan ? "Criar conta grátis" : "Pagar via Stripe"}
+                </Button>
+              )}
               <p className="text-xs text-center text-neutral-500 mt-4">
                 Pagamento processado de forma segura pelo Stripe. 
                 Seu banco de dados será provisionado após a aprovação.
