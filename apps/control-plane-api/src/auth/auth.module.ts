@@ -12,6 +12,7 @@ import { AuditModule } from '../audit/audit.module';
 import { readSecurityConfig } from '../common/security.config';
 import { MfaPolicyService } from './mfa-policy.service';
 import { PasswordResetModule } from './password-reset.module';
+import { PasswordPolicyController } from './password-policy.controller';
 
 const securityConfig = readSecurityConfig();
 
@@ -29,7 +30,7 @@ export const jwtConstants = {
     AuditModule,
     PasswordResetModule,
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, PasswordPolicyController],
   providers: [
     AuthService,
     JwtStrategy,

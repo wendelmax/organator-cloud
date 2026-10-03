@@ -12,6 +12,7 @@ import { AuditService } from '../audit/audit.service';
 import { MailService } from '../mail/mail.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
 import { canAssignRole } from '../auth/roles.guard';
+import { PasswordPolicyService } from '../auth/password-policy.service';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 
@@ -28,6 +29,7 @@ export class InvitationsService {
     private readonly audit: AuditService,
     @Optional() private readonly mail?: MailService,
     @Optional() private readonly entitlements?: EntitlementsService,
+    @Optional() private readonly passwordPolicy?: PasswordPolicyService,
   ) {}
 
   /**
@@ -244,6 +246,12 @@ export class InvitationsService {
         `Defina uma senha com no mínimo ${MIN_PASSWORD_LENGTH} caracteres`,
       );
     }
+    // Conta nova nasce no tenant do convite: vale a política dele.
+    if (!existing) {
+      await this.passwordPolicy?.assertAcceptable(password!, {
+        tenantId: invitation.tenantId,
+      });
+    }
     const passwordHash = existing ? null : await bcrypt.hash(password!, 12);
 
     // O convite pode ter sido enviado com assento livre e o plano ter enchido
@@ -291,6 +299,7 @@ export class InvitationsService {
             tenantId: invitation.tenantId,
             role: invitation.role,
             password: passwordHash,
+            passwordChangedAt: new Date(),
           },
         });
         accountCreated = true;

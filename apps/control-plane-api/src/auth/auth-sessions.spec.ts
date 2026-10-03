@@ -361,6 +361,7 @@ describe('AuthService — credentials, sessions and refresh', () => {
           mustChangePassword: false,
           failedLoginAttempts: 0,
           loginLockedUntil: null,
+          passwordChangedAt: expect.any(Date),
         },
       });
       expect(prisma.userSession.updateMany).toHaveBeenCalledWith({
