@@ -33,6 +33,7 @@ Chega de provisionar bancos de dados e domínios manualmente para clientes *Ente
 | Deploy na AWS | Ainda não automatizado: o deploy falha com mensagem explícita |
 | Drivers de infraestrutura do tenant (rede, DNS, banco dedicado em nuvem) | **Simulados**: registram as fases, mas não criam recursos |
 | Exportação de dados (LGPD art. 18-V) | Implementado: o titular exporta os próprios dados e o admin da plataforma exporta o dataset de um tenant; JSON gerado pelo worker, download só por quem pediu, por 7 dias, e apagado depois |
+| Consentimento e preferências de privacidade (LGPD/GDPR) | Implementado: aceite versionado de termos e política (`TERMS_VERSION`, `PRIVACY_POLICY_VERSION`) no primeiro acesso, preferências de marketing/métricas revogáveis a qualquer momento e histórico auditável |
 | Retenção de dados (LGPD) | Implementado: purga diária por tipo de dado (webhooks, sessões, tokens, convites, exportações, backups, auditoria) com prazos configuráveis (`RETENTION_*`, `AUDIT_RETENTION_DAYS`) |
 | Direito ao esquecimento (LGPD art. 18) | Implementado: o titular (ou o admin da plataforma) apaga a conta; auditoria e webhooks são anonimizados; cobranças ficam no Stripe por obrigação contábil; registro de conformidade sem dado pessoal |
 | Métricas de saúde por tenant (CPU, memória, rede, DNS) | **Não coletadas**: não há coletor; o painel não exibe indicadores de saúde |

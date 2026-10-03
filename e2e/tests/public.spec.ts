@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { acceptConsentAndEnter } from "../helpers";
 
 test.describe("Páginas públicas", () => {
   test("página de cadastro renderiza wizard de 2 passos", async ({ page }) => {
@@ -76,6 +77,6 @@ test.describe("Cadastro no plano gratuito", () => {
     await page.getByPlaceholder("admin@organator.app").fill(email);
     await page.getByPlaceholder("••••••••").fill(password);
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
-    await page.waitForURL("**/services", { timeout: 20_000 });
+    await acceptConsentAndEnter(page);
   });
 });

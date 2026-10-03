@@ -12,6 +12,9 @@ export interface PublicEnv {
   apiUrl: string;
   /** Login via VoidAuth (OIDC) disponível — mesmas condições do provider em lib/auth.ts. */
   ssoEnabled: boolean;
+  /** Documentos legais do operador (TERMS_URL / PRIVACY_POLICY_URL); vazio = sem link. */
+  termsUrl: string;
+  privacyUrl: string;
 }
 
 declare global {
@@ -32,6 +35,8 @@ export function readPublicEnv(env: NodeJS.ProcessEnv = process.env): PublicEnv {
   return {
     apiUrl: normalizeApiUrl(env.PUBLIC_API_URL || env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL),
     ssoEnabled: Boolean(env.VOIDAUTH_CLIENT_ID && env.VOIDAUTH_CLIENT_SECRET),
+    termsUrl: env.TERMS_URL?.trim() || "",
+    privacyUrl: env.PRIVACY_POLICY_URL?.trim() || "",
   };
 }
 
@@ -49,6 +54,15 @@ export function publicSsoEnabled(): boolean {
     return window.__ORGANATOR_ENV__.ssoEnabled === true;
   }
   return readPublicEnv().ssoEnabled;
+}
+
+/** Links dos termos de uso e da política de privacidade configurados pelo operador. */
+export function publicLegalUrls(): { termsUrl: string; privacyUrl: string } {
+  const source =
+    typeof window !== "undefined" && window.__ORGANATOR_ENV__
+      ? window.__ORGANATOR_ENV__
+      : readPublicEnv();
+  return { termsUrl: source.termsUrl || "", privacyUrl: source.privacyUrl || "" };
 }
 
 /** URL da API para código server-side (prefere o endereço interno API_URL). */

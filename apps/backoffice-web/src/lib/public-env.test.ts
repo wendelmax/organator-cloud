@@ -47,10 +47,19 @@ describe('public runtime env', () => {
   });
 
   test('the injected script cannot break out of the <script> tag', () => {
-    const script = publicEnvScript({ apiUrl: 'https://x.com/</script><script>alert(1)</script>', ssoEnabled: false });
+    const script = publicEnvScript({ apiUrl: 'https://x.com/</script><script>alert(1)</script>', ssoEnabled: false, termsUrl: '', privacyUrl: '' });
     assert.ok(!script.includes('</script>'));
     const sandbox: any = {};
     new Function('window', script)(sandbox);
     assert.equal(sandbox.__ORGANATOR_ENV__.apiUrl, 'https://x.com/</script><script>alert(1)</script>');
+  });
+});
+
+describe('legal document links', () => {
+  test('come from TERMS_URL / PRIVACY_POLICY_URL and default to no link', () => {
+    assert.deepEqual(
+      [readPublicEnv({ TERMS_URL: ' https://acme.com/termos ' } as any).termsUrl, readPublicEnv({} as any).privacyUrl],
+      ['https://acme.com/termos', ''],
+    );
   });
 });
