@@ -6,6 +6,7 @@ import { MfaService } from './mfa.service';
 import { AuditService } from '../audit/audit.service';
 import { MfaPolicyService } from './mfa-policy.service';
 import { PasswordResetService } from './password-reset.service';
+import { ImpersonationService } from './impersonation.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -45,6 +46,7 @@ describe('AuthController', () => {
           useValue: { get: jest.fn(), update: jest.fn() },
         },
         { provide: PasswordResetService, useValue: {} },
+        { provide: ImpersonationService, useValue: {} },
       ],
     }).compile();
 

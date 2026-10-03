@@ -13,6 +13,9 @@ import { readSecurityConfig } from '../common/security.config';
 import { MfaPolicyService } from './mfa-policy.service';
 import { PasswordResetModule } from './password-reset.module';
 import { PasswordPolicyController } from './password-policy.controller';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { ImpersonationService } from './impersonation.service';
+import { ImpersonationInterceptor } from './impersonation.interceptor';
 
 const securityConfig = readSecurityConfig();
 
@@ -38,6 +41,8 @@ export const jwtConstants = {
     MfaService,
     MfaPolicyService,
     RolesGuard,
+    ImpersonationService,
+    { provide: APP_INTERCEPTOR, useClass: ImpersonationInterceptor },
   ],
   exports: [AuthService, RolesGuard, MfaService],
 })
