@@ -126,6 +126,32 @@ describe('authOptions — callbacks', () => {
     assert.deepEqual(await jwt({ token: { ...original } }), original);
   });
 
+  test('marks a support session (impersonation) and clears it on the next switch', async () => {
+    const supportToken = fakeJwt({ sub: 'u1', role: 'MEMBER', tenantId: 't2' });
+    mock.method(globalThis, 'fetch', async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ email: 'maria@acme.com', impersonatedBy: 'ops@organator.app' }),
+    }) as any);
+    const token = await jwt({
+      token: { accessToken: 'admin', role: 'PLATFORM_ADMIN' },
+      session: { accessToken: supportToken },
+      trigger: 'update',
+    });
+    assert.equal(token.impersonatedBy, 'ops@organator.app');
+    assert.equal(token.actingAs, 'maria@acme.com');
+
+    const shown = await session({ session: { user: {} }, token });
+    assert.equal(shown.user.impersonatedBy, 'ops@organator.app');
+    assert.equal(shown.user.actingAs, 'maria@acme.com');
+
+    mock.restoreAll();
+    mock.method(globalThis, 'fetch', async () => ({ ok: true, status: 200, json: async () => ({}) }) as any);
+    const back = await jwt({ token, session: { accessToken: supportToken }, trigger: 'update' });
+    assert.equal(back.impersonatedBy, undefined);
+    mock.restoreAll();
+  });
+
   test('exposes role, tenant and access token on the session', async () => {
     const result = await session({
       session: { user: { email: 'o@acme.com' } },

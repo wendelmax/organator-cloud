@@ -9,7 +9,13 @@ const API_URL = process.env.API_URL || "http://localhost:3001";
  */
 export async function verifiedTokenContext(
   accessToken: string,
-): Promise<{ role?: string; tenantId?: string } | null> {
+): Promise<{
+  role?: string;
+  tenantId?: string;
+  /** Sessão de suporte: e-mail de quem está acessando como o usuário. */
+  impersonatedBy?: string | null;
+  email?: string;
+} | null> {
   try {
     const res = await fetch(`${API_URL}/v1/auth/me`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -19,7 +25,12 @@ export async function verifiedTokenContext(
     const payload = JSON.parse(
       Buffer.from(accessToken.split(".")[1] ?? "", "base64url").toString("utf8"),
     );
-    return { role: payload.role, tenantId: payload.tenantId };
+    const me = typeof res.json === "function" ? await res.json().catch(() => null) : null;
+    return {
+      role: payload.role,
+      tenantId: payload.tenantId,
+      ...(me?.impersonatedBy ? { impersonatedBy: me.impersonatedBy, email: me.email } : {}),
+    };
   } catch {
     return null;
   }
@@ -113,6 +124,14 @@ export const authOptions: NextAuthOptions = {
           token.accessToken = (session as any).accessToken;
           token.tenantId = context.tenantId;
           token.role = context.role;
+          // Sessão de suporte (#103): o banner mostra quem acessa como quem.
+          if (context.impersonatedBy) {
+            token.impersonatedBy = context.impersonatedBy;
+            token.actingAs = context.email;
+          } else {
+            delete token.impersonatedBy;
+            delete token.actingAs;
+          }
         }
       }
       return token;
@@ -123,6 +142,10 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).tenantId = token.tenantId;
         (session.user as any).mustChangePassword = token.mustChangePassword;
         (session as any).accessToken = token.accessToken;
+        if (token.impersonatedBy) {
+          (session.user as any).impersonatedBy = token.impersonatedBy;
+          (session.user as any).actingAs = token.actingAs;
+        }
       }
       return session;
     }

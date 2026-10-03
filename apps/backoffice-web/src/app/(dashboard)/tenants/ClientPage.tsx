@@ -23,6 +23,7 @@ import { DataIsolationModal } from "./data-isolation";
 import { CloneModal } from "./clone-modal";
 import { OffboardModal } from "./offboard-modal";
 import { EnvironmentsCard } from "./environments-card";
+import { ImpersonateModal } from "./impersonate-modal";
 
 interface TenantMetrics {
   microservices: number;
@@ -69,6 +70,7 @@ export function TenantsClient({
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [planTenant, setPlanTenant] = useState<Tenant | null>(null);
   const [ownerTenant, setOwnerTenant] = useState<Tenant | null>(null);
+  const [impersonateTenant, setImpersonateTenant] = useState<Tenant | null>(null);
   const [isolationTenant, setIsolationTenant] = useState<Tenant | null>(null);
   const [cloningTenant, setCloningTenant] = useState<Tenant | null>(null);
   const [offboardingTenant, setOffboardingTenant] = useState<Tenant | null>(null);
@@ -392,6 +394,14 @@ export function TenantsClient({
                               onClick={() => setOwnerTenant(tenant)}
                             >
                               Transferir
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={isPending}
+                              onClick={() => setImpersonateTenant(tenant)}
+                            >
+                              Acessar como
                             </Button>
                             <Button
                               variant="ghost"
@@ -769,6 +779,14 @@ export function TenantsClient({
               }
             });
           }}
+        />
+      )}
+
+      {impersonateTenant && (
+        <ImpersonateModal
+          tenantName={impersonateTenant.name}
+          members={impersonateTenant.users ?? []}
+          onClose={() => setImpersonateTenant(null)}
         />
       )}
 
