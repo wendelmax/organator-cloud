@@ -14,6 +14,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { ComplianceService } from './compliance.service';
 import { ErasureService } from './erasure.service';
+import { RetentionService } from './retention.service';
 
 /** Direitos do titular sobre os próprios dados (LGPD). */
 @UseGuards(JwtAuthGuard)
@@ -22,7 +23,16 @@ export class ComplianceController {
   constructor(
     private readonly compliance: ComplianceService,
     private readonly erasure: ErasureService,
+    private readonly retention: RetentionService,
   ) {}
+
+  /** Prazos de retenção em vigor, por tipo de dado (em dias). */
+  @Get('retention-policy')
+  @UseGuards(RolesGuard)
+  @Roles('PLATFORM_ADMIN')
+  retentionPolicy() {
+    return this.retention.getPolicy();
+  }
 
   /**
    * Direito ao esquecimento: apaga a própria conta e anonimiza os registros.
