@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Param, Post } from '@nestjs/common';
 import { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test, TestingModule } from '@nestjs/testing';
 import { IsString } from 'class-validator';
@@ -21,6 +21,11 @@ class ValidationProbeController {
   @Post()
   create(@Body() body: ValidationProbeDto) {
     return body;
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return { deleted: id };
   }
 }
 
@@ -75,6 +80,27 @@ describe('AppController (e2e)', () => {
       headers: { 'x-request-id': 'bad id with spaces' },
     });
     expect(replaced.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it('accepts a body-less DELETE that still says Content-Type: application/json', async () => {
+    // Antes: 400 "Body cannot be empty when content-type is set to 'application/json'".
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/validation-probe/abc',
+      headers: { 'content-type': 'application/json' },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ deleted: 'abc' });
+  });
+
+  it('still parses and validates JSON bodies', async () => {
+    const ok = await app.inject({
+      method: 'POST',
+      url: '/validation-probe',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ name: 'x' }),
+    });
+    expect(ok.json()).toEqual({ name: 'x' });
   });
 
   it('/health (GET)', async () => {

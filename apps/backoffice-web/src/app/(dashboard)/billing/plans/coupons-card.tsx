@@ -70,10 +70,12 @@ export function CouponsCard() {
   }
 
   async function deactivate(code: string) {
-    await fetch(`${publicApiUrl()}/v1/billing/coupons/${encodeURIComponent(code)}/deactivate`, {
+    // Sem corpo: não enviar Content-Type JSON (o Fastify recusa corpo vazio).
+    const res = await fetch(`${publicApiUrl()}/v1/billing/coupons/${encodeURIComponent(code)}/deactivate`, {
       method: "POST",
-      headers,
+      headers: { Authorization: `Bearer ${token}` },
     });
+    setMessage(res.ok ? `Cupom ${code} desativado.` : await apiErrorMessage(res, "Não foi possível desativar o cupom."));
     await load();
   }
 
