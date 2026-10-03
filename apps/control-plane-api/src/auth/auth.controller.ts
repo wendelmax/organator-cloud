@@ -18,6 +18,9 @@ import { MfaService } from './mfa.service';
 import { AuditService } from '../audit/audit.service';
 import { MfaPolicyService } from './mfa-policy.service';
 import { PasswordResetService } from './password-reset.service';
+import { ImpersonationService } from './impersonation.service';
+import { RolesGuard } from './roles.guard';
+import { Roles } from './roles.decorator';
 
 @Controller('v1/auth')
 export class AuthController {
@@ -27,7 +30,28 @@ export class AuthController {
     private readonly auditService: AuditService,
     private readonly mfaPolicyService: MfaPolicyService,
     private readonly passwordReset: PasswordResetService,
+    private readonly impersonation: ImpersonationService,
   ) {}
+
+  /** Suporte: assume a sessão de um usuário por até 30 min (auditado). */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('PLATFORM_ADMIN')
+  @Post('impersonate')
+  impersonate(
+    @Req() req: any,
+    @Body() body: { userId?: string; reason?: string },
+  ) {
+    return this.impersonation.start(req.user, body ?? {}, {
+      ip: req.ip,
+      userAgent: req.headers?.['user-agent'],
+    });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('impersonate/stop')
+  stopImpersonation(@Req() req: any) {
+    return this.impersonation.stop(req.user);
+  }
 
   @Post('login')
   async login(@Req() req: any, @Body() body: Record<string, string>) {
@@ -127,7 +151,9 @@ export class AuthController {
   @AllowPasswordChange()
   @Get('me')
   async me(@Req() req: any) {
-    return this.authService.me(req.user.userId);
+    const me = await this.authService.me(req.user.userId);
+    // Sessão de suporte: o painel mostra quem está acessando como o usuário.
+    return { ...me, impersonatedBy: req.user.impersonatorEmail ?? null };
   }
 
   @UseGuards(JwtAuthGuard)

@@ -24,6 +24,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       id: string;
       tenantId: string | null;
       role: string | null;
+      impersonatorId?: string | null;
+      impersonatorEmail?: string | null;
     } | null = null;
     if (payload.sessionId) {
       session = await this.prisma.userSession.findFirst({
@@ -55,6 +57,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       mustChangePassword: user.mustChangePassword,
       authProvider: user.authProvider,
       sessionId: payload.sessionId,
+      // Sessão de suporte (#103): quem assumiu a sessão do usuário.
+      ...(session?.impersonatorId
+        ? {
+            impersonatorId: session.impersonatorId,
+            impersonatorEmail: session.impersonatorEmail,
+          }
+        : {}),
     };
   }
 }

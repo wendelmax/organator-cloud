@@ -235,6 +235,10 @@ model UserSession {
   expiresAt    DateTime
   lastSeenAt   DateTime @default(now())
   revokedAt    DateTime?
+  // Sessão de suporte (impersonação, #103): quem assumiu e por quê.
+  impersonatorId      String?
+  impersonatorEmail   String?
+  impersonationReason String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
