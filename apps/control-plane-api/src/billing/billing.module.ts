@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { BillingController } from './billing.controller';
 import { BillingService } from './billing.service';
+import { CreditsService } from './credits.service';
 import { BillingPlansController } from './billing-plans.controller';
 import { BillingPlansService } from './billing-plans.service';
 import { BillingWebhookService } from './billing-webhook.service';
@@ -21,7 +22,12 @@ import { EntitlementsModule } from '../entitlements/entitlements.module';
     EntitlementsModule,
   ],
   controllers: [BillingController, BillingPlansController],
-  providers: [BillingService, BillingPlansService, BillingWebhookService],
+  providers: [
+    BillingService,
+    BillingPlansService,
+    BillingWebhookService,
+    CreditsService,
+  ],
   exports: [BillingService, BillingPlansService, BillingWebhookService],
 })
 export class BillingModule {}

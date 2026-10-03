@@ -11,6 +11,7 @@ import {
 } from "@organator/ui";
 import { useSession } from "next-auth/react";
 import { publicApiUrl } from "../../../lib/public-env";
+import { CreditsCard } from "./credits-card";
 
 const API_URL = publicApiUrl();
 
@@ -213,6 +214,8 @@ export default function BillingPage() {
           </CardContent>
         </Card>
       </div>
+
+      <CreditsCard />
 
       {subscription?.status === "past_due" && (
         <div className="rounded-lg border border-amber-800 bg-amber-950/40 p-4 text-amber-300">
