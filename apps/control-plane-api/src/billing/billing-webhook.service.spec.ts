@@ -233,6 +233,46 @@ describe('BillingWebhookService', () => {
     });
   });
 
+  describe('dunning (#97)', () => {
+    const withDunning = (dunning: any) =>
+      new BillingWebhookService(
+        mockPrisma as any,
+        mockTenants as any,
+        mockLifecycle as any,
+        mockIam as any,
+        mockAudit as any,
+        mockQueue as any,
+        undefined,
+        dunning,
+      );
+
+    it('hands payment failures and paid invoices to the dunning workflow', async () => {
+      const dunning = { onPaymentFailed: jest.fn(), onInvoicePaid: jest.fn() };
+      mockPrisma.tenant.findUnique.mockResolvedValue({ id: 'tenant-1' });
+      const service = withDunning(dunning);
+      const failed = { id: 'in_1', customer: 'cus_1', attempt_count: 2 };
+
+      await service.process({
+        id: 'evt-f',
+        type: 'invoice.payment_failed',
+        data: { object: failed },
+      });
+      await service.process({
+        id: 'evt-p',
+        type: 'invoice.paid',
+        data: { object: { id: 'in_1', customer: 'cus_1' } },
+      });
+
+      expect(dunning.onPaymentFailed).toHaveBeenCalledWith('tenant-1', failed);
+      expect(dunning.onInvoicePaid).toHaveBeenCalledWith('tenant-1', {
+        id: 'in_1',
+        customer: 'cus_1',
+      });
+      // O estado passa a ser conduzido pelo caso de cobrança.
+      expect(mockLifecycle.enterPastDue).not.toHaveBeenCalled();
+    });
+  });
+
   describe('invoice.payment_failed', () => {
     it('should transition to past_due', async () => {
       mockPrisma.tenant.findUnique.mockResolvedValue({ id: 'tenant-1' });

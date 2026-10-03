@@ -4,6 +4,7 @@ import { BillingController } from './billing.controller';
 import { BillingService } from './billing.service';
 import { CreditsService } from './credits.service';
 import { CouponsService } from './coupons.service';
+import { DunningService } from './dunning.service';
 import { BillingPlansController } from './billing-plans.controller';
 import { BillingPlansService } from './billing-plans.service';
 import { BillingWebhookService } from './billing-webhook.service';
@@ -29,6 +30,7 @@ import { EntitlementsModule } from '../entitlements/entitlements.module';
     BillingWebhookService,
     CreditsService,
     CouponsService,
+    DunningService,
   ],
   exports: [
     BillingService,

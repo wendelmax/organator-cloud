@@ -34,6 +34,7 @@ model Tenant {
   placementPolicy TenantPlacementPolicy?
   passwordPolicy  PasswordPolicy?
   creditEntries   CreditLedgerEntry[]
+  dunningCases    DunningCase[]
   placementMigrations TenantPlacementMigration[]
   providerProfiles ProviderProfile[]
   domains Domain[]
@@ -423,6 +424,27 @@ model CouponRedemption {
   @@index([couponId, createdAt])
 }
 
+// Cobrança em atraso (#97): um caso por fatura não paga. As retentativas são
+// do Stripe (Smart Retries); aqui ficam o acompanhamento, os avisos e a ação final.
+model DunningCase {
+  id            String    @id @default(uuid())
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoiceId     String    @unique
+  amountDue     Int       @default(0)
+  currency      String    @default("usd")
+  attemptCount  Int       @default(0)
+  nextAttemptAt DateTime?
+  graceEndsAt   DateTime
+  status        String    @default("OPEN") // OPEN | RECOVERED | SUSPENDED | DOWNGRADED
+  noticesSent   Json      @default("[]") // estágios já avisados (idempotência)
+  openedAt      DateTime  @default(now())
+  resolvedAt    DateTime?
+
+  @@index([status, graceEndsAt])
+  @@index([tenantId, openedAt])
+}
+
 model MfaChallenge {
   id         String   @id @default(uuid())
   tokenHash  String   @unique
@@ -544,6 +566,10 @@ model BillingPlan {
   stripeProductId String?
   stripePriceId   String?
   defaultDataIsolation DataIsolationMode @default(SHARED)
+  // Inadimplência (#97): dias de graça após a 1ª falha (null = TENANT_GRACE_PERIOD_DAYS)
+  // e o que acontece no fim: suspend (bloqueia) | downgrade (plano free, dados preservados).
+  dunningGraceDays     Int?
+  dunningEndAction     String @default("suspend")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

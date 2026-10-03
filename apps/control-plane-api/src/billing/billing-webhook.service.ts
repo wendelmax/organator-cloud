@@ -7,6 +7,7 @@ import { TenantLifecycleService } from '../tenants/tenant-lifecycle.service';
 import { IamService } from '../iam/iam.service';
 import { AuditService } from '../audit/audit.service';
 import { CouponsService } from './coupons.service';
+import { DunningService } from './dunning.service';
 
 /**
  * Orquestra o ciclo de vida do tenant dirigido por eventos de pagamento (#46).
@@ -26,6 +27,7 @@ export class BillingWebhookService {
     private readonly auditService: AuditService,
     @InjectQueue('provisioner') private readonly provisionerQueue: Queue,
     @Optional() private readonly coupons?: CouponsService,
+    @Optional() private readonly dunning?: DunningService,
   ) {}
 
   async process(event: any): Promise<Record<string, unknown>> {
@@ -46,6 +48,8 @@ export class BillingWebhookService {
           return await this.handleCheckoutCompleted(event);
         case 'invoice.payment_failed':
           return await this.handlePaymentFailed(event);
+        case 'invoice.paid':
+          return await this.handleInvoicePaid(event);
         case 'customer.subscription.deleted':
           return await this.handleSubscriptionDeleted(event);
         case 'customer.subscription.updated':
@@ -176,11 +180,31 @@ export class BillingWebhookService {
       return { received: true, error: 'Unknown customer' };
     }
 
-    await this.lifecycle.enterPastDue(tenant.id, {
-      reason: 'invoice.payment_failed',
-      actorEmail: null,
-    });
+    // Caso de cobrança (#97): prazo fixo, avisos e ação final da política.
+    if (this.dunning) {
+      await this.dunning.onPaymentFailed(tenant.id, invoice);
+    } else {
+      await this.lifecycle.enterPastDue(tenant.id, {
+        reason: 'invoice.payment_failed',
+        actorEmail: null,
+      });
+    }
 
+    await this.recordEvent(event, tenant.id);
+    return { received: true, tenantId: tenant.id };
+  }
+
+  /** Fatura paga (inclusive numa retentativa): encerra o caso e reativa. */
+  private async handleInvoicePaid(
+    event: any,
+  ): Promise<Record<string, unknown>> {
+    const invoice = event.data.object;
+    const tenant = await this.tenantByStripeId(invoice.customer);
+    if (!tenant) {
+      await this.recordEvent(event, null);
+      return { received: true, error: 'Unknown customer' };
+    }
+    await this.dunning?.onInvoicePaid(tenant.id, invoice);
     await this.recordEvent(event, tenant.id);
     return { received: true, tenantId: tenant.id };
   }

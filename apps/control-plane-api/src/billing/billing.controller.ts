@@ -4,6 +4,7 @@ import {
   Get,
   Body,
   Param,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -13,6 +14,7 @@ import { Roles } from '../auth/roles.decorator';
 import { BillingService } from './billing.service';
 import { CreditsService } from './credits.service';
 import { CouponsService, type CouponInput } from './coupons.service';
+import { DunningService } from './dunning.service';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('v1/billing')
@@ -21,7 +23,15 @@ export class BillingController {
     private readonly billingService: BillingService,
     private readonly credits: CreditsService,
     private readonly coupons: CouponsService,
+    private readonly dunning: DunningService,
   ) {}
+
+  /** Painel de inadimplência: casos de cobrança (padrão: em aberto). */
+  @Get('dunning')
+  @Roles('PLATFORM_ADMIN')
+  dunningCases(@Query('status') status?: string) {
+    return this.dunning.listCases(status || 'OPEN');
+  }
 
   @Get('coupons')
   @Roles('PLATFORM_ADMIN')

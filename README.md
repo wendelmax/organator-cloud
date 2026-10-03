@@ -27,6 +27,7 @@ Chega de provisionar bancos de dados e domínios manualmente para clientes *Ente
 | --- | --- |
 | Autenticação (senha, MFA/TOTP, SSO/OIDC, API keys), convites e recuperação de senha por e-mail | Implementado e testado (unitários + E2E) |
 | Cobrança com Stripe (checkout por assinatura, webhooks idempotentes, portal, faturas, cancelamento no offboarding) | Implementado e testado (unitários + E2E) |
+| Inadimplência (dunning) | Implementado: retentativas do Stripe acompanhadas por fatura, avisos por e-mail em cada estágio, prazo de graça e ação final por plano (suspender ou rebaixar para o free mantendo os dados) |
 | Ciclo de vida do tenant (onboarding, past_due, suspensão, offboarding) e audit log | Implementado e testado (unitários + E2E) |
 | Isolamento de dados no PostgreSQL (SHARED / SCHEMA / DATABASE, com migração entre modos) | Implementado e testado contra PostgreSQL real (`DATA_ISOLATION_*`) |
 | Deploy de serviços na Vercel e em VPS via SSH/Docker | Integrado com as APIs reais (na VPS, publica a imagem Docker cadastrada no serviço); falhas marcam o deploy como `FAILED` |
