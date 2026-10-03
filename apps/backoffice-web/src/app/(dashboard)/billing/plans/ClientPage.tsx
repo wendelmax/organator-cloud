@@ -5,6 +5,8 @@ import { Button, Modal, Input, Card } from "@organator/ui";
 import { createPlan, updatePlan, togglePlan, listPlans } from "./actions";
 
 interface BillingPlan {
+  dunningGraceDays?: number | null;
+  dunningEndAction?: string;
   slug: string;
   name: string;
   description?: string | null;
@@ -263,6 +265,37 @@ export function PlansClient({ initialPlans }: { initialPlans: BillingPlan[] }) {
                 defaultValue={editing ? JSON.stringify(editing.features || {}, null, 2) : '{\n  "apiKeys": true,\n  "auditLog": false\n}'}
                 className="flex min-h-[110px] w-full rounded-md border border-neutral-800 bg-neutral-950 px-3 py-2 font-mono text-xs text-neutral-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300"
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-neutral-200" htmlFor="dunningGraceDays">
+                Graça por inadimplência (dias)
+              </label>
+              <Input
+                id="dunningGraceDays"
+                name="dunningGraceDays"
+                type="number"
+                min={1}
+                max={60}
+                defaultValue={editing?.dunningGraceDays ?? ""}
+                placeholder="Padrão da plataforma"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-neutral-200" htmlFor="dunningEndAction">
+                Ao fim da graça
+              </label>
+              <select
+                id="dunningEndAction"
+                name="dunningEndAction"
+                defaultValue={editing?.dunningEndAction || "suspend"}
+                className="flex h-10 w-full rounded-md border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-200"
+              >
+                <option value="suspend">Suspender o acesso</option>
+                <option value="downgrade">Rebaixar para o plano gratuito</option>
+              </select>
             </div>
           </div>
 

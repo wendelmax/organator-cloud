@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
@@ -25,6 +26,35 @@ export interface BillingPlanInput {
   sortOrder?: number;
   syncStripe?: boolean;
   defaultDataIsolation?: string;
+  /** Inadimplência (#97): dias de graça (null = padrão) e ação no fim. */
+  dunningGraceDays?: number | null;
+  dunningEndAction?: string;
+}
+
+/** Valida a política de inadimplência; undefined = não alterar. */
+function dunningPolicy(input: BillingPlanInput) {
+  const policy: {
+    dunningGraceDays?: number | null;
+    dunningEndAction?: string;
+  } = {};
+  if (input.dunningGraceDays !== undefined) {
+    const days = input.dunningGraceDays;
+    if (days !== null && (!Number.isInteger(days) || days < 1 || days > 60)) {
+      throw new BadRequestException(
+        'dunningGraceDays must be an integer between 1 and 60',
+      );
+    }
+    policy.dunningGraceDays = days;
+  }
+  if (input.dunningEndAction !== undefined) {
+    if (!['suspend', 'downgrade'].includes(input.dunningEndAction)) {
+      throw new BadRequestException(
+        'dunningEndAction must be suspend or downgrade',
+      );
+    }
+    policy.dunningEndAction = input.dunningEndAction;
+  }
+  return policy;
 }
 
 const DEV_STRIPE_KEYS = ['sk_test_123', 'sk_test_placeholder', ''];
@@ -99,6 +129,7 @@ export class BillingPlansService {
         )
           ? input.defaultDataIsolation
           : undefined) as any,
+        ...dunningPolicy(input),
         ...stripeRefs,
       },
     });
@@ -171,6 +202,7 @@ export class BillingPlansService {
         )
           ? input.defaultDataIsolation
           : undefined) as any,
+        ...dunningPolicy(input),
         ...stripeRefs,
       },
     });
