@@ -322,6 +322,9 @@ model DataExport {
   id          String    @id @default(uuid())
   userId      String
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // USER = dados do próprio titular; TENANT = dataset do tenant (admin da plataforma)
+  scope       String    @default("USER")
+  tenantId    String?
   status      String    @default("PENDING") // PENDING | READY | FAILED | EXPIRED
   content     Json?
   error       String?

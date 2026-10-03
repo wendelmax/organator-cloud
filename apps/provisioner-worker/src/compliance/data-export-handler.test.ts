@@ -1,6 +1,11 @@
 import test, { describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildUserExport, handleGenerateDataExport, EXPORT_TTL_DAYS } from './data-export-handler.js';
+import {
+  buildTenantExport,
+  buildUserExport,
+  handleGenerateDataExport,
+  EXPORT_TTL_DAYS,
+} from './data-export-handler.js';
 
 function fakePrisma(overrides: { user?: any; request?: any } = {}) {
   const updates: any[] = [];
@@ -82,5 +87,60 @@ describe('handleGenerateDataExport', () => {
     const { prisma, updates } = fakePrisma({ request: { id: 'e1', userId: 'u1', status: 'READY' } });
     await handleGenerateDataExport({ data: { exportId: 'e1' } } as any, prisma);
     assert.equal(updates.length, 0);
+  });
+});
+
+describe('buildTenantExport', () => {
+  function tenantPrisma(tenant: any = { id: 't1', name: 'Acme', slug: 'acme' }) {
+    const args: Record<string, any> = {};
+    const capture = (name: string, rows: unknown[]) => async (a: any) => {
+      args[name] = a;
+      return rows;
+    };
+    const prisma: any = {
+      tenant: { findUnique: async () => tenant },
+      user: { findMany: capture('members', [{ id: 'u1' }, { id: 'u2' }]) },
+      microservice: { findMany: capture('services', [{ id: 's1' }]) },
+      domain: { findMany: capture('domains', []) },
+      tenantInvitation: { findMany: capture('invitations', []) },
+      auditLog: { findMany: capture('audit', [{ action: 'tenant.created' }]) },
+      dataExport: {
+        findUnique: async () => ({ id: 'e2', userId: 'admin', status: 'PENDING', scope: 'TENANT', tenantId: 't1' }),
+        update: async (a: any) => void (args.update = a),
+      },
+    };
+    return { prisma, args };
+  }
+
+  test('exports the tenant dataset scoped to that tenant', async () => {
+    const { prisma, args } = tenantPrisma();
+    const doc: any = await buildTenantExport(prisma, 't1');
+
+    assert.equal(doc.format, 'organator.tenant-export.v1');
+    assert.equal(doc.tenant.slug, 'acme');
+    assert.deepEqual(args.members.where, {
+      OR: [{ tenantId: 't1' }, { memberships: { some: { tenantId: 't1', status: 'active' } } }],
+    });
+    assert.deepEqual(args.services.where, { tenantId: 't1' });
+    // Auditoria do tenant e dos seus membros.
+    assert.deepEqual(args.audit.where, {
+      OR: [{ resourceId: 't1' }, { actorId: { in: ['u1', 'u2'] } }],
+    });
+    const selected = JSON.stringify([args.members.select, args.services.select]);
+    for (const secret of ['password', 'mfaSecretEncrypted', 'encryptedConnection']) {
+      assert.ok(!selected.includes(secret), `${secret} must not be exported`);
+    }
+  });
+
+  test('the job builds a TENANT request with the tenant dataset', async () => {
+    const { prisma, args } = tenantPrisma();
+    await handleGenerateDataExport({ data: { exportId: 'e2' } } as any, prisma);
+    assert.equal(args.update.data.status, 'READY');
+    assert.equal(args.update.data.content.format, 'organator.tenant-export.v1');
+  });
+
+  test('fails for an unknown tenant', async () => {
+    const { prisma } = tenantPrisma(null);
+    await assert.rejects(buildTenantExport(prisma, 'nope'), /not found/);
   });
 });
