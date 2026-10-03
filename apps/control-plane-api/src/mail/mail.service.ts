@@ -1,10 +1,19 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import { createTransport, type Transporter } from 'nodemailer';
 
 export interface MailMessage {
   to: string;
   subject: string;
   text: string;
+}
+
+export interface MailOptions {
+  /**
+   * E-mails não transacionais (ex.: marketing) só saem com consentimento ativo
+   * do titular para a finalidade; a revogação vale no próximo envio.
+   */
+  requiresConsent?: { userId: string; purpose: 'marketing' | 'analytics' };
 }
 
 /**
@@ -19,7 +28,7 @@ export class MailService {
   private readonly transport: Transporter | null;
   private readonly from: string;
 
-  constructor() {
+  constructor(@Optional() private readonly prisma?: PrismaService) {
     const url = process.env.SMTP_URL?.trim();
     this.transport = url ? createTransport(url) : null;
     this.from =
@@ -30,7 +39,21 @@ export class MailService {
     return this.transport !== null;
   }
 
-  async send(message: MailMessage): Promise<void> {
+  async send(
+    message: MailMessage,
+    options: MailOptions = {},
+  ): Promise<boolean> {
+    if (options.requiresConsent) {
+      const { userId, purpose } = options.requiresConsent;
+      const consent = await this.prisma?.consent.findFirst({
+        where: { userId, purpose, revokedAt: null },
+        select: { id: true },
+      });
+      if (!consent) {
+        this.logger.log(`Skipped "${message.subject}": no ${purpose} consent`);
+        return false;
+      }
+    }
     if (!this.transport) {
       if (process.env.NODE_ENV === 'production') {
         this.logger.warn(
@@ -41,8 +64,9 @@ export class MailService {
           `[mail disabled] To: ${message.to}\nSubject: ${message.subject}\n\n${message.text}`,
         );
       }
-      return;
+      return false;
     }
     await this.transport.sendMail({ from: this.from, ...message });
+    return true;
   }
 }

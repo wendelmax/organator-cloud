@@ -15,6 +15,7 @@ import { Roles } from '../auth/roles.decorator';
 import { ComplianceService } from './compliance.service';
 import { ErasureService } from './erasure.service';
 import { RetentionService } from './retention.service';
+import { ConsentService } from './consent.service';
 
 /** Direitos do titular sobre os próprios dados (LGPD). */
 @UseGuards(JwtAuthGuard)
@@ -24,7 +25,35 @@ export class ComplianceController {
     private readonly compliance: ComplianceService,
     private readonly erasure: ErasureService,
     private readonly retention: RetentionService,
+    private readonly consents: ConsentService,
   ) {}
+
+  /** Consentimentos do titular: aceitos, pendentes e versões vigentes. */
+  @Get('consents')
+  consentStatus(@Req() req: any) {
+    return this.consents.status(req.user);
+  }
+
+  /** Concede ou revoga uma finalidade (`{ purpose, granted }`). */
+  @Post('consents')
+  @HttpCode(200)
+  updateConsent(
+    @Req() req: any,
+    @Body() body: { purpose?: string; granted?: boolean },
+  ) {
+    return this.consents.update(req.user, body ?? {}, {
+      ip: req.ip,
+      userAgent: req.headers?.['user-agent'],
+    });
+  }
+
+  /** Vista de conformidade de um titular (consentimentos e exportações). */
+  @Get('users/:userId/summary')
+  @UseGuards(RolesGuard)
+  @Roles('PLATFORM_ADMIN')
+  subjectSummary(@Param('userId') userId: string) {
+    return this.consents.subjectSummary(userId);
+  }
 
   /** Prazos de retenção em vigor, por tipo de dado (em dias). */
   @Get('retention-policy')
