@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Header,
+  HttpCode,
+  Body,
   Param,
   Post,
   Req,
@@ -11,12 +13,37 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { ComplianceService } from './compliance.service';
+import { ErasureService } from './erasure.service';
 
 /** Direitos do titular sobre os próprios dados (LGPD). */
 @UseGuards(JwtAuthGuard)
 @Controller('v1/compliance')
 export class ComplianceController {
-  constructor(private readonly compliance: ComplianceService) {}
+  constructor(
+    private readonly compliance: ComplianceService,
+    private readonly erasure: ErasureService,
+  ) {}
+
+  /**
+   * Direito ao esquecimento: apaga a própria conta e anonimiza os registros.
+   * Confirma com a senha (ou o e-mail, em contas SSO). Irreversível.
+   */
+  @Post('erasure')
+  @HttpCode(200)
+  eraseSelf(
+    @Req() req: any,
+    @Body() body: { password?: string; email?: string },
+  ) {
+    return this.erasure.eraseSelf(req.user, body ?? {});
+  }
+
+  @Post('users/:userId/erasure')
+  @HttpCode(200)
+  @UseGuards(RolesGuard)
+  @Roles('PLATFORM_ADMIN')
+  eraseUser(@Req() req: any, @Param('userId') userId: string) {
+    return this.erasure.eraseByAdmin(userId, req.user.userId);
+  }
 
   /** Pede a exportação dos próprios dados; o arquivo é gerado em segundo plano. */
   @Post('export-request')

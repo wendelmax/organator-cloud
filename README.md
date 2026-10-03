@@ -33,6 +33,7 @@ Chega de provisionar bancos de dados e domínios manualmente para clientes *Ente
 | Deploy na AWS | Ainda não automatizado: o deploy falha com mensagem explícita |
 | Drivers de infraestrutura do tenant (rede, DNS, banco dedicado em nuvem) | **Simulados**: registram as fases, mas não criam recursos |
 | Exportação de dados (LGPD art. 18-V) | Implementado: o titular exporta os próprios dados e o admin da plataforma exporta o dataset de um tenant; JSON gerado pelo worker, download só por quem pediu, por 7 dias, e apagado depois |
+| Direito ao esquecimento (LGPD art. 18) | Implementado: o titular (ou o admin da plataforma) apaga a conta; auditoria e webhooks são anonimizados; cobranças ficam no Stripe por obrigação contábil; registro de conformidade sem dado pessoal |
 | Métricas de saúde por tenant (CPU, memória, rede, DNS) | **Não coletadas**: não há coletor; o painel não exibe indicadores de saúde |
 | Backups e restore por tenant | **Só metadados**: o registro de backup não copia dados e o restore falha com mensagem explícita. Proteja os dados com o backup do PostgreSQL (snapshots/PITR do banco gerenciado) |
 

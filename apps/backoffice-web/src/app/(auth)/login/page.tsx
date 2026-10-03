@@ -14,13 +14,14 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const ssoEnabled = publicSsoEnabled();
   const [checkoutDone, setCheckoutDone] = useState(false);
+  const [accountErased, setAccountErased] = useState(false);
 
   // Retorno do checkout do Stripe (success_url): a conta foi criada e o link
   // para definir a senha foi enviado por e-mail.
   useEffect(() => {
-    setCheckoutDone(
-      new URLSearchParams(window.location.search).get("success") === "true",
-    );
+    const query = new URLSearchParams(window.location.search);
+    setCheckoutDone(query.get("success") === "true");
+    setAccountErased(query.get("erased") === "true");
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -54,6 +55,12 @@ export default function LoginPage() {
         <h1 className="text-3xl font-bold text-center text-white">Organator</h1>
         <p className="text-sm text-center text-neutral-400">Entre com as suas credenciais para gerenciar sua infraestrutura</p>
         
+        {accountErased && (
+          <div className="p-3 bg-neutral-800 border border-neutral-700 text-neutral-200 text-sm rounded-lg">
+            Sua conta foi excluída e seus dados pessoais foram apagados.
+          </div>
+        )}
+
         {checkoutDone && (
           <div className="p-3 bg-emerald-950/50 border border-emerald-700 text-emerald-200 text-sm rounded-lg">
             Pagamento confirmado! Enviamos para o seu e-mail um link para definir a
