@@ -64,6 +64,25 @@ export default function DashboardLayout({
     }
   }, [status, session, router]);
 
+  // Termos/privacidade sem aceite na versão vigente: pede o consentimento antes
+  // de liberar o painel (depois da troca de senha obrigatória, se houver).
+  useEffect(() => {
+    if (status !== "authenticated" || !token) return;
+    if ((session?.user as any)?.mustChangePassword) return;
+    fetch(`${apiUrl}/v1/compliance/consents`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((consents) => {
+        if (consents?.required?.length) {
+          router.replace(
+            `/consent?next=${encodeURIComponent(window.location.pathname)}`,
+          );
+        }
+      })
+      .catch(() => undefined);
+  }, [status, session, token, apiUrl, router]);
+
   return (
     <div className="flex h-screen bg-neutral-950 text-white">
       {/* Sidebar Simples */}

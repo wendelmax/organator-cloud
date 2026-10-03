@@ -17,6 +17,7 @@ import { GracePeriodBanner } from "./grace-period-banner";
 import { TelemetryDashboard } from "./telemetry-dashboard";
 import { PasswordPolicyCard } from "./password-policy-card";
 import { DataExportCard } from "./data-export-card";
+import { PrivacyCard } from "./privacy-card";
 import { DeleteAccountCard } from "./delete-account-card";
 import { publicApiUrl } from "../../../lib/public-env";
 
@@ -139,6 +140,8 @@ export default function SettingsPage() {
       </Card>
 
       <PasswordPolicyCard />
+
+      <PrivacyCard />
 
       <DataExportCard />
 

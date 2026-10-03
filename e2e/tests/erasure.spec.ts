@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { acceptConsentAndEnter } from "../helpers";
 
 // Direito ao esquecimento ponta a ponta (API + Postgres reais): convidado cria
 // a conta, apaga a si mesmo e não consegue mais entrar.
@@ -26,7 +27,7 @@ test.describe("Excluir minha conta (LGPD)", () => {
     await guestPage.getByPlaceholder("admin@organator.app").fill(email);
     await guestPage.getByPlaceholder("••••••••").fill(password);
     await guestPage.getByRole("button", { name: "Entrar", exact: true }).click();
-    await guestPage.waitForURL("**/services", { timeout: 20_000 });
+    await acceptConsentAndEnter(guestPage);
 
     await guestPage.goto("/settings");
     await guestPage.getByRole("button", { name: "Excluir minha conta" }).click();

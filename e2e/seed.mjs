@@ -99,6 +99,22 @@ async function main() {
     update: { role: 'MEMBER', status: 'active' },
   });
 
+  // Usuários do seed já aceitaram os termos e a política vigentes (versão padrão
+  // da API); contas criadas nos testes passam pela tela de consentimento.
+  const seeded = await prisma.user.findMany({
+    where: { email: { in: Object.values(E2E_USERS).map((u) => u.email) } },
+    select: { id: true },
+  });
+  for (const { id } of seeded) {
+    await prisma.consent.deleteMany({ where: { userId: id } });
+    await prisma.consent.createMany({
+      data: [
+        { userId: id, purpose: 'terms', version: '2026-10' },
+        { userId: id, purpose: 'privacy', version: '2026-10' },
+      ],
+    });
+  }
+
   console.log('[e2e seed] plans, platform admin and acme owner ready');
 }
 
