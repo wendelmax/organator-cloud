@@ -4,6 +4,7 @@ import {
   BadRequestException,
   NotFoundException,
   ForbiddenException,
+  Optional,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -17,16 +18,10 @@ import * as crypto from 'crypto';
 const DUMMY_PASSWORD_HASH =
   '$2b$10$c/sxA2AUPvjY.Gl38c999eYiOy2kpJ272W62HcqA79.03nWucwp4e';
 
-export function loginLockoutPolicy(env: NodeJS.ProcessEnv = process.env) {
-  const positive = (value: string | undefined, fallback: number) => {
-    const parsed = Number(value);
-    return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
-  };
-  return {
-    maxAttempts: positive(env.LOGIN_MAX_FAILED_ATTEMPTS, 5),
-    lockoutMinutes: positive(env.LOGIN_LOCKOUT_MINUTES, 15),
-  };
-}
+import { loginLockoutPolicy } from './lockout-policy';
+import { PasswordPolicyService } from './password-policy.service';
+
+export { loginLockoutPolicy };
 
 @Injectable()
 export class AuthService {
@@ -35,6 +30,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly mfaService: MfaService,
     private readonly mfaPolicy: MfaPolicyService,
+    @Optional() private readonly passwordPolicy?: PasswordPolicyService,
   ) {}
 
   /**
@@ -65,23 +61,42 @@ export class AuthService {
       // Nunca comparar com o valor armazenado: erro no bcrypt conta como senha inválida.
       .catch(() => false);
     if (!isMatch) {
-      await this.registerFailedLogin(user.id);
+      await this.registerFailedLogin(user.id, user.tenantId);
       return null;
     }
 
-    if (user.failedLoginAttempts > 0 || user.loginLockedUntil) {
+    // Senha expirada pela política do tenant: entra, mas só pode trocá-la
+    // (mesmo fluxo de mustChangePassword).
+    const expired =
+      !user.mustChangePassword &&
+      this.passwordPolicy !== undefined &&
+      this.passwordPolicy.isExpired(
+        user,
+        await this.passwordPolicy.getPolicy(user.tenantId),
+      );
+    if (user.failedLoginAttempts > 0 || user.loginLockedUntil || expired) {
       await this.prisma.user.update({
         where: { id: user.id },
-        data: { failedLoginAttempts: 0, loginLockedUntil: null },
+        data: {
+          failedLoginAttempts: 0,
+          loginLockedUntil: null,
+          ...(expired ? { mustChangePassword: true } : {}),
+        },
       });
     }
-    const result = { ...user } as Partial<typeof user>;
+    const result = {
+      ...user,
+      ...(expired ? { mustChangePassword: true } : {}),
+    } as Partial<typeof user>;
     delete result.password;
     return result;
   }
 
-  private async registerFailedLogin(userId: string) {
-    const { maxAttempts, lockoutMinutes } = loginLockoutPolicy();
+  private async registerFailedLogin(userId: string, tenantId?: string) {
+    // Limites do tenant quando a política define; senão, os globais.
+    const { maxAttempts, lockoutMinutes } = this.passwordPolicy
+      ? await this.passwordPolicy.lockoutFor(tenantId)
+      : loginLockoutPolicy();
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data: { failedLoginAttempts: { increment: 1 } },
@@ -277,10 +292,8 @@ export class AuthService {
     newPassword: string,
     currentSessionId?: string,
   ) {
-    if (!newPassword || newPassword.length < 8) {
-      throw new BadRequestException(
-        'A nova senha deve ter no mínimo 8 caracteres',
-      );
+    if (!newPassword) {
+      throw new BadRequestException('Informe a nova senha');
     }
     if (currentPassword === newPassword) {
       throw new BadRequestException('A nova senha deve ser diferente da atual');
@@ -296,8 +309,19 @@ export class AuthService {
     if (!isMatch) {
       throw new UnauthorizedException('Senha atual incorreta');
     }
+    if (this.passwordPolicy) {
+      await this.passwordPolicy.assertAcceptable(newPassword, {
+        tenantId: user.tenantId,
+        userId,
+      });
+    } else if (newPassword.length < 8) {
+      throw new BadRequestException(
+        'A nova senha deve ter no mínimo 8 caracteres',
+      );
+    }
 
     const hashed = await bcrypt.hash(newPassword, 10);
+    await this.passwordPolicy?.rememberPreviousHash(userId, user.password);
     await this.prisma.user.update({
       where: { id: userId },
       data: {
@@ -305,6 +329,7 @@ export class AuthService {
         mustChangePassword: false,
         failedLoginAttempts: 0,
         loginLockedUntil: null,
+        passwordChangedAt: new Date(),
       },
     });
     await this.prisma.userSession.updateMany({

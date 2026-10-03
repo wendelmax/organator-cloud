@@ -207,6 +207,49 @@ describe('PasswordResetService', () => {
       expect(prisma.user.update).not.toHaveBeenCalled();
     });
 
+    it('applies the tenant policy before consuming the link and remembers the old hash', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        tenantId: 't-9',
+        password: 'old-hash',
+      });
+      const policy = {
+        assertAcceptable: jest
+          .fn()
+          .mockRejectedValueOnce(
+            new BadRequestException('A senha deve ter um símbolo.'),
+          )
+          .mockResolvedValue(undefined),
+        rememberPreviousHash: jest.fn(),
+      };
+      const withPolicy = new PasswordResetService(
+        prisma,
+        audit as any,
+        mail as any,
+        policy as any,
+      );
+
+      await expect(
+        withPolicy.resetPassword('the-token', 'NoSymbol123'),
+      ).rejects.toThrow('um símbolo');
+      expect(prisma.passwordResetToken.updateMany).not.toHaveBeenCalled();
+
+      await withPolicy.resetPassword('the-token', 'With-Symbol-123');
+      expect(policy.assertAcceptable).toHaveBeenLastCalledWith(
+        'With-Symbol-123',
+        {
+          tenantId: 't-9',
+          userId: 'u1',
+        },
+      );
+      expect(policy.rememberPreviousHash).toHaveBeenCalledWith(
+        'u1',
+        'old-hash',
+      );
+      expect(
+        prisma.user.update.mock.calls[0][0].data.passwordChangedAt,
+      ).toBeInstanceOf(Date);
+    });
+
     it('enforces the minimum password length before touching the token', async () => {
       await expect(service.resetPassword('the-token', 'short')).rejects.toThrow(
         BadRequestException,

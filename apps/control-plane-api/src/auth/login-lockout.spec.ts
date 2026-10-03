@@ -132,4 +132,53 @@ describe('AuthService — login lockout and enumeration resistance', () => {
     await service.validateUser(user.email, 'wrong');
     expect(user.loginLockedUntil).toBeInstanceOf(Date);
   });
+
+  describe('with a tenant password policy', () => {
+    let policy: any;
+
+    beforeEach(() => {
+      policy = {
+        getPolicy: jest.fn().mockResolvedValue({ expiresAfterDays: 30 }),
+        isExpired: jest.fn().mockReturnValue(false),
+        lockoutFor: jest
+          .fn()
+          .mockResolvedValue({ maxAttempts: 2, lockoutMinutes: 60 }),
+      };
+      service = new AuthService(
+        prisma,
+        {} as any,
+        {} as any,
+        {} as any,
+        policy,
+      );
+    });
+
+    it('locks the account after the tenant limit, for the tenant duration', async () => {
+      await service.validateUser('o@acme.com', 'wrong');
+      expect(user.loginLockedUntil).toBeNull();
+      const before = Date.now();
+      await service.validateUser('o@acme.com', 'wrong');
+
+      expect(policy.lockoutFor).toHaveBeenCalledWith('t1');
+      const lockedMs = user.loginLockedUntil.getTime() - before;
+      expect(lockedMs).toBeGreaterThan(59 * 60_000);
+      expect(lockedMs).toBeLessThanOrEqual(60 * 60_000 + 1_000);
+    });
+
+    it('forces a password change when the password expired', async () => {
+      policy.isExpired.mockReturnValue(true);
+
+      const result = await service.validateUser('o@acme.com', 'correct-horse');
+
+      expect(result).toMatchObject({ id: 'u1', mustChangePassword: true });
+      expect(user.mustChangePassword).toBe(true);
+      expect(result.password).toBeUndefined();
+    });
+
+    it('does not touch a password that is still valid', async () => {
+      const result = await service.validateUser('o@acme.com', 'correct-horse');
+      expect(result.mustChangePassword).toBeUndefined();
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -1,9 +1,15 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  Optional,
+} from '@nestjs/common';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { MailService } from '../mail/mail.service';
+import { PasswordPolicyService } from './password-policy.service';
 
 type Purpose = 'reset' | 'activation';
 
@@ -31,6 +37,7 @@ export class PasswordResetService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly mail: MailService,
+    @Optional() private readonly passwordPolicy?: PasswordPolicyService,
   ) {}
 
   /**
@@ -94,6 +101,18 @@ export class PasswordResetService {
     const invalid = new BadRequestException('Link inválido ou expirado');
     if (!record) throw invalid;
 
+    // Política do tenant do usuário (complexidade e reuso), antes de consumir o link.
+    const owner = await this.prisma.user.findUnique({
+      where: { id: record.userId },
+      select: { tenantId: true, password: true },
+    });
+    if (this.passwordPolicy) {
+      await this.passwordPolicy.assertAcceptable(newPassword, {
+        tenantId: owner?.tenantId,
+        userId: record.userId,
+      });
+    }
+
     const now = new Date();
     const password = await bcrypt.hash(newPassword, 10);
     await this.prisma.$transaction(async (tx) => {
@@ -108,6 +127,7 @@ export class PasswordResetService {
         where: { id: record.userId },
         data: {
           password,
+          passwordChangedAt: now,
           mustChangePassword: false,
           failedLoginAttempts: 0,
           loginLockedUntil: null,
@@ -124,6 +144,12 @@ export class PasswordResetService {
         data: { revokedAt: now },
       });
     });
+
+    // Senha substituída entra no histórico (bloqueio de reuso da política).
+    await this.passwordPolicy?.rememberPreviousHash(
+      record.userId,
+      owner?.password,
+    );
 
     await this.audit.record({
       actorId: record.userId,

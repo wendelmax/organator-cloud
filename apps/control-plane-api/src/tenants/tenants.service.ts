@@ -22,6 +22,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PasswordResetService } from '../auth/password-reset.service';
 import { canAssignRole } from '../auth/roles.guard';
+import { PasswordPolicyService } from '../auth/password-policy.service';
 import { cancelCustomerSubscriptions } from '../billing/stripe-subscriptions';
 
 export type TenantStatus = 'active' | 'suspended' | 'archived';
@@ -50,6 +51,8 @@ export class TenantsService {
     private readonly provisionerQueue?: Queue,
     @Optional()
     private readonly passwordReset?: PasswordResetService,
+    @Optional()
+    private readonly passwordPolicy?: PasswordPolicyService,
   ) {}
 
   async createTenant(
@@ -642,6 +645,9 @@ export class TenantsService {
     }
     if (password !== undefined && password.length < 8) {
       throw new BadRequestException('A senha deve ter no mínimo 8 caracteres');
+    }
+    if (password !== undefined) {
+      await this.passwordPolicy?.assertAcceptable(password, { tenantId });
     }
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) {
