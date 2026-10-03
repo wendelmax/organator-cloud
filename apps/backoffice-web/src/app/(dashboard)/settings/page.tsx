@@ -16,6 +16,7 @@ import { DataIsolationCard } from "./data-isolation-card";
 import { GracePeriodBanner } from "./grace-period-banner";
 import { TelemetryDashboard } from "./telemetry-dashboard";
 import { PasswordPolicyCard } from "./password-policy-card";
+import { DataExportCard } from "./data-export-card";
 import { publicApiUrl } from "../../../lib/public-env";
 
 const API_URL = publicApiUrl();
@@ -137,6 +138,8 @@ export default function SettingsPage() {
       </Card>
 
       <PasswordPolicyCard />
+
+      <DataExportCard />
       <DataIsolationCard token={token} />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {sections.map((section) => (
