@@ -2,7 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BillingPlansService } from './billing-plans.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 
 jest.mock('stripe', () => {
   return jest.fn().mockImplementation(() => ({
@@ -205,6 +209,53 @@ describe('BillingPlansService', () => {
         mockPrismaService.billingPlan.update.mock.calls[0][0].data;
       expect(updateCall.stripeProductId).toBeUndefined();
       expect(updateCall.stripePriceId).toBeUndefined();
+    });
+  });
+
+  describe('dunning policy (#97)', () => {
+    beforeEach(() => {
+      mockPrismaService.billingPlan.findUnique.mockResolvedValue({
+        slug: 'pro',
+        name: 'Pro',
+        price: 4900,
+        currency: 'usd',
+        cycle: 'monthly',
+      });
+      mockPrismaService.billingPlan.update.mockImplementation(({ data }) =>
+        Promise.resolve({ slug: 'pro', ...data }),
+      );
+    });
+
+    it('stores grace days and the end action of the plan', async () => {
+      await service.update('pro', {
+        dunningGraceDays: 14,
+        dunningEndAction: 'downgrade',
+      });
+      expect(
+        mockPrismaService.billingPlan.update.mock.calls[0][0].data,
+      ).toMatchObject({
+        dunningGraceDays: 14,
+        dunningEndAction: 'downgrade',
+      });
+    });
+
+    it('clears the grace days back to the default with null', async () => {
+      await service.update('pro', { dunningGraceDays: null });
+      expect(
+        mockPrismaService.billingPlan.update.mock.calls[0][0].data
+          .dunningGraceDays,
+      ).toBeNull();
+    });
+
+    it.each([
+      [{ dunningGraceDays: 0 }],
+      [{ dunningGraceDays: 90 }],
+      [{ dunningGraceDays: 2.5 }],
+      [{ dunningEndAction: 'delete' }],
+    ])('rejects %j', async (input) => {
+      await expect(service.update('pro', input as any)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 

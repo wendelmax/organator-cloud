@@ -38,6 +38,15 @@ export async function listPlans() {
   return res.json();
 }
 
+/** Inadimplência (#97): dias de graça (vazio = padrão) e ação no fim da graça. */
+function dunningFields(formData: FormData) {
+  const days = String(formData.get("dunningGraceDays") ?? "").trim();
+  return {
+    dunningGraceDays: days ? Number(days) : null,
+    dunningEndAction: (formData.get("dunningEndAction") as string) || "suspend",
+  };
+}
+
 export async function createPlan(formData: FormData) {
   const token = await requireAdminToken();
   const payload = {
@@ -51,6 +60,7 @@ export async function createPlan(formData: FormData) {
     features: parseJson(formData.get("features"), {}),
     status: (formData.get("status") as string) || "active",
     sortOrder: Number(formData.get("sortOrder") || 0),
+    ...dunningFields(formData),
     syncStripe: true,
   };
 
@@ -83,6 +93,7 @@ export async function updatePlan(formData: FormData) {
     features: parseJson(formData.get("features"), {}),
     status: (formData.get("status") as string) || "active",
     sortOrder: Number(formData.get("sortOrder") || 0),
+    ...dunningFields(formData),
     syncStripe: true,
   };
 

@@ -196,6 +196,12 @@ export default function DashboardLayout({
                 Planos (Admin)
               </Link>
               <Link
+                href="/billing/dunning"
+                className="px-4 py-2 rounded-md hover:bg-neutral-800 transition text-red-300"
+              >
+                Inadimplência
+              </Link>
+              <Link
                 href="/providers"
                 className="px-4 py-2 rounded-md hover:bg-neutral-800 transition text-emerald-400"
               >
