@@ -251,3 +251,20 @@ describe('service deploy action', () => {
     assert.equal(f.mock.callCount(), 0);
   });
 });
+
+describe('tenant data export action', () => {
+  test('requests the tenant dataset for the platform admin', async () => {
+    const f = mockFetch(201, { id: 'e1', status: 'PENDING' });
+    assert.deepEqual(await tenants.requestTenantDataExport('t 9'), { success: true });
+    assert.equal(lastCall(f).url, 'http://localhost:3001/v1/compliance/tenants/t%209/export-request');
+    assert.equal(lastCall(f).init.method, 'POST');
+  });
+
+  test('returns the API message when refused (e.g. not a platform admin)', async () => {
+    mockFetch(403, { message: 'Forbidden resource' });
+    assert.deepEqual(await tenants.requestTenantDataExport('t9'), {
+      success: false,
+      error: 'Forbidden resource',
+    });
+  });
+});

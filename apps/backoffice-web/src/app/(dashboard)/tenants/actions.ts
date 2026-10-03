@@ -393,3 +393,20 @@ export async function offboardTenantEnvironment(tenantId: string) {
   revalidatePath("/tenants");
   return res.json();
 }
+
+/** Pede o dataset do tenant (admin da plataforma); baixa-se em Configurações. */
+export async function requestTenantDataExport(tenantId: string): Promise<{ success: boolean; error?: string }> {
+  const session = await getServerSession(authOptions);
+  const token = (session as any)?.accessToken;
+  if (!token) return { success: false, error: "Sessão expirada. Entre novamente." };
+
+  const res = await fetch(`${API_URL}/v1/compliance/tenants/${encodeURIComponent(tenantId)}/export-request`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    return { success: false, error: data.message || "Não foi possível solicitar a exportação." };
+  }
+  return { success: true };
+}

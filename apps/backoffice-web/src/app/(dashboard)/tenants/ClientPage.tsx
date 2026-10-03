@@ -17,6 +17,7 @@ import {
   provisionInfra,
   cloneTenantEnvironment,
   offboardTenantEnvironment,
+  requestTenantDataExport,
 } from "./actions";
 import { DataIsolationModal } from "./data-isolation";
 import { CloneModal } from "./clone-modal";
@@ -407,6 +408,23 @@ export function TenantsClient({
                               onClick={() => setCloningTenant(tenant)}
                             >
                               Clonar
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={isPending}
+                              onClick={() => {
+                                startTransition(async () => {
+                                  const result = await requestTenantDataExport(tenant.id);
+                                  alert(
+                                    result.success
+                                      ? "Exportação solicitada. Baixe o arquivo em Configurações > Meus dados (LGPD)."
+                                      : result.error,
+                                  );
+                                });
+                              }}
+                            >
+                              Exportar dados
                             </Button>
                             <Button
                               variant="ghost"

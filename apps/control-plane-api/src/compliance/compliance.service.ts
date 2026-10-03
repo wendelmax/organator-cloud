@@ -32,6 +32,8 @@ function subjectOf(
 
 const summary = {
   id: true,
+  scope: true,
+  tenantId: true,
   status: true,
   createdAt: true,
   completedAt: true,
@@ -61,14 +63,51 @@ export class ComplianceService implements OnModuleInit {
     setInterval(() => void this.purgeExpired(), CLEANUP_INTERVAL_MS);
   }
 
+  /** Exportação dos dados do próprio titular. */
   async requestExport(
     user: { userId: string; email?: string; apiKeyAuth?: boolean },
     ip?: string | null,
   ) {
     subjectOf(user);
+    return this.createRequest(user, { scope: 'USER', tenantId: null }, ip, {
+      action: 'compliance.export_requested',
+      resourceType: 'DataExport',
+    });
+  }
+
+  /**
+   * Dataset de um tenant inteiro (compliance/DPO). Só o admin da plataforma
+   * pede (RolesGuard no controller) e só quem pediu baixa.
+   */
+  async requestTenantExport(
+    user: { userId: string; email?: string; apiKeyAuth?: boolean },
+    tenantId: string,
+    ip?: string | null,
+  ) {
+    subjectOf(user);
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true },
+    });
+    if (!tenant) throw new NotFoundException('Tenant not found');
+    return this.createRequest(user, { scope: 'TENANT', tenantId }, ip, {
+      action: 'compliance.tenant_export_requested',
+      resourceType: 'Tenant',
+      resourceId: tenantId,
+    });
+  }
+
+  private async createRequest(
+    user: { userId: string; email?: string },
+    target: { scope: 'USER' | 'TENANT'; tenantId: string | null },
+    ip: string | null | undefined,
+    auditEvent: { action: string; resourceType: string; resourceId?: string },
+  ) {
     const recent = await this.prisma.dataExport.findFirst({
       where: {
         userId: user.userId,
+        scope: target.scope,
+        tenantId: target.tenantId,
         status: { in: ['PENDING', 'READY'] },
         createdAt: { gt: new Date(Date.now() - REQUEST_WINDOW_MS) },
       },
@@ -78,7 +117,11 @@ export class ComplianceService implements OnModuleInit {
     if (recent) return recent;
 
     const request = await this.prisma.dataExport.create({
-      data: { userId: user.userId },
+      data: {
+        userId: user.userId,
+        scope: target.scope,
+        tenantId: target.tenantId,
+      },
       select: summary,
     });
     try {
@@ -100,10 +143,10 @@ export class ComplianceService implements OnModuleInit {
       actorId: user.userId,
       actorEmail: user.email ?? null,
       ip: ip ?? null,
-      action: 'compliance.export_requested',
-      resourceType: 'DataExport',
-      resourceId: request.id,
-      changes: {},
+      action: auditEvent.action,
+      resourceType: auditEvent.resourceType,
+      resourceId: auditEvent.resourceId ?? request.id,
+      changes: { exportId: request.id },
     });
     return request;
   }

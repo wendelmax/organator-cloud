@@ -6,6 +6,8 @@ import {
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { Prisma } from '@organator/core-models';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { ROLES_KEY } from '../auth/roles.decorator';
 import { ComplianceController } from './compliance.controller';
 import { ComplianceService } from './compliance.service';
 
@@ -18,6 +20,7 @@ describe('ComplianceService — data subject export', () => {
 
   beforeEach(() => {
     prisma = {
+      tenant: { findUnique: jest.fn().mockResolvedValue({ id: 't1' }) },
       dataExport: {
         findFirst: jest.fn().mockResolvedValue(null),
         findMany: jest.fn().mockResolvedValue([]),
@@ -40,7 +43,9 @@ describe('ComplianceService — data subject export', () => {
         },
       );
       expect(prisma.dataExport.create).toHaveBeenCalledWith(
-        expect.objectContaining({ data: { userId: 'u1' } }),
+        expect.objectContaining({
+          data: { userId: 'u1', scope: 'USER', tenantId: null },
+        }),
       );
       expect(queue.add).toHaveBeenCalledWith(
         'generate-data-export',
@@ -87,6 +92,65 @@ describe('ComplianceService — data subject export', () => {
       ).rejects.toThrow(ForbiddenException);
       expect(prisma.dataExport.create).not.toHaveBeenCalled();
     });
+  });
+
+  describe('requestTenantExport (platform admin)', () => {
+    const admin = { userId: 'admin-1', email: 'ops@organator.app' };
+
+    it('creates a TENANT request for the requester and audits it on the tenant', async () => {
+      await service.requestTenantExport(admin, 't1', '10.0.0.9');
+
+      expect(prisma.dataExport.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { userId: 'admin-1', scope: 'TENANT', tenantId: 't1' },
+        }),
+      );
+      expect(queue.add).toHaveBeenCalledWith(
+        'generate-data-export',
+        { exportId: 'e1' },
+        { jobId: 'data-export__e1' },
+      );
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'compliance.tenant_export_requested',
+          resourceType: 'Tenant',
+          resourceId: 't1',
+          actorId: 'admin-1',
+        }),
+      );
+    });
+
+    it('keeps the 24h window per tenant', async () => {
+      await service.requestTenantExport(admin, 't1');
+      expect(prisma.dataExport.findFirst.mock.calls[0][0].where).toMatchObject({
+        userId: 'admin-1',
+        scope: 'TENANT',
+        tenantId: 't1',
+      });
+    });
+
+    it('answers 404 for an unknown tenant without creating anything', async () => {
+      prisma.tenant.findUnique.mockResolvedValue(null);
+      await expect(service.requestTenantExport(admin, 'nope')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.dataExport.create).not.toHaveBeenCalled();
+    });
+  });
+
+  it('only lets the platform admin request a tenant export', () => {
+    expect(
+      Reflect.getMetadata(
+        ROLES_KEY,
+        (ComplianceController.prototype as any).requestTenantExport,
+      ),
+    ).toEqual(['PLATFORM_ADMIN']);
+    expect(
+      Reflect.getMetadata(
+        GUARDS_METADATA,
+        (ComplianceController.prototype as any).requestTenantExport,
+      ),
+    ).toEqual([RolesGuard]);
   });
 
   it("lists only the subject's own exports, without content", async () => {

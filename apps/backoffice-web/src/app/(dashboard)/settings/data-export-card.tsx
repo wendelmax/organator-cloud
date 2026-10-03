@@ -10,6 +10,8 @@ const API_URL = publicApiUrl();
 
 interface DataExport {
   id: string;
+  scope?: "USER" | "TENANT";
+  tenantId?: string | null;
   status: "PENDING" | "READY" | "FAILED" | "EXPIRED";
   createdAt: string;
   expiresAt: string | null;
@@ -98,6 +100,7 @@ export function DataExportCard() {
                 className="flex items-center justify-between rounded border border-neutral-800 bg-neutral-950 p-3"
               >
                 <span className="text-neutral-300">
+                  {item.scope === "TENANT" ? `Tenant ${item.tenantId} · ` : ""}
                   {new Date(item.createdAt).toLocaleString()} · {STATUS_LABEL[item.status]}
                   {item.status === "READY" && item.expiresAt
                     ? ` · disponível até ${new Date(item.expiresAt).toLocaleDateString()}`
