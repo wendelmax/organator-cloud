@@ -131,6 +131,62 @@ describe('StatusService', () => {
     expect(ids).not.toContain('o');
   });
 
+  it('orders open incidents by startedAt desc, then resolved by resolvedAt desc', async () => {
+    // Entrada propositalmente fora de ordem para exercitar a ordenação do serviço.
+    prisma.incident.findMany.mockResolvedValue([
+      {
+        id: 'open-newer',
+        title: 'API lenta',
+        severity: 'minor',
+        status: 'monitoring',
+        component: 'api',
+        startedAt: new Date(Date.now() - 1 * 864e5),
+        resolvedAt: null,
+        updates: [],
+      },
+      {
+        id: 'open-older',
+        title: 'Dashboard lento',
+        severity: 'minor',
+        status: 'identified',
+        component: 'api',
+        startedAt: new Date(Date.now() - 3 * 864e5),
+        resolvedAt: null,
+        updates: [],
+      },
+      {
+        id: 'resolved-newer',
+        title: 'Billing ok',
+        severity: 'major',
+        status: 'resolved',
+        component: 'billing',
+        startedAt: new Date(Date.now() - 5 * 864e5),
+        resolvedAt: new Date(Date.now() - 2 * 864e5),
+        updates: [],
+      },
+      {
+        id: 'resolved-older',
+        title: 'Provisioning ok',
+        severity: 'minor',
+        status: 'resolved',
+        component: 'billing',
+        startedAt: new Date(Date.now() - 8 * 864e5),
+        resolvedAt: new Date(Date.now() - 6 * 864e5),
+        updates: [],
+      },
+    ]);
+    const res = await service.getStatus();
+    expect(res.incidents.map((i) => i.id)).toEqual([
+      'open-newer',
+      'open-older',
+      'resolved-newer',
+      'resolved-older',
+    ]);
+    expect(
+      res.components.find((c) => c.component === 'api')!.activeIncidents,
+    ).toBe(2);
+  });
+
   it('open incidents always included even if old', async () => {
     prisma.incident.findMany.mockResolvedValue([
       {
