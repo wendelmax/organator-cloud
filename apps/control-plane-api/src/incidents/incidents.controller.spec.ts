@@ -76,15 +76,18 @@ describe('IncidentsController (#110)', () => {
     expect(svc.create.mock.calls[0][1].email).not.toBe('attacker@evil.io');
   });
 
-  it('takes authorEmail for updates from req.user.email only', async () => {
+  it('takes the timeline author from the JWT actor (userId/email) only', async () => {
     const body = {
       status: 'identified',
       message: 'Causa raiz identificada',
       authorEmail: 'attacker@evil.io',
     } as any;
     await controller.addUpdate(req, 'i1', body);
-    expect(svc.addUpdate).toHaveBeenCalledWith('i1', body, 'ops@acme.com');
-    expect(svc.addUpdate.mock.calls[0][2]).not.toBe('attacker@evil.io');
+    expect(svc.addUpdate).toHaveBeenCalledWith('i1', body, {
+      userId: 'admin',
+      email: 'ops@acme.com',
+    });
+    expect(svc.addUpdate.mock.calls[0][2].email).not.toBe('attacker@evil.io');
   });
 
   it('maps POST /affected tenantId from body to service.addAffected(id, tenantId, actor)', async () => {

@@ -84,7 +84,8 @@ export class IncidentsController {
     @Param('id') id: string,
     @Body() body: AddUpdateDto,
   ) {
-    return this.incidents.addUpdate(id, body, req.user.email);
+    const actor = { userId: req.user.userId, email: req.user.email };
+    return this.incidents.addUpdate(id, body, actor);
   }
 
   /** Vincula um tenant ao incidente (já vinculado é noop, 200 mesmo assim). */

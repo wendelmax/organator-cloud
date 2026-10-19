@@ -29,7 +29,11 @@ padrão do `billing`: `IncidentsModule`, `IncidentsService`,
 `IncidentsController`, specs ao lado.
 
 **Guards**: `@UseGuards(JwtAuthGuard, RolesGuard)` no controller, todos os
-endpoints com `@Roles('PLATFORM_ADMIN')`.
+endpoints com `@Roles('PLATFORM_ADMIN')`. Todas as mutações (criação, PATCH,
+timeline e blast radius) são exclusivas de `PLATFORM_ADMIN`, com `403` para
+qualquer outra role — inclusive `SUPPORT`; as leituras seguem a convenção
+repo-wide de acesso somente-leitura para `SUPPORT` (#103), concedida pelo
+próprio `roles.guard.ts`.
 
 **Endpoints**:
 

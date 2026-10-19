@@ -280,7 +280,19 @@ describe('IncidentsService (#110)', () => {
     expect(incidents.get(incident.id).resolvedAt).toBeNull();
   });
 
-  it('addUpdate persists internal=true notes with authorEmail passed by the controller', async () => {
+  it('create with status=resolved fills resolvedAt and clears alertKey', async () => {
+    const incident = await service.create(
+      { title: 'Alerta 5xx já resolvido', alertKey: 'alert-1', status: 'resolved' },
+      actor,
+    );
+
+    expect(incident.status).toBe('resolved');
+    expect(incident.resolvedAt).toBeInstanceOf(Date);
+    expect(incident.alertKey).toBeNull();
+    expect(incidents.get(incident.id).resolvedAt).toBeInstanceOf(Date);
+  });
+
+  it('addUpdate persists internal=true notes with authorEmail taken from the actor', async () => {
     const incident = await service.create({ title: 'Alerta 5xx' }, actor);
 
     const update = await service.addUpdate(
@@ -290,7 +302,7 @@ describe('IncidentsService (#110)', () => {
         message: 'Causa raiz identificada',
         internal: true,
       },
-      'oncall@acme.com',
+      actor,
     );
 
     expect(update).toMatchObject({
@@ -303,14 +315,14 @@ describe('IncidentsService (#110)', () => {
     expect(updates.size).toBe(1);
   });
 
-  it('addUpdate audits incident.update.add', async () => {
+  it('addUpdate audits incident.update.add with the actorId from the actor', async () => {
     const incident = await service.create({ title: 'Alerta 5xx' }, actor);
     audit.record.mockClear();
 
     await service.addUpdate(
       incident.id,
       { status: 'monitoring', message: 'Estável' },
-      'oncall@acme.com',
+      actor,
     );
 
     expect(audit.record).toHaveBeenCalledTimes(1);
@@ -319,6 +331,7 @@ describe('IncidentsService (#110)', () => {
         action: 'incident.update.add',
         resourceType: 'incident',
         resourceId: incident.id,
+        actorId: 'u1',
         actorEmail: 'oncall@acme.com',
       }),
     );
@@ -388,7 +401,7 @@ describe('IncidentsService (#110)', () => {
     await service.addUpdate(
       incident.id,
       { status: 'investigating', message: 'Investigando' },
-      'oncall@acme.com',
+      actor,
     );
     await service.addAffected(incident.id, 't1', actor);
 
@@ -409,7 +422,11 @@ describe('IncidentsService (#110)', () => {
       service.update('inc-404', { status: 'resolved' }, actor),
     ).rejects.toThrow(NotFoundException);
     await expect(
-      service.addUpdate('inc-404', { status: 'investigating', message: 'x' }),
+      service.addUpdate(
+        'inc-404',
+        { status: 'investigating', message: 'x' },
+        actor,
+      ),
     ).rejects.toThrow(NotFoundException);
     await expect(service.addAffected('inc-404', 't1', actor)).rejects.toThrow(
       NotFoundException,
@@ -471,12 +488,12 @@ describe('IncidentsService (#110)', () => {
     await service.addUpdate(
       incident.id,
       { status: 'investigating', message: 'Investigando' },
-      'oncall@acme.com',
+      actor,
     );
     await service.addUpdate(
       incident.id,
       { status: 'monitoring', message: 'Estável' },
-      'oncall@acme.com',
+      actor,
     );
     const other = await service.create({ title: 'Sem timeline' }, actor);
 

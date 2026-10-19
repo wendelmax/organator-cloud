@@ -99,6 +99,11 @@ export class IncidentsService {
       data: {
         ...input,
         startedAt: new Date(), // o início do incidente é sempre registrado aqui
+        // Criar já resolvido segue as mesmas regras de resolver: resolvedAt
+        // preenchido agora e alertKey liberada (dedup) na abertura.
+        ...(input.status === 'resolved'
+          ? { resolvedAt: new Date(), alertKey: null }
+          : {}),
       },
     });
     await this.audit.record({
@@ -171,7 +176,7 @@ export class IncidentsService {
   async addUpdate(
     id: string,
     input: { status: string; message: string; internal?: boolean },
-    authorEmail?: string,
+    actor: { userId: string; email?: string },
   ): Promise<IncidentUpdate> {
     const incident = await this.prisma.incident.findUnique({ where: { id } });
     if (!incident) throw new NotFoundException(`Incident "${id}" not found`);
@@ -182,11 +187,12 @@ export class IncidentsService {
         status: input.status,
         message: input.message,
         internal: input.internal ?? false,
-        authorEmail: authorEmail ?? null,
+        authorEmail: actor.email ?? null,
       },
     });
     await this.audit.record({
-      actorEmail: authorEmail ?? null,
+      actorId: actor.userId,
+      actorEmail: actor.email,
       action: 'incident.update.add',
       resourceType: 'incident',
       resourceId: id,

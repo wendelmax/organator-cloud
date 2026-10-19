@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   MaxLength,
+  ValidateIf,
 } from 'class-validator';
 
 /**
@@ -53,41 +54,39 @@ export class CreateIncidentDto {
   postmortemUrl?: string;
 }
 
-/** Mesmos campos do create, tudo opcional (PATCH). */
+/**
+ * PATCH: campos não-nulos rejeitam `null` explícito (@ValidateIf só deixa
+ * passar `undefined`; `@IsOptional` aceitaria null e estouraria 500 no Prisma
+ * em colunas NOT NULL). `assigneeEmail`/`postmortemUrl` são anuláveis no
+ * schema, então seguem @IsOptional (limpar o campo é PATCH com null).
+ * `source`/`alertKey` são exclusivos do create: alertKey tem índice único
+ * (P2002 → 500) e source descreve a origem original do incidente.
+ */
 export class UpdateIncidentDto {
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsString()
   @IsNotEmpty()
   title?: string;
 
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsIn(['critical', 'major', 'minor'])
   severity?: string;
 
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsIn(['investigating', 'identified', 'monitoring', 'resolved'])
   status?: string;
 
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsIn(['api', 'dashboard', 'provisioning', 'billing', 'data-plane'])
   component?: string;
 
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsBoolean()
   public?: boolean;
 
   @IsOptional()
   @IsEmail()
   assigneeEmail?: string;
-
-  @IsOptional()
-  @IsString()
-  source?: string;
-
-  @IsOptional()
-  @IsNotEmpty()
-  @IsString()
-  alertKey?: string;
 
   @IsOptional()
   @IsString()

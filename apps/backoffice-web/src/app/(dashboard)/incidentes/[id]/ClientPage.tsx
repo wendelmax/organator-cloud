@@ -188,6 +188,11 @@ export function IncidentDetailClient({ incidentId }: { incidentId: string }) {
     runAction(() => resolveIncident(incidentId), "Incidente resolvido.");
   };
 
+  // Reabrir volta o status para investigating; o servidor limpa resolvedAt.
+  const handleReopen = () => {
+    runAction(() => updateIncident(incidentId, { status: "investigating" }), "Incidente reaberto.");
+  };
+
   const handleAddUpdate = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
@@ -283,9 +288,14 @@ export function IncidentDetailClient({ incidentId }: { incidentId: string }) {
           </div>
           <div className="flex items-center gap-3">
             {incident.status === "resolved" ? (
-              <p className="text-sm text-emerald-400">
-                Resolvido em {incident.resolvedAt ? fmtDate(incident.resolvedAt) : "—"}
-              </p>
+              <>
+                <p className="text-sm text-emerald-400">
+                  Resolvido em {incident.resolvedAt ? fmtDate(incident.resolvedAt) : "—"}
+                </p>
+                <Button variant="outline" onClick={handleReopen} disabled={isPending}>
+                  Reabrir
+                </Button>
+              </>
             ) : (
               <Button onClick={handleResolve} disabled={isPending}>
                 Resolver
