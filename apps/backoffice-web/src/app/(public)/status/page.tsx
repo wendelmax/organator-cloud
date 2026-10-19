@@ -67,7 +67,7 @@ function incidentStatusLabel(s: Incident["status"]) {
 function severityBadge(s: Incident["severity"]) {
   if (s === "critical") return "bg-red-600/10 text-red-600 border-red-600/20";
   if (s === "major") return "bg-orange-500/10 text-orange-600 border-orange-500/20";
-  return "bg-zinc-500/10 text-zinc-600 border-zinc-500/20";
+  return "bg-zinc-500/10 text-zinc-400 border-zinc-500/20";
 }
 
 function statusDot(s: ComponentStatus["status"]) {
@@ -100,7 +100,7 @@ export default async function StatusPage() {
   const data = await getStatus();
 
   return (
-    <div className="space-y-10">
+    <div className="max-w-5xl mx-auto px-6 py-20 space-y-10">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-50">
           Status da plataforma
