@@ -87,13 +87,7 @@ describe('IncidentsService (#110)', () => {
             [...incidents.values()].find((row) => matches(row, where)) ?? null,
         ),
         findMany: jest.fn(
-          async ({
-            where,
-            skip = 0,
-            take,
-            orderBy,
-            include,
-          }: any) => {
+          async ({ where, skip = 0, take, orderBy, include }: any) => {
             let rows = [...incidents.values()].filter((row) =>
               matches(row, where),
             );
@@ -282,7 +276,11 @@ describe('IncidentsService (#110)', () => {
 
   it('create with status=resolved fills resolvedAt and clears alertKey', async () => {
     const incident = await service.create(
-      { title: 'Alerta 5xx já resolvido', alertKey: 'alert-1', status: 'resolved' },
+      {
+        title: 'Alerta 5xx já resolvido',
+        alertKey: 'alert-1',
+        status: 'resolved',
+      },
       actor,
     );
 
@@ -481,10 +479,7 @@ describe('IncidentsService (#110)', () => {
   });
 
   it('list items carry the updates count via _count.updates (Updates column in the panel)', async () => {
-    const incident = await service.create(
-      { title: 'Com timeline' },
-      actor,
-    );
+    const incident = await service.create({ title: 'Com timeline' }, actor);
     await service.addUpdate(
       incident.id,
       { status: 'investigating', message: 'Investigando' },

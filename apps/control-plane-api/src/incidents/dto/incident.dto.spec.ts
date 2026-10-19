@@ -23,7 +23,9 @@ describe('UpdateIncidentDto (#110)', () => {
     await expect(errorsFor({ title: null })).resolves.toEqual(['title']);
     await expect(errorsFor({ severity: null })).resolves.toEqual(['severity']);
     await expect(errorsFor({ status: null })).resolves.toEqual(['status']);
-    await expect(errorsFor({ component: null })).resolves.toEqual(['component']);
+    await expect(errorsFor({ component: null })).resolves.toEqual([
+      'component',
+    ]);
     await expect(errorsFor({ public: null })).resolves.toEqual(['public']);
   });
 
