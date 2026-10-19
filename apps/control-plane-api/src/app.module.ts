@@ -24,6 +24,7 @@ import { MailModule } from './mail/mail.module';
 import { ComplianceModule } from './compliance/compliance.module';
 import { HealthModule } from './health/health.module';
 import { IncidentsModule } from './incidents/incidents.module';
+import { StatusModule } from './status/status.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { IncidentsModule } from './incidents/incidents.module';
     DataIsolationModule,
     ComplianceModule,
     IncidentsModule,
+    StatusModule,
   ],
   controllers: [AppController],
   providers: [
