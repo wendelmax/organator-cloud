@@ -132,23 +132,24 @@ describe('StatusService', () => {
   });
 
   it('orders open incidents by startedAt desc, then resolved by resolvedAt desc', async () => {
-    // Entrada propositalmente fora de ordem para exercitar a ordenação do serviço.
+    // Entrada propositalmente fora de ordem para exercitar a ordenação do serviço:
+    // o par resolvido tem startedAt em ordem INVERSA ao resolvedAt.
     prisma.incident.findMany.mockResolvedValue([
       {
-        id: 'open-newer',
-        title: 'API lenta',
+        id: 'resolved-older',
+        title: 'Provisioning ok',
         severity: 'minor',
-        status: 'monitoring',
-        component: 'api',
-        startedAt: new Date(Date.now() - 1 * 864e5),
-        resolvedAt: null,
+        status: 'resolved',
+        component: 'billing',
+        startedAt: new Date(Date.now() - 5 * 864e5),
+        resolvedAt: new Date(Date.now() - 6 * 864e5),
         updates: [],
       },
       {
         id: 'open-older',
         title: 'Dashboard lento',
         severity: 'minor',
-        status: 'identified',
+        status: 'investigating',
         component: 'api',
         startedAt: new Date(Date.now() - 3 * 864e5),
         resolvedAt: null,
@@ -160,18 +161,18 @@ describe('StatusService', () => {
         severity: 'major',
         status: 'resolved',
         component: 'billing',
-        startedAt: new Date(Date.now() - 5 * 864e5),
+        startedAt: new Date(Date.now() - 8 * 864e5),
         resolvedAt: new Date(Date.now() - 2 * 864e5),
         updates: [],
       },
       {
-        id: 'resolved-older',
-        title: 'Provisioning ok',
+        id: 'open-newer',
+        title: 'API lenta',
         severity: 'minor',
-        status: 'resolved',
-        component: 'billing',
-        startedAt: new Date(Date.now() - 8 * 864e5),
-        resolvedAt: new Date(Date.now() - 6 * 864e5),
+        status: 'monitoring',
+        component: 'api',
+        startedAt: new Date(Date.now() - 1 * 864e5),
+        resolvedAt: null,
         updates: [],
       },
     ]);
