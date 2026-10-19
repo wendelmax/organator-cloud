@@ -23,6 +23,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { MailModule } from './mail/mail.module';
 import { ComplianceModule } from './compliance/compliance.module';
 import { HealthModule } from './health/health.module';
+import { IncidentsModule } from './incidents/incidents.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { HealthModule } from './health/health.module';
     DomainsModule,
     DataIsolationModule,
     ComplianceModule,
+    IncidentsModule,
   ],
   controllers: [AppController],
   providers: [
