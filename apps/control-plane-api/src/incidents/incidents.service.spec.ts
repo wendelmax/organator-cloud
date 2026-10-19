@@ -305,11 +305,11 @@ describe('IncidentsService (#110)', () => {
     const incident = await service.create({ title: 'Alerta 5xx' }, actor);
 
     await expect(
-      service.addAffected(incident.id, 'tenant-404'),
+      service.addAffected(incident.id, 'tenant-404', actor),
     ).rejects.toThrow(NotFoundException);
 
-    await service.addAffected(incident.id, 't1');
-    await service.addAffected(incident.id, 't1');
+    await service.addAffected(incident.id, 't1', actor);
+    await service.addAffected(incident.id, 't1', actor);
 
     expect(links.size).toBe(1);
     expect([...links.values()][0]).toMatchObject({
@@ -320,21 +320,25 @@ describe('IncidentsService (#110)', () => {
       ([entry]) => entry.action === 'incident.affected.add',
     );
     expect(affectedAudits).toHaveLength(1);
+    expect(affectedAudits[0][0]).toMatchObject({
+      actorId: 'u1',
+      actorEmail: 'oncall@acme.com',
+    });
   });
 
   it('removeAffected throws NotFoundException when the tenant is not linked', async () => {
     const incident = await service.create({ title: 'Alerta 5xx' }, actor);
 
-    await expect(service.removeAffected(incident.id, 't1')).rejects.toThrow(
-      NotFoundException,
-    );
+    await expect(
+      service.removeAffected(incident.id, 't1', actor),
+    ).rejects.toThrow(NotFoundException);
     expect(audit.record).not.toHaveBeenCalledWith(
       expect.objectContaining({ action: 'incident.affected.remove' }),
     );
 
-    await service.addAffected(incident.id, 't1');
+    await service.addAffected(incident.id, 't1', actor);
     await expect(
-      service.removeAffected(incident.id, 't1'),
+      service.removeAffected(incident.id, 't1', actor),
     ).resolves.toBeUndefined();
     expect(links.size).toBe(0);
     expect(audit.record).toHaveBeenCalledWith(
@@ -342,12 +346,14 @@ describe('IncidentsService (#110)', () => {
         action: 'incident.affected.remove',
         resourceType: 'incident',
         resourceId: incident.id,
+        actorId: 'u1',
+        actorEmail: 'oncall@acme.com',
       }),
     );
 
-    await expect(service.removeAffected(incident.id, 't1')).rejects.toThrow(
-      NotFoundException,
-    );
+    await expect(
+      service.removeAffected(incident.id, 't1', actor),
+    ).rejects.toThrow(NotFoundException);
   });
 
   it('get throws NotFoundException for an unknown id', async () => {
@@ -361,7 +367,7 @@ describe('IncidentsService (#110)', () => {
       { status: 'investigating', message: 'Investigando' },
       'oncall@acme.com',
     );
-    await service.addAffected(incident.id, 't1');
+    await service.addAffected(incident.id, 't1', actor);
 
     const fetched = await service.get(incident.id);
 
@@ -382,7 +388,7 @@ describe('IncidentsService (#110)', () => {
     await expect(
       service.addUpdate('inc-404', { status: 'investigating', message: 'x' }),
     ).rejects.toThrow(NotFoundException);
-    await expect(service.addAffected('inc-404', 't1')).rejects.toThrow(
+    await expect(service.addAffected('inc-404', 't1', actor)).rejects.toThrow(
       NotFoundException,
     );
   });

@@ -193,7 +193,11 @@ export class IncidentsService {
   }
 
   /** Vincula um tenant ao incidente (idempotente: já vinculado é noop). */
-  async addAffected(id: string, tenantId: string): Promise<void> {
+  async addAffected(
+    id: string,
+    tenantId: string,
+    actor: { userId: string; email?: string },
+  ): Promise<void> {
     const incident = await this.prisma.incident.findUnique({ where: { id } });
     if (!incident) throw new NotFoundException(`Incident "${id}" not found`);
     const tenant = await this.prisma.tenant.findUnique({
@@ -210,6 +214,8 @@ export class IncidentsService {
       data: { incidentId: id, tenantId },
     });
     await this.audit.record({
+      actorId: actor.userId,
+      actorEmail: actor.email,
       action: 'incident.affected.add',
       resourceType: 'incident',
       resourceId: id,
@@ -218,7 +224,11 @@ export class IncidentsService {
   }
 
   /** Remove o tenant da área de impacto do incidente. */
-  async removeAffected(id: string, tenantId: string): Promise<void> {
+  async removeAffected(
+    id: string,
+    tenantId: string,
+    actor: { userId: string; email?: string },
+  ): Promise<void> {
     const link = await this.prisma.incidentTenant.findUnique({
       where: { incidentId_tenantId: { incidentId: id, tenantId } },
     });
@@ -232,6 +242,8 @@ export class IncidentsService {
       where: { incidentId_tenantId: { incidentId: id, tenantId } },
     });
     await this.audit.record({
+      actorId: actor.userId,
+      actorEmail: actor.email,
       action: 'incident.affected.remove',
       resourceType: 'incident',
       resourceId: id,
