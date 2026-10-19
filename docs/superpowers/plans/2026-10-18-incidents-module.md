@@ -46,8 +46,8 @@
   - `get(id: string): Promise<Incident & { updates: IncidentUpdate[]; affected: IncidentTenant[] }>` — throws `NotFoundException`
   - `update(id: string, input: UpdateIncidentInput, actor: { userId: string; email?: string }): Promise<Incident>` — handles `resolvedAt` fill/clear
   - `addUpdate(id: string, input: { status: string; message: string; internal?: boolean }, authorEmail?: string): Promise<IncidentUpdate>` — throws `NotFoundException` if incident missing
-  - `addAffected(id: string, tenantId: string): Promise<void>` — throws `NotFoundException` if tenant or incident missing; idempotent if already linked
-  - `removeAffected(id: string, tenantId: string): Promise<void>` — throws `NotFoundException` if link missing
+  - `addAffected(id: string, tenantId: string, actor: { userId: string; email?: string }): Promise<void>` — throws `NotFoundException` if tenant or incident missing; idempotent if already linked; audits `incident.affected.add` with actor
+  - `removeAffected(id: string, tenantId: string, actor: { userId: string; email?: string }): Promise<void>` — throws `NotFoundException` if link missing; audits `incident.affected.remove` with actor
   - Types `CreateIncidentInput` (`title`, `severity?`, `status?`, `component?`, `public?`, `assigneeEmail?`, `source?`, `alertKey?`, `postmortemUrl?`) and `UpdateIncidentInput` (all optional)
 
 - [ ] **Step 1: Write the failing service spec**
@@ -125,7 +125,7 @@ describe('IncidentsController (#110)', () => {
   });
   it('passes the JWT actor (userId/email) to service.create and never trusts body authorEmail')
   it('takes authorEmail for updates from req.user.email only')
-  it('maps POST /affected tenantId from body to service.addAffected(id, tenantId)')
+  it('maps POST /affected tenantId from body to service.addAffected(id, tenantId, actor)')
   it('propagates NotFoundException from the service untouched')
 });
 ```
