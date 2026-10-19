@@ -86,19 +86,42 @@ describe('IncidentsService (#110)', () => {
           async ({ where }: any) =>
             [...incidents.values()].find((row) => matches(row, where)) ?? null,
         ),
-        findMany: jest.fn(async ({ where, skip = 0, take, orderBy }: any) => {
-          let rows = [...incidents.values()].filter((row) =>
-            matches(row, where),
-          );
-          if (orderBy?.startedAt) {
-            const direction = orderBy.startedAt === 'desc' ? -1 : 1;
-            rows = rows.sort(
-              (a, b) =>
-                direction * (a.startedAt.getTime() - b.startedAt.getTime()),
+        findMany: jest.fn(
+          async ({
+            where,
+            skip = 0,
+            take,
+            orderBy,
+            include,
+          }: any) => {
+            let rows = [...incidents.values()].filter((row) =>
+              matches(row, where),
             );
-          }
-          return rows.slice(skip, take === undefined ? undefined : skip + take);
-        }),
+            if (orderBy?.startedAt) {
+              const direction = orderBy.startedAt === 'desc' ? -1 : 1;
+              rows = rows.sort(
+                (a, b) =>
+                  direction * (a.startedAt.getTime() - b.startedAt.getTime()),
+              );
+            }
+            rows = rows.slice(
+              skip,
+              take === undefined ? undefined : skip + take,
+            );
+            // _count.select.updates → contagem de atualizações por incidente.
+            if (include?._count?.select?.updates) {
+              rows = rows.map((row) => ({
+                ...row,
+                _count: {
+                  updates: [...updates.values()].filter(
+                    (u: any) => u.incidentId === row.id,
+                  ).length,
+                },
+              }));
+            }
+            return rows;
+          },
+        ),
         count: jest.fn(
           async ({ where }: any) =>
             [...incidents.values()].filter((row) => matches(row, where)).length,
@@ -438,5 +461,38 @@ describe('IncidentsService (#110)', () => {
     });
     expect(page2).toMatchObject({ total: 3, page: 2, pages: 2 });
     expect(page2.items.map((item) => item.title)).toEqual(['aberto 1']);
+  });
+
+  it('list items carry the updates count via _count.updates (Updates column in the panel)', async () => {
+    const incident = await service.create(
+      { title: 'Com timeline' },
+      actor,
+    );
+    await service.addUpdate(
+      incident.id,
+      { status: 'investigating', message: 'Investigando' },
+      'oncall@acme.com',
+    );
+    await service.addUpdate(
+      incident.id,
+      { status: 'monitoring', message: 'Estável' },
+      'oncall@acme.com',
+    );
+    const other = await service.create({ title: 'Sem timeline' }, actor);
+
+    const page = await service.list({});
+
+    expect(prisma.incident.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: { _count: { select: { updates: true } } },
+      }),
+    );
+
+    const withCount = page.items.find((item) => item.id === incident.id);
+    const withoutCount = page.items.find((item) => item.id === other.id);
+
+    expect(withCount?._count.updates).toBe(2);
+    // Sem atualizações, a contagem existe e é zero (coluna pode exibi-la).
+    expect(withoutCount?._count.updates).toBe(0);
   });
 });

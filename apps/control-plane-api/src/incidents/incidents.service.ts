@@ -54,7 +54,9 @@ export class IncidentsService {
     page?: number;
     limit?: number;
   }): Promise<{
-    items: Incident[];
+    // Cada item traz a contagem de atualizações (_count.updates) para a
+    // coluna "Updates" da listagem no painel (#110).
+    items: (Incident & { _count: { updates: number } })[];
     total: number;
     page: number;
     pages: number;
@@ -72,6 +74,7 @@ export class IncidentsService {
         orderBy: { startedAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
+        include: { _count: { select: { updates: true } } },
       }),
       this.prisma.incident.count({ where }),
     ]);
