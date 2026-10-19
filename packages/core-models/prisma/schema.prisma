@@ -35,6 +35,7 @@ model Tenant {
   passwordPolicy  PasswordPolicy?
   creditEntries   CreditLedgerEntry[]
   dunningCases    DunningCase[]
+  incidents       IncidentTenant[]
   placementMigrations TenantPlacementMigration[]
   providerProfiles ProviderProfile[]
   domains Domain[]
@@ -443,6 +444,51 @@ model DunningCase {
 
   @@index([status, graceEndsAt])
   @@index([tenantId, openedAt])
+}
+
+/// Incidente operacional (#110): timeline, responsável e tenants afetados.
+model Incident {
+  id            String           @id @default(uuid())
+  title         String
+  severity      String           @default("minor") // critical | major | minor
+  status        String           @default("investigating") // investigating | identified | monitoring | resolved
+  component     String           @default("api") // api | dashboard | provisioning | billing | data-plane
+  public        Boolean          @default(true) // aparece na status page pública
+  assigneeEmail String?
+  source        String           @default("manual") // manual | alert:<regra>
+  alertKey      String?          @unique // deduplica incidentes abertos por alerta
+  postmortemUrl String?
+  startedAt     DateTime         @default(now())
+  resolvedAt    DateTime?
+  updatedAt     DateTime         @updatedAt
+  updates       IncidentUpdate[]
+  affected      IncidentTenant[]
+
+  @@index([status, startedAt])
+}
+
+model IncidentUpdate {
+  id          String   @id @default(uuid())
+  incidentId  String
+  incident    Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  status      String
+  message     String
+  internal    Boolean  @default(false) // nota interna: fora da status page
+  authorEmail String?
+  createdAt   DateTime @default(now())
+
+  @@index([incidentId, createdAt])
+}
+
+model IncidentTenant {
+  incidentId String
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  addedAt    DateTime @default(now())
+
+  @@id([incidentId, tenantId])
+  @@index([tenantId])
 }
 
 model MfaChallenge {
