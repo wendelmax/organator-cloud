@@ -128,12 +128,14 @@ export class StatusService {
 
     const ordered = [...openIncidents, ...resolvedIncidents];
 
+    // Campos String no schema; os literais são garantidos na escrita pelos
+    // @IsIn dos DTOs de incident (severity/status/component).
     const publicIncidents: IncidentPublic[] = ordered.map((incident) => ({
       id: incident.id,
       title: incident.title,
-      severity: incident.severity,
-      status: incident.status,
-      component: incident.component,
+      severity: incident.severity as IncidentPublic['severity'],
+      status: incident.status as IncidentPublic['status'],
+      component: incident.component as IncidentPublic['component'],
       startedAt: incident.startedAt,
       resolvedAt: incident.resolvedAt,
       updates: (incident.updates || [])
