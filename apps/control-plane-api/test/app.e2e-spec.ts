@@ -10,6 +10,9 @@ import {
   createFastifyAdapter,
   readSecurityConfig,
 } from './../src/common/security.config';
+import { PrismaService } from './../src/prisma/prisma.service';
+import { StatusController } from './../src/status/status.controller';
+import { StatusService } from './../src/status/status.service';
 
 class ValidationProbeDto {
   @IsString()
@@ -34,8 +37,15 @@ describe('AppController (e2e)', () => {
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      controllers: [AppController, ValidationProbeController],
-      providers: [AppService],
+      controllers: [AppController, ValidationProbeController, StatusController],
+      providers: [
+        AppService,
+        StatusService,
+        {
+          provide: PrismaService,
+          useValue: { incident: { findMany: async () => [] } },
+        },
+      ],
     }).compile();
 
     const env = {
@@ -108,6 +118,18 @@ describe('AppController (e2e)', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ status: 'ok' });
+  });
+
+  it('/v1/status (GET) returns 200 without Authorization', async () => {
+    const res = await app.inject({ method: 'GET', url: '/v1/status' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body).toHaveProperty('overall');
+    expect(body).toHaveProperty('components');
+    expect(body).toHaveProperty('incidents');
+    expect(Array.isArray(body.components)).toBe(true);
+    expect(body.components).toHaveLength(5);
+    expect(Array.isArray(body.incidents)).toBe(true);
   });
 
   it('does not allow an origin outside the configured CORS allowlist', async () => {
