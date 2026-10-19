@@ -213,6 +213,12 @@ export default function DashboardLayout({
               >
                 Audit Log
               </Link>
+              <Link
+                href="/incidentes"
+                className="px-4 py-2 rounded-md hover:bg-neutral-800 transition text-rose-400"
+              >
+                Incidentes
+              </Link>
             </>
           ) : null}
         </nav>

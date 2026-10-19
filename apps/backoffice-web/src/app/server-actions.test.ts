@@ -14,11 +14,13 @@ mock.module('next/cache', {
 let services: typeof import('./(dashboard)/services/actions');
 let plans: typeof import('./(dashboard)/billing/plans/actions');
 let tenants: typeof import('./(dashboard)/tenants/actions');
+let incidentes: typeof import('./(dashboard)/incidentes/actions');
 
 before(async () => {
   services = await import('./(dashboard)/services/actions');
   plans = await import('./(dashboard)/billing/plans/actions');
   tenants = await import('./(dashboard)/tenants/actions');
+  incidentes = await import('./(dashboard)/incidentes/actions');
 });
 
 const form = (entries: Record<string, string>) => {
@@ -266,5 +268,107 @@ describe('tenant data export action', () => {
       success: false,
       error: 'Forbidden resource',
     });
+  });
+});
+
+describe('incident actions', () => {
+  test('every mutating incident action refuses to run without a session token', async () => {
+    currentSession = null;
+    const f = mockFetch();
+    const expired = { success: false, error: 'Sessão expirada. Entre novamente.' };
+    assert.deepEqual(await incidentes.createIncident(form({ title: 'Fora do ar' })), expired);
+    assert.deepEqual(await incidentes.resolveIncident('i1'), expired);
+    assert.deepEqual(await incidentes.updateIncident('i1', { severity: 'minor' }), expired);
+    assert.deepEqual(
+      await incidentes.addIncidentUpdate('i1', form({ status: 'identified', message: 'msg' })),
+      expired,
+    );
+    assert.deepEqual(await incidentes.addAffectedTenant('i1', 't9'), expired);
+    assert.deepEqual(await incidentes.removeAffectedTenant('i1', 't9'), expired);
+    assert.equal(f.mock.callCount(), 0);
+  });
+
+  test('createIncident posts the form fields and revalidates /incidentes', async () => {
+    const f = mockFetch(201, { id: 'i1', status: 'investigating' });
+    await incidentes.createIncident(
+      form({ title: 'Fora do ar', severity: 'major', component: 'api', alertKey: 'kube-probe' }),
+    );
+    const { url, init, body } = lastCall(f);
+
+    assert.match(url, /\/v1\/incidents$/);
+    assert.equal(init.method, 'POST');
+    assert.equal(init.headers.Authorization, 'Bearer jwt-1');
+    assert.deepEqual(body, {
+      title: 'Fora do ar',
+      severity: 'major',
+      component: 'api',
+      public: false,
+      alertKey: 'kube-probe',
+    });
+    assert.deepEqual(revalidated, ['/incidentes']);
+  });
+
+  test('resolveIncident PATCHes status=resolved', async () => {
+    const f = mockFetch(200, { id: 'i1', status: 'resolved' });
+    await incidentes.resolveIncident('i1');
+    const { url, init, body } = lastCall(f);
+
+    assert.match(url, /\/v1\/incidents\/i1$/);
+    assert.equal(init.method, 'PATCH');
+    assert.deepEqual(body, { status: 'resolved' });
+    assert.deepEqual(revalidated, ['/incidentes', '/incidentes/i1']);
+  });
+
+  test('updateIncident passes the patch through and revalidates the detail', async () => {
+    const f = mockFetch();
+    await incidentes.updateIncident('i1', { severity: 'minor', assigneeEmail: 'on@call.io' });
+    const { url, init, body } = lastCall(f);
+
+    assert.match(url, /\/v1\/incidents\/i1$/);
+    assert.equal(init.method, 'PATCH');
+    assert.deepEqual(body, { severity: 'minor', assigneeEmail: 'on@call.io' });
+    assert.deepEqual(revalidated, ['/incidentes/i1']);
+  });
+
+  test('addIncidentUpdate converts the internal checkbox to a boolean', async () => {
+    const f = mockFetch(200, { id: 'u1' });
+    await incidentes.addIncidentUpdate('i1', form({ status: 'identified', message: 'DB reiniciado', internal: 'on' }));
+    const { url, init, body } = lastCall(f);
+    assert.match(url, /\/v1\/incidents\/i1\/updates$/);
+    assert.equal(init.method, 'POST');
+    assert.equal(body.internal, true);
+    assert.equal(body.status, 'identified');
+    assert.equal(body.message, 'DB reiniciado');
+    assert.deepEqual(revalidated, ['/incidentes/i1']);
+
+    await incidentes.addIncidentUpdate('i1', form({ status: 'monitoring', message: 'estável' }));
+    assert.equal(lastCall(f).body.internal, false);
+    assert.equal(lastCall(f).body.status, 'monitoring');
+  });
+
+  test('affected tenant management hits the link/unlink endpoints', async () => {
+    const f = mockFetch(200, { linked: true });
+    await incidentes.addAffectedTenant('i1', 't9');
+    assert.match(lastCall(f).url, /\/v1\/incidents\/i1\/affected$/);
+    assert.equal(lastCall(f).init.method, 'POST');
+    assert.deepEqual(lastCall(f).body, { tenantId: 't9' });
+
+    const f2 = mockFetch(200, { removed: true });
+    await incidentes.removeAffectedTenant('i1', 't9');
+    assert.match(lastCall(f2).url, /\/v1\/incidents\/i1\/affected\/t9$/);
+    assert.equal(lastCall(f2).init.method, 'DELETE');
+  });
+
+  test('API error surfaces via apiErrorMessage (e.g. 404)', async () => {
+    mockFetch(404, { message: 'Incidente não encontrado' });
+    assert.deepEqual(await incidentes.resolveIncident('i-404'), {
+      success: false,
+      error: 'Incidente não encontrado',
+    });
+    assert.deepEqual(revalidated, []);
+    mockFetch(500, {});
+    const result = await incidentes.updateIncident('i-404', { severity: 'minor' });
+    assert.equal(result.success, false);
+    assert.ok(result.error);
   });
 });
